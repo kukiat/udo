@@ -1,6 +1,7 @@
 "use client";
 
-import { Badge } from "@/components/ui/Badge";
+import { ItemSwatch } from "@/components/menu/ItemSwatch";
+import { useCart } from "@/contexts/CartContext";
 import { formatPrice } from "@/lib/utils";
 import type { MenuItemDTO } from "@/types";
 
@@ -11,39 +12,43 @@ export function MenuCard({
   item: MenuItemDTO;
   onSelect: (item: MenuItemDTO) => void;
 }) {
+  const { lines } = useCart();
   const soldOut = item.status === "sold_out";
+  const count = lines
+    .filter((l) => l.menuItemId === item.id)
+    .reduce((s, l) => s + l.quantity, 0);
   return (
     <button
       type="button"
       disabled={soldOut}
       onClick={() => onSelect(item)}
-      className="group flex flex-col overflow-hidden rounded-card border border-line bg-white text-left shadow-card transition-shadow hover:shadow-md disabled:opacity-60"
+      className="grid grid-cols-[76px_1fr] gap-3 rounded-2xl border border-line bg-white p-2.5 text-left transition-colors hover:border-ink/20 hover:bg-sand/60 disabled:opacity-60"
     >
-      <div className="relative aspect-[4/3] w-full overflow-hidden bg-sand">
-        {item.image && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={item.image}
-            alt={item.name}
-            className="h-full w-full object-cover transition-transform group-hover:scale-105"
-          />
-        )}
-        {soldOut && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/60">
-            <Badge tone="red">Sold out</Badge>
-          </div>
+      <div className="relative">
+        <ItemSwatch
+          id={item.id}
+          name={item.name}
+          image={item.image}
+          className="rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]"
+        />
+        {count > 0 && (
+          <span className="absolute -right-1.5 -top-1.5 grid h-6 min-w-6 place-items-center rounded-full bg-clay-500 px-1.5 text-xs font-bold text-white shadow">
+            {count}
+          </span>
         )}
       </div>
-      <div className="flex flex-1 flex-col gap-1 p-3">
-        <p className="font-medium text-ink line-clamp-1">{item.name}</p>
+      <div className="flex min-w-0 flex-col gap-1">
+        <div className="font-medium tracking-tight text-ink">{item.name}</div>
         {item.description && (
-          <p className="text-xs text-ink-muted line-clamp-2">
+          <div className="line-clamp-2 text-xs leading-snug text-ink-muted">
             {item.description}
-          </p>
+          </div>
         )}
-        <p className="mt-auto pt-1 font-semibold text-clay-700">
-          {formatPrice(item.price)}
-        </p>
+        <div className="mt-0.5 flex items-center justify-between">
+          <span className="text-[13px] font-bold tabular-nums text-ink">
+            {soldOut ? "Sold out" : formatPrice(item.price)}
+          </span>
+        </div>
       </div>
     </button>
   );

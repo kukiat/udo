@@ -2,17 +2,12 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
 
+import { CancelOrderDialog } from "@/components/order/CancelOrderDialog";
 import { OrderStatusCard } from "@/components/order/OrderStatus";
 import { Button } from "@/components/ui/Button";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
-import { api } from "@/lib/fetcher";
-import { getSocket } from "@/lib/socket-client";
-import type { OrderDTO } from "@/types";
-
-type TablesResponse = { tables: { id: string; tableNumber: string }[] };
-type OrdersResponse = { orders: OrderDTO[] };
+import { useTableOrders } from "@/hooks/useTableOrders";
 
 export default function OrderStatusPage() {
   const { branchId, tableNo } = useParams<{
@@ -20,66 +15,19 @@ export default function OrderStatusPage() {
     tableNo: string;
   }>();
 
-  const [orders, setOrders] = useState<OrderDTO[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
-
-  const cancelOrder = async (order: OrderDTO) => {
-    if (!window.confirm(`Cancel order ${order.orderNumber}?`)) return;
-    setCancellingId(order.id);
-    try {
-      await api(`/api/orders/${order.id}/cancel`, {
-        method: "POST",
-        body: JSON.stringify({ reason: "Cancelled by customer" }),
-      });
-      // Socket broadcast updates the card to cancelled.
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to cancel order");
-    } finally {
-      setCancellingId(null);
-    }
-  };
-
-  useEffect(() => {
-    let tableId: string | null = null;
-    const socket = getSocket();
-
-    const onUpdate = ({ order }: { order: OrderDTO }) => {
-      setOrders((prev) =>
-        prev.some((o) => o.id === order.id)
-          ? prev.map((o) => (o.id === order.id ? order : o))
-          : [order, ...prev],
-      );
-    };
-
-    (async () => {
-      try {
-        const t = await api<TablesResponse>(`/api/tables?branchId=${branchId}`);
-        tableId = t.tables.find((x) => x.tableNumber === tableNo)?.id ?? null;
-        if (!tableId) {
-          setError("Table not found.");
-          setLoading(false);
-          return;
-        }
-        const o = await api<OrdersResponse>(`/api/orders?tableId=${tableId}`);
-        setOrders(o.orders);
-        socket.emit("table:join", { tableId });
-        socket.on("order:status-update", onUpdate);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load orders");
-      } finally {
-        setLoading(false);
-      }
-    })();
-
-    return () => {
-      socket.off("order:status-update", onUpdate);
-    };
-  }, [branchId, tableNo]);
+  const {
+    orders,
+    loading,
+    error,
+    cancelTarget,
+    cancelling,
+    requestCancel,
+    dismissCancel,
+    confirmCancel,
+  } = useTableOrders(branchId, tableNo);
 
   return (
-    <div>
+    <div className="lg:mx-auto lg:max-w-2xl">
       <header className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-cream/90 px-4 py-4 backdrop-blur">
         <Link
           href={`/order/${branchId}/${tableNo}`}
@@ -115,12 +63,7 @@ export default function OrderStatusPage() {
           />
         ) : (
           orders.map((o) => (
-            <OrderStatusCard
-              key={o.id}
-              order={o}
-              onCancel={cancelOrder}
-              cancelling={cancellingId === o.id}
-            />
+            <OrderStatusCard key={o.id} order={o} onCancel={requestCancel} />
           ))
         )}
 
@@ -133,6 +76,13 @@ export default function OrderStatusPage() {
           </Link>
         )}
       </main>
+
+      <CancelOrderDialog
+        order={cancelTarget}
+        cancelling={cancelling}
+        onConfirm={confirmCancel}
+        onDismiss={dismissCancel}
+      />
     </div>
   );
 }

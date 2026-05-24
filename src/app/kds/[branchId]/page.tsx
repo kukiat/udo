@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { KdsOrderCard, stationStyle } from "@/components/kds/KdsOrderCard";
+import { CancelOrderDialog } from "@/components/order/CancelOrderDialog";
 import { AccountMenu } from "@/components/ui/AccountMenu";
 import { ErrorState, Loading } from "@/components/ui/States";
 import { cn } from "@/lib/cn";
@@ -43,6 +44,8 @@ export default function KdsPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | OrderStatus>("all");
   const [now, setNow] = useState(() => Date.now());
   const [bumpingId, setBumpingId] = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<OrderDTO | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   const [branchInfo, setBranchInfo] = useState<BranchResponse["branch"] | null>(
     null,
@@ -167,19 +170,19 @@ export default function KdsPage() {
     }
   };
 
-  const cancel = async (order: OrderDTO) => {
-    if (!window.confirm(`Cancel order ${order.orderNumber}?`)) return;
-    const reason = window.prompt("Reason for cancelling (optional):") ?? null;
-    setBumpingId(order.id);
+  const confirmCancel = async (reason?: string) => {
+    if (!cancelTarget) return;
+    setCancelling(true);
     try {
-      await api(`/api/orders/${order.id}/cancel`, {
+      await api(`/api/orders/${cancelTarget.id}/cancel`, {
         method: "POST",
-        body: JSON.stringify({ reason }),
+        body: JSON.stringify({ reason: reason?.trim() || null }),
       });
+      setCancelTarget(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to cancel order");
     } finally {
-      setBumpingId(null);
+      setCancelling(false);
     }
   };
 
@@ -446,7 +449,7 @@ export default function KdsPage() {
                   stationId={stationId}
                   stationsById={stationsById}
                   onBump={bump}
-                  onCancel={cancel}
+                  onCancel={setCancelTarget}
                   bumping={bumpingId === o.id}
                 />
               ))}
@@ -518,6 +521,15 @@ export default function KdsPage() {
           <Legend dot="bg-red-500" label="urgent ≥ 12 m" />
         </div>
       </footer>
+
+      <CancelOrderDialog
+        order={cancelTarget}
+        cancelling={cancelling}
+        onConfirm={confirmCancel}
+        onDismiss={() => {
+          if (!cancelling) setCancelTarget(null);
+        }}
+      />
     </div>
   );
 }
