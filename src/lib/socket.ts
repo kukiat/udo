@@ -36,3 +36,8 @@ export function emitOrderStatusUpdate(order: OrderDTO) {
   io.to(branchKdsRoom(order.branchId)).emit("order:status-update", { order });
   io.to(tableRoom(order.tableId)).emit("order:status-update", { order });
 }
+
+/** Notify the customer's table that its bill has been settled. */
+export function emitBillPaid(sessionId: string, tableId: string) {
+  getIO()?.to(tableRoom(tableId)).emit("bill:paid", { sessionId, tableId });
+}

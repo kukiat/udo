@@ -1,13 +1,16 @@
 import { and, eq, inArray } from "drizzle-orm";
 
 import { db, schema } from "@/db";
-import { badRequest, parseBody, serverError } from "@/lib/api";
+import { badRequest, errorResponse, parseBody, serverError } from "@/lib/api";
 import { loadOrderDTO } from "@/lib/orders";
 import { emitNewOrder } from "@/lib/socket";
 import { orderCreateSchema } from "@/lib/validation";
 
 // Statuses still relevant to the kitchen.
 const KDS_ACTIVE = ["pending", "preparing", "ready"] as const;
+
+// Thrown inside the order transaction when the session's bill is no longer open.
+class BillLockedError extends Error {}
 
 export async function GET(req: Request) {
   try {
@@ -148,6 +151,17 @@ export async function POST(req: Request) {
           eq(schema.tableSessions.status, "active"),
         ),
       });
+      if (session) {
+        // Once the check has been requested (or the bill is paid), the table is
+        // closing out — no further items may be added.
+        const bill = await tx.query.bills.findFirst({
+          where: eq(schema.bills.tableSessionId, session.id),
+          columns: { status: true },
+        });
+        if (bill && bill.status !== "open") {
+          throw new BillLockedError();
+        }
+      }
       if (!session) {
         [session] = await tx
           .insert(schema.tableSessions)
@@ -240,6 +254,13 @@ export async function POST(req: Request) {
     if (dto) emitNewOrder(dto);
     return Response.json({ order: dto }, { status: 201 });
   } catch (err) {
+    if (err instanceof BillLockedError) {
+      return errorResponse(
+        "BILL_LOCKED",
+        "The check has been requested for this table. Please ask staff to reopen the bill before ordering more.",
+        409,
+      );
+    }
     console.error("POST /api/orders", err);
     return serverError();
   }

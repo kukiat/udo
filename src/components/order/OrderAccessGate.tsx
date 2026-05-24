@@ -5,15 +5,12 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
 import { Loading } from "@/components/ui/States";
+import { useCart } from "@/contexts/CartContext";
 import { api } from "@/lib/fetcher";
 
 type AccessResponse =
   | { valid: true; session: { id: string }; tableId: string }
   | { valid: false; reason: "not_found" | "expired" };
-
-function storageKey(branchId: string, tableNo: string) {
-  return `rms.order.session.${branchId}:${tableNo}`;
-}
 
 function GateInner({
   branchId,
@@ -25,6 +22,7 @@ function GateInner({
   children: React.ReactNode;
 }) {
   const params = useSearchParams();
+  const cart = useCart();
   const [state, setState] = useState<
     | { kind: "checking" }
     | { kind: "ok" }
@@ -32,12 +30,9 @@ function GateInner({
   >({ kind: "checking" });
 
   useEffect(() => {
-    const key = storageKey(branchId, tableNo);
-    // The link carries `?s=<sessionId>`; once validated we remember it for the
-    // tab so navigating between menu/cart/status/bill keeps access.
-    const fromUrl = params.get("s");
-    const sessionId =
-      fromUrl ?? sessionStorage.getItem(key) ?? null;
+    // Access is granted solely by the `?s=<sessionId>` query param; internal
+    // links propagate it so navigation between menu/cart/status/bill keeps it.
+    const sessionId = params.get("s");
 
     if (!sessionId) {
       setState({ kind: "denied", reason: "not_found" });
@@ -54,10 +49,11 @@ function GateInner({
       .then((res) => {
         if (cancelled) return;
         if (res.valid) {
-          sessionStorage.setItem(key, sessionId);
           setState({ kind: "ok" });
         } else {
-          sessionStorage.removeItem(key);
+          // The session was closed/paid out — drop any stale cart so the next
+          // guest at this table starts fresh.
+          if (res.reason === "expired") cart.clear();
           setState({ kind: "denied", reason: res.reason });
         }
       })
@@ -68,7 +64,7 @@ function GateInner({
     return () => {
       cancelled = true;
     };
-  }, [branchId, tableNo, params]);
+  }, [branchId, tableNo, params, cart.clear]);
 
   if (state.kind === "checking") {
     return <Loading label="Checking your table…" />;

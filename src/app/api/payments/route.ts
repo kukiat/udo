@@ -4,7 +4,7 @@ import { db, schema } from "@/db";
 import { badRequest, parseBody, serverError } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 import { computeSessionBill } from "@/lib/bills";
-import { emitOrderStatusUpdate } from "@/lib/socket";
+import { emitBillPaid, emitOrderStatusUpdate } from "@/lib/socket";
 import { loadOrderDTO } from "@/lib/orders";
 import { paymentSchema } from "@/lib/validation";
 
@@ -129,6 +129,7 @@ export async function POST(req: Request) {
       const dto = await loadOrderDTO(o.id);
       if (dto) emitOrderStatusUpdate(dto);
     }
+    emitBillPaid(data.sessionId, session.tableId);
 
     return Response.json(
       {

@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { CancelOrderDialog } from "@/components/order/CancelOrderDialog";
 import { AccountMenu } from "@/components/ui/AccountMenu";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -48,6 +49,10 @@ const FILTER_STATUSES: OrderStatus[] = [
 ];
 const POLL_MS = 5000;
 
+// An order can still be cancelled while the kitchen hasn't finished it.
+const canCancel = (status: OrderStatus) =>
+  status === "pending" || status === "preparing";
+
 export default function WaitstaffPage() {
   const { branchId } = useParams<{ branchId: string }>();
   const router = useRouter();
@@ -60,6 +65,8 @@ export default function WaitstaffPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [servingId, setServingId] = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<OrderDTO | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   const [newTable, setNewTable] = useState("");
   const [addingTable, setAddingTable] = useState(false);
@@ -176,9 +183,12 @@ export default function WaitstaffPage() {
     const t = setInterval(() => {
       loadOrders().catch(() => {});
       loadSessions().catch(() => {});
+      // Tables must refresh too: paying a bill (in POS) closes the session and
+      // frees the table, and that status change needs to surface here.
+      loadTables().catch(() => {});
     }, POLL_MS);
     return () => clearInterval(t);
-  }, [loadOrders, loadSessions]);
+  }, [loadOrders, loadSessions, loadTables]);
 
   const markServed = async (order: OrderDTO) => {
     setServingId(order.id);
@@ -193,6 +203,24 @@ export default function WaitstaffPage() {
       setError(e instanceof Error ? e.message : "Failed to mark served");
     } finally {
       setServingId(null);
+    }
+  };
+
+  const confirmCancel = async (reason?: string) => {
+    if (!cancelTarget) return;
+    setCancelling(true);
+    setError(null);
+    try {
+      await api(`/api/orders/${cancelTarget.id}/cancel`, {
+        method: "POST",
+        body: JSON.stringify({ reason: reason?.trim() || undefined }),
+      });
+      setCancelTarget(null);
+      await loadOrders();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to cancel order");
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -519,6 +547,15 @@ export default function WaitstaffPage() {
                             {servingId === order.id ? "Serving…" : "Serve"}
                           </Button>
                         )}
+                        {canCancel(order.status) && (
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onPress={() => setCancelTarget(order)}
+                          >
+                            Cancel
+                          </Button>
+                        )}
                       </div>
                     </li>
                   ))}
@@ -528,6 +565,13 @@ export default function WaitstaffPage() {
           )}
         </main>
       </div>
+
+      <CancelOrderDialog
+        order={cancelTarget}
+        cancelling={cancelling}
+        onConfirm={confirmCancel}
+        onDismiss={() => setCancelTarget(null)}
+      />
 
       <Modal
         isOpen={linkModal !== null}

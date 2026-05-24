@@ -8,12 +8,14 @@ import { OrderStatusCard } from "@/components/order/OrderStatus";
 import { Button } from "@/components/ui/Button";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useTableOrders } from "@/hooks/useTableOrders";
+import { useOrderLink } from "@/lib/order-link";
 
 export default function OrderStatusPage() {
   const { branchId, tableNo } = useParams<{
     branchId: string;
     tableNo: string;
   }>();
+  const orderLink = useOrderLink();
 
   const {
     orders,
@@ -30,7 +32,7 @@ export default function OrderStatusPage() {
     <div className="lg:mx-auto lg:max-w-2xl">
       <header className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-cream/90 px-4 py-4 backdrop-blur">
         <Link
-          href={`/order/${branchId}/${tableNo}`}
+          href={orderLink(`/order/${branchId}/${tableNo}`)}
           className="text-ink-muted hover:text-ink"
         >
           ←
@@ -39,7 +41,7 @@ export default function OrderStatusPage() {
           <p className="text-xs text-ink-muted">Table {tableNo}</p>
           <h1 className="text-xl font-semibold text-ink">Your Orders</h1>
         </div>
-        <Link href={`/order/${branchId}/${tableNo}/bill`}>
+        <Link href={orderLink(`/order/${branchId}/${tableNo}/bill`)}>
           <Button variant="secondary" size="sm">
             Bill
           </Button>
@@ -56,7 +58,7 @@ export default function OrderStatusPage() {
             title="No orders yet"
             description="Your placed orders will appear here with live status."
             action={
-              <Link href={`/order/${branchId}/${tableNo}`}>
+              <Link href={orderLink(`/order/${branchId}/${tableNo}`)}>
                 <Button>Browse menu</Button>
               </Link>
             }
@@ -69,7 +71,7 @@ export default function OrderStatusPage() {
 
         {orders.length > 0 && (
           <Link
-            href={`/order/${branchId}/${tableNo}`}
+            href={orderLink(`/order/${branchId}/${tableNo}`)}
             className="block pt-2 text-center text-sm text-clay-700 hover:underline"
           >
             + Order more

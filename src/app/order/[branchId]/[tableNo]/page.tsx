@@ -10,6 +10,7 @@ import { OrderStatusModal } from "@/components/order/OrderStatusModal";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useCart } from "@/contexts/CartContext";
 import { api } from "@/lib/fetcher";
+import { useOrderLink } from "@/lib/order-link";
 import { formatPrice } from "@/lib/utils";
 import type { CategoryWithItemsDTO, MenuItemDTO } from "@/types";
 
@@ -24,6 +25,7 @@ export default function MenuPage() {
     tableNo: string;
   }>();
   const cart = useCart();
+  const orderLink = useOrderLink();
 
   const [categories, setCategories] = useState<CategoryWithItemsDTO[]>([]);
   const [brand, setBrand] = useState<{ name: string; branch: string } | null>(
@@ -159,7 +161,7 @@ export default function MenuPage() {
       {/* Left category rail — tablet / web only */}
       <aside className="sticky top-0 hidden h-screen flex-col gap-1 border-r border-line bg-white p-4 lg:flex">
         <div className="border-b border-line pb-3">
-          <h1 className="truncate text-[17px] font-semibold leading-tight tracking-tight text-ink">
+          <h1 className="truncate text-[20px] font-semibold leading-tight text-ink">
             {brand?.name ?? "Menu"}
           </h1>
           <p className="mt-1 text-[11px] text-ink-muted">
@@ -196,14 +198,16 @@ export default function MenuPage() {
           <button
             type="button"
             onClick={() => setStatusOpen(true)}
-            className="rounded-lg border border-line bg-white px-3 py-2 text-center text-[12.5px] font-semibold text-ink-soft hover:bg-sand"
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-line bg-white px-3 py-2 text-[12.5px] font-semibold text-ink-soft hover:bg-sand"
           >
+            <StatusIcon />
             Order Status
           </button>
           <Link
-            href={`/order/${branchId}/${tableNo}/bill`}
-            className="rounded-lg border border-line bg-white px-3 py-2 text-center text-[12.5px] font-semibold text-ink-soft hover:bg-sand"
+            href={orderLink(`/order/${branchId}/${tableNo}/bill`)}
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-line bg-white px-3 py-2 text-[12.5px] font-semibold text-ink-soft hover:bg-sand"
           >
+            <BillIcon />
             Bill
           </Link>
         </div>
@@ -214,7 +218,7 @@ export default function MenuPage() {
         <header className="sticky top-0 z-10 border-b border-line bg-white px-4 pb-3 pt-4">
           <div className="flex items-start justify-between gap-3 lg:hidden">
             <div className="min-w-0">
-              <h1 className="truncate text-[19px] font-semibold leading-tight tracking-tight text-ink">
+              <h1 className="truncate text-[24px] font-semibold leading-tight text-ink">
                 {brand?.name ?? "Menu"}
               </h1>
               <p className="mt-1 text-[10px] tracking-wide text-ink-muted">
@@ -225,14 +229,16 @@ export default function MenuPage() {
               <button
                 type="button"
                 onClick={() => setStatusOpen(true)}
-                className="rounded-full border border-line bg-white px-3 py-1.5 text-[11.5px] font-semibold text-ink-soft hover:bg-sand"
+                className="flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-[11.5px] font-semibold text-ink-soft hover:bg-sand"
               >
+                <StatusIcon />
                 Order Status
               </button>
               <Link
-                href={`/order/${branchId}/${tableNo}/bill`}
-                className="rounded-full border border-line bg-white px-3 py-1.5 text-[11.5px] font-semibold text-ink-soft hover:bg-sand"
+                href={orderLink(`/order/${branchId}/${tableNo}/bill`)}
+                className="flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-[11.5px] font-semibold text-ink-soft hover:bg-sand"
               >
+                <BillIcon />
                 Bill
               </Link>
             </div>
@@ -365,7 +371,7 @@ export default function MenuPage() {
       {cart.itemCount > 0 && (
         <div className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-2xl px-4 pb-5">
           <Link
-            href={`/order/${branchId}/${tableNo}/cart`}
+            href={orderLink(`/order/${branchId}/${tableNo}/cart`)}
             className="grid grid-cols-[auto_1fr_auto] items-center gap-2.5 rounded-2xl bg-clay-500 px-4 py-3 text-white shadow-[0_8px_24px_rgba(0,0,0,0.18)] hover:bg-clay-600"
           >
             <span className="grid h-6 min-w-6 place-items-center rounded-full bg-white/20 text-xs font-bold">
@@ -379,5 +385,41 @@ export default function MenuPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function StatusIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="8" cy="8" r="6" />
+      <path d="M8 4.5V8l2.5 1.5" />
+    </svg>
+  );
+}
+
+function BillIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 1.5h8v13l-2-1.2-2 1.2-2-1.2-2 1.2z" />
+      <path d="M6 5.5h4M6 8h4" />
+    </svg>
   );
 }

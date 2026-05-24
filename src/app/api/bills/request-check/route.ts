@@ -1,13 +1,32 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 import { db, schema } from "@/db";
-import { notFound, parseBody, serverError } from "@/lib/api";
+import { errorResponse, notFound, parseBody, serverError } from "@/lib/api";
 import { billRequestSchema } from "@/lib/validation";
+
+// Orders still in the kitchen pipeline — the check can't be requested until
+// every order has at least been served.
+const UNSERVED = ["pending", "preparing", "ready"] as const;
 
 export async function POST(req: Request) {
   try {
     const { data, error } = await parseBody(req, billRequestSchema);
     if (error) return error;
+
+    const unserved = await db.query.orders.findFirst({
+      where: and(
+        eq(schema.orders.tableSessionId, data.sessionId),
+        inArray(schema.orders.status, [...UNSERVED]),
+      ),
+      columns: { id: true },
+    });
+    if (unserved) {
+      return errorResponse(
+        "ORDERS_NOT_SERVED",
+        "Some orders haven’t been served yet. Please wait until all items arrive before requesting the check.",
+        409,
+      );
+    }
 
     const existing = await db.query.bills.findFirst({
       where: eq(schema.bills.tableSessionId, data.sessionId),

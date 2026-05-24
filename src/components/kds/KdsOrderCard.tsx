@@ -237,6 +237,9 @@ export function KdsOrderCard({
                           </p>
                         )}
                       </div>
+                      <span className="shrink-0 rounded bg-ink/5 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink-soft">
+                        T{order.tableNumber}
+                      </span>
                       {stationName && (
                         <span
                           className={cn(

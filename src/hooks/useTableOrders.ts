@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { api } from "@/lib/fetcher";
@@ -14,6 +15,7 @@ export function useTableOrders(
   tableNo: string,
   enabled = true,
 ) {
+  const sessionId = useSearchParams().get("s");
   const [orders, setOrders] = useState<OrderDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,10 +48,16 @@ export function useTableOrders(
 
   useEffect(() => {
     if (!enabled) return;
-    let tableId: string | null = null;
+    if (!sessionId) {
+      setError("No active session for this table.");
+      setLoading(false);
+      return;
+    }
     const socket = getSocket();
 
+    // Live updates broadcast to the table room; keep only this session's orders.
     const onUpdate = ({ order }: { order: OrderDTO }) => {
+      if (order.tableSessionId !== sessionId) return;
       setOrders((prev) =>
         prev.some((o) => o.id === order.id)
           ? prev.map((o) => (o.id === order.id ? order : o))
@@ -60,13 +68,15 @@ export function useTableOrders(
     (async () => {
       try {
         const t = await api<TablesResponse>(`/api/tables?branchId=${branchId}`);
-        tableId = t.tables.find((x) => x.tableNumber === tableNo)?.id ?? null;
+        const tableId = t.tables.find((x) => x.tableNumber === tableNo)?.id ?? null;
         if (!tableId) {
           setError("Table not found.");
           setLoading(false);
           return;
         }
-        const o = await api<OrdersResponse>(`/api/orders?tableId=${tableId}`);
+        const o = await api<OrdersResponse>(
+          `/api/orders?sessionId=${sessionId}`,
+        );
         setOrders(o.orders);
         socket.emit("table:join", { tableId });
         socket.on("order:status-update", onUpdate);
@@ -80,7 +90,7 @@ export function useTableOrders(
     return () => {
       socket.off("order:status-update", onUpdate);
     };
-  }, [branchId, tableNo, enabled]);
+  }, [branchId, tableNo, enabled, sessionId]);
 
   return {
     orders,

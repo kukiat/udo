@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/Modal";
 import { EmptyState, Loading } from "@/components/ui/States";
 import { useCart } from "@/contexts/CartContext";
 import { api } from "@/lib/fetcher";
+import { useOrderLink } from "@/lib/order-link";
 import { calcTotals, formatPrice, type BranchSettings } from "@/lib/utils";
 import type { OrderDTO } from "@/types";
 
@@ -26,6 +27,7 @@ export default function CartPage() {
   }>();
   const router = useRouter();
   const cart = useCart();
+  const orderLink = useOrderLink();
 
   const [settings, setSettings] = useState<BranchSettings | null>(null);
   const [tableId, setTableId] = useState<string | null>(null);
@@ -90,7 +92,7 @@ export default function CartPage() {
       <header className="sticky top-0 z-10 border-b border-line bg-white px-4 pb-3 pt-4">
         <div className="flex items-center justify-between">
           <Link
-            href={`/order/${branchId}/${tableNo}`}
+            href={orderLink(`/order/${branchId}/${tableNo}`)}
             className="text-[12.5px] font-semibold text-ink-muted hover:text-ink"
           >
             ← Back to menu
@@ -110,7 +112,7 @@ export default function CartPage() {
             title="Nothing in your order yet"
             description="Add some items from the menu to get started."
             action={
-              <Link href={`/order/${branchId}/${tableNo}`}>
+              <Link href={orderLink(`/order/${branchId}/${tableNo}`)}>
                 <Button>Browse menu</Button>
               </Link>
             }
@@ -220,9 +222,6 @@ export default function CartPage() {
               )}
             </div>
 
-            {error && (
-              <p className="mt-3 text-center text-sm text-red-600">{error}</p>
-            )}
           </>
         )}
       </main>
@@ -245,7 +244,7 @@ export default function CartPage() {
       <Modal
         isOpen={success}
         onOpenChange={(open) => {
-          if (!open) router.push(`/order/${branchId}/${tableNo}`);
+          if (!open) router.push(orderLink(`/order/${branchId}/${tableNo}`));
         }}
       >
         <div className="p-5 text-center">
@@ -260,9 +259,30 @@ export default function CartPage() {
           </p>
           <Button
             className="mt-5 w-full"
-            onPress={() => router.push(`/order/${branchId}/${tableNo}`)}
+            onPress={() => router.push(orderLink(`/order/${branchId}/${tableNo}`))}
           >
             Back to menu
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={error !== null}
+        onOpenChange={(open) => !open && setError(null)}
+      >
+        <div className="p-5 text-center">
+          <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-red-100 text-2xl text-red-600">
+            !
+          </div>
+          <h2 className="mt-3 text-[17px] font-semibold text-ink">
+            Something went wrong
+          </h2>
+          <p className="mt-1.5 text-[13.5px] text-ink-muted">{error}</p>
+          <Button
+            className="mt-5 w-full"
+            onPress={() => router.push(orderLink(`/order/${branchId}/${tableNo}/bill`))}
+          >
+            Got it
           </Button>
         </div>
       </Modal>
