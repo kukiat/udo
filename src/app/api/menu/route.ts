@@ -1,28 +1,43 @@
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, count, eq, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { badRequest, parseBody, serverError } from "@/lib/api";
 import { menuItemCreateSchema } from "@/lib/validation";
 
-// Dashboard list: all statuses (excludes soft-deleted).
+const DEFAULT_LIMIT = 10;
+const MAX_LIMIT = 100;
+
+// Dashboard list: all statuses (excludes soft-deleted). Paginated via offset/limit.
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const restaurantId = searchParams.get("restaurantId");
     if (!restaurantId) return badRequest("restaurantId is required");
 
-    const items = await db.query.menuItems.findMany({
-      where: and(
-        eq(schema.menuItems.restaurantId, restaurantId),
-        isNull(schema.menuItems.deletedAt),
-      ),
-      orderBy: [asc(schema.menuItems.name)],
-      with: {
-        category: { columns: { id: true, name: true } },
-        kdsStation: { columns: { id: true, name: true } },
-      },
-    });
-    return Response.json({ items });
+    const offset = Math.max(0, Number(searchParams.get("offset")) || 0);
+    const rawLimit = Number(searchParams.get("limit")) || DEFAULT_LIMIT;
+    const limit = Math.min(MAX_LIMIT, Math.max(1, rawLimit));
+
+    const where = and(
+      eq(schema.menuItems.restaurantId, restaurantId),
+      isNull(schema.menuItems.deletedAt),
+    );
+
+    const [items, [{ total }]] = await Promise.all([
+      db.query.menuItems.findMany({
+        where,
+        orderBy: [asc(schema.menuItems.name)],
+        limit,
+        offset,
+        with: {
+          category: { columns: { id: true, name: true } },
+          kdsStation: { columns: { id: true, name: true } },
+        },
+      }),
+      db.select({ total: count() }).from(schema.menuItems).where(where),
+    ]);
+
+    return Response.json({ items, total, offset, limit });
   } catch (err) {
     console.error("GET /api/menu", err);
     return serverError();

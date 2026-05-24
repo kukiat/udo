@@ -5,6 +5,7 @@ import { useForm, useFieldArray, type Control, type UseFormRegister } from "reac
 import { Button } from "@/components/ui/Button";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import { Switch } from "@/components/ui/Switch";
+import { cn } from "@/lib/cn";
 
 export type MenuItemFormValues = {
   name: string;
@@ -34,12 +35,14 @@ export function MenuItemForm({
   stations,
   submitting,
   onSubmit,
+  stickyFooter = false,
 }: {
   defaultValues: MenuItemFormValues;
   categories: Option[];
   stations: Option[];
   submitting: boolean;
   onSubmit: (values: MenuItemFormValues) => void;
+  stickyFooter?: boolean;
 }) {
   const {
     register,
@@ -217,7 +220,13 @@ export function MenuItemForm({
         ))}
       </section>
 
-      <div className="flex gap-3">
+      <div
+        className={cn(
+          "flex justify-end gap-3",
+          stickyFooter &&
+            "sticky bottom-0 -mx-5 -mb-5 border-t border-line bg-white px-5 py-4",
+        )}
+      >
         <Button type="submit" size="lg" isDisabled={submitting}>
           {submitting ? "Saving…" : "Save"}
         </Button>

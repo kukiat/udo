@@ -11,8 +11,9 @@ if (!connectionString) throw new Error("DIRECT_URL / DATABASE_URL is not set");
 const client = postgres(connectionString, { max: 1, prepare: false });
 const db = drizzle(client, { schema });
 
-const PLACEHOLDER = (label: string) =>
-  `https://placehold.co/600x400?text=${encodeURIComponent(label)}`;
+// Real food photos from Unsplash (served via their CDN, cropped to a card-friendly size).
+const img = (id: string) =>
+  `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=800&q=80`;
 
 async function main() {
   console.log("Seeding database...");
@@ -40,7 +41,10 @@ async function main() {
   // Restaurant
   const [restaurant] = await db
     .insert(schema.restaurants)
-    .values({ name: "Demo Restaurant", logo: PLACEHOLDER("Demo") })
+    .values({
+      name: "Bangkok Bites",
+      logo: img("1552566626-52f8b828add9"),
+    })
     .returning();
 
   // Branch
@@ -119,12 +123,15 @@ async function main() {
     .returning();
 
   // Categories
-  const [appetizers, mains, beverages] = await db
+  const [appetizers, soups, mains, curries, beverages, desserts] = await db
     .insert(schema.categories)
     .values([
       { restaurantId: restaurant.id, name: "Appetizers", sortOrder: 0 },
-      { restaurantId: restaurant.id, name: "Main Course", sortOrder: 1 },
-      { restaurantId: restaurant.id, name: "Beverages", sortOrder: 2 },
+      { restaurantId: restaurant.id, name: "Soups & Salads", sortOrder: 1 },
+      { restaurantId: restaurant.id, name: "Main Course", sortOrder: 2 },
+      { restaurantId: restaurant.id, name: "Curries", sortOrder: 3 },
+      { restaurantId: restaurant.id, name: "Beverages", sortOrder: 4 },
+      { restaurantId: restaurant.id, name: "Desserts", sortOrder: 5 },
     ])
     .returning();
 
@@ -132,107 +139,169 @@ async function main() {
   const menu = await db
     .insert(schema.menuItems)
     .values([
-      // Appetizers (cold)
+      // Appetizers
       {
         restaurantId: restaurant.id,
-        name: "Spring Rolls",
-        description: "Crispy vegetable spring rolls",
+        name: "Crispy Spring Rolls",
+        description:
+          "Golden vegetable spring rolls served with sweet chili dipping sauce.",
         price: "120.00",
-        image: PLACEHOLDER("Spring Rolls"),
+        image: img("1544025162-d76694265947"),
         categoryId: appetizers.id,
-        kdsStationId: cold.id,
-        status: "available",
-      },
-      {
-        restaurantId: restaurant.id,
-        name: "Som Tam",
-        description: "Spicy green papaya salad",
-        price: "90.00",
-        image: PLACEHOLDER("Som Tam"),
-        categoryId: appetizers.id,
-        kdsStationId: cold.id,
+        kdsStationId: hot.id,
         status: "available",
       },
       {
         restaurantId: restaurant.id,
         name: "Chicken Satay",
-        description: "Grilled skewers with peanut sauce",
+        description:
+          "Grilled marinated chicken skewers with peanut sauce and cucumber relish.",
         price: "150.00",
-        image: PLACEHOLDER("Satay"),
+        image: img("1529563021893-cc83c992d75d"),
         categoryId: appetizers.id,
         kdsStationId: hot.id,
         status: "available",
       },
-      // Mains (hot)
+      {
+        restaurantId: restaurant.id,
+        name: "Fresh Summer Rolls",
+        description:
+          "Rice paper rolls with shrimp, herbs and vermicelli, served chilled.",
+        price: "130.00",
+        image: img("1562967916-eb82221dfb92"),
+        categoryId: appetizers.id,
+        kdsStationId: cold.id,
+        status: "available",
+      },
+      // Soups & Salads
+      {
+        restaurantId: restaurant.id,
+        name: "Tom Yum Goong",
+        description:
+          "Hot and sour prawn soup with lemongrass, galangal and lime.",
+        price: "180.00",
+        image: img("1569718212165-3a8278d5f624"),
+        categoryId: soups.id,
+        kdsStationId: hot.id,
+        status: "available",
+      },
+      {
+        restaurantId: restaurant.id,
+        name: "Som Tam",
+        description: "Spicy green papaya salad with peanuts, lime and chili.",
+        price: "90.00",
+        image: img("1455619452474-d2be8b1e70cd"),
+        categoryId: soups.id,
+        kdsStationId: cold.id,
+        status: "available",
+      },
+      // Main Course
       {
         restaurantId: restaurant.id,
         name: "Pad Thai",
-        description: "Stir-fried rice noodles",
+        description:
+          "Stir-fried rice noodles with egg, tofu, bean sprouts and tamarind.",
         price: "180.00",
-        image: PLACEHOLDER("Pad Thai"),
+        image: img("1559314809-0d155014e29e"),
         categoryId: mains.id,
         kdsStationId: hot.id,
         status: "available",
       },
       {
         restaurantId: restaurant.id,
-        name: "Green Curry",
-        description: "Thai green curry with chicken",
-        price: "200.00",
-        image: PLACEHOLDER("Green Curry"),
-        categoryId: mains.id,
-        kdsStationId: hot.id,
-        status: "available",
-      },
-      {
-        restaurantId: restaurant.id,
-        name: "Fried Rice",
-        description: "Thai-style fried rice",
+        name: "Thai Fried Rice",
+        description: "Jasmine rice wok-fried with egg, chicken and scallions.",
         price: "160.00",
-        image: PLACEHOLDER("Fried Rice"),
+        image: img("1603133872878-684f208fb84b"),
         categoryId: mains.id,
+        kdsStationId: hot.id,
+        status: "available",
+      },
+      {
+        restaurantId: restaurant.id,
+        name: "Pad Krapow",
+        description:
+          "Stir-fried minced pork with holy basil and chili, topped with a fried egg.",
+        price: "170.00",
+        image: img("1626804475297-41608ea09aeb"),
+        categoryId: mains.id,
+        kdsStationId: hot.id,
+        status: "available",
+      },
+      // Curries
+      {
+        restaurantId: restaurant.id,
+        name: "Green Curry Chicken",
+        description:
+          "Creamy coconut green curry with chicken, eggplant and Thai basil.",
+        price: "200.00",
+        image: img("1600555379765-f82335a7b1b0"),
+        categoryId: curries.id,
         kdsStationId: hot.id,
         status: "available",
       },
       {
         restaurantId: restaurant.id,
         name: "Massaman Beef",
-        description: "Slow-cooked beef in massaman curry",
+        description:
+          "Slow-braised beef in rich massaman curry with potato and peanuts.",
         price: "240.00",
-        image: PLACEHOLDER("Massaman"),
-        categoryId: mains.id,
+        image: img("1574484284002-952d92456975"),
+        categoryId: curries.id,
         kdsStationId: hot.id,
         status: "sold_out",
       },
-      // Beverages (drinks)
+      // Beverages
       {
         restaurantId: restaurant.id,
         name: "Thai Iced Tea",
-        description: "Sweet creamy iced tea",
+        description: "Sweet, creamy Thai tea poured over ice.",
         price: "60.00",
-        image: PLACEHOLDER("Thai Tea"),
+        image: img("1558857563-b371033873b8"),
         categoryId: beverages.id,
         kdsStationId: drinks.id,
         status: "available",
       },
       {
         restaurantId: restaurant.id,
-        name: "Coconut Water",
-        description: "Fresh young coconut",
+        name: "Fresh Coconut Water",
+        description: "Chilled young coconut served whole.",
         price: "70.00",
-        image: PLACEHOLDER("Coconut"),
+        image: img("1581006852262-e4307cf6283a"),
         categoryId: beverages.id,
         kdsStationId: drinks.id,
         status: "available",
       },
       {
         restaurantId: restaurant.id,
-        name: "Lime Soda",
-        description: "Refreshing fresh lime soda",
+        name: "Fresh Lime Soda",
+        description: "Refreshing lime soda with a hint of salt.",
         price: "55.00",
-        image: PLACEHOLDER("Lime Soda"),
+        image: img("1513558161293-cdaf765ed2fd"),
         categoryId: beverages.id,
         kdsStationId: drinks.id,
+        status: "available",
+      },
+      // Desserts
+      {
+        restaurantId: restaurant.id,
+        name: "Mango Sticky Rice",
+        description:
+          "Sweet glutinous rice with ripe mango and coconut cream.",
+        price: "110.00",
+        image: img("1621236378699-8597faf6a176"),
+        categoryId: desserts.id,
+        kdsStationId: cold.id,
+        status: "available",
+      },
+      {
+        restaurantId: restaurant.id,
+        name: "Coconut Ice Cream",
+        description: "House-made coconut ice cream with toasted peanuts.",
+        price: "80.00",
+        image: img("1488900128323-21503983a07e"),
+        categoryId: desserts.id,
+        kdsStationId: cold.id,
         status: "available",
       },
     ])
@@ -296,7 +365,7 @@ async function main() {
   ]);
 
   console.log(
-    `Seeded: 1 restaurant, 1 branch, 5 users, 5 tables, 3 stations, 3 categories, ${menu.length} menu items, option groups.`,
+    `Seeded: 1 restaurant, 1 branch, 5 users, 5 tables, 3 stations, 6 categories, ${menu.length} menu items, option groups.`,
   );
 }
 

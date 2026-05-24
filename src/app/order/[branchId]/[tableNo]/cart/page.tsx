@@ -31,6 +31,7 @@ export default function CartPage() {
   const [tableId, setTableId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<{
     lineId: string;
     name: string;
@@ -75,7 +76,7 @@ export default function CartPage() {
         }),
       });
       cart.clear();
-      router.push(`/order/${branchId}/${tableNo}/status`);
+      setSuccess(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to place order");
       setSubmitting(false);
@@ -93,12 +94,6 @@ export default function CartPage() {
             className="text-[12.5px] font-semibold text-ink-muted hover:text-ink"
           >
             ← Back to menu
-          </Link>
-          <Link
-            href={`/order/${branchId}/${tableNo}/status`}
-            className="text-[12.5px] font-semibold text-ink-muted hover:text-ink"
-          >
-            Order Status →
           </Link>
         </div>
         <h1 className="mt-2 text-[26px] font-semibold tracking-tight text-ink">
@@ -246,6 +241,31 @@ export default function CartPage() {
           </button>
         </div>
       )}
+
+      <Modal
+        isOpen={success}
+        onOpenChange={(open) => {
+          if (!open) router.push(`/order/${branchId}/${tableNo}`);
+        }}
+      >
+        <div className="p-5 text-center">
+          <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-green-100 text-2xl text-green-600">
+            ✓
+          </div>
+          <h2 className="mt-3 text-[17px] font-semibold text-ink">
+            Sent to the kitchen
+          </h2>
+          <p className="mt-1.5 text-[13.5px] text-ink-muted">
+            Your order is on its way. You can track its status anytime.
+          </p>
+          <Button
+            className="mt-5 w-full"
+            onPress={() => router.push(`/order/${branchId}/${tableNo}`)}
+          >
+            Back to menu
+          </Button>
+        </div>
+      </Modal>
 
       <Modal
         isOpen={removeTarget !== null}

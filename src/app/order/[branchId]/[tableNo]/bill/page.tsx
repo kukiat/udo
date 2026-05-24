@@ -106,7 +106,7 @@ export default function BillPage() {
     <div className="lg:mx-auto lg:max-w-2xl">
       <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-line bg-cream/90 px-4 py-4 backdrop-blur">
         <Link
-          href={`/order/${branchId}/${tableNo}/status`}
+          href={`/order/${branchId}/${tableNo}`}
           className="text-ink-muted hover:text-ink"
         >
           ←

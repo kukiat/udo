@@ -3,13 +3,19 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import {
+  MenuItemForm,
+  type MenuItemFormValues,
+} from "@/components/dashboard/MenuItemForm";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { TD, TH, THead, TR, Table } from "@/components/ui/Table";
 import { useRestaurant } from "@/contexts/RestaurantContext";
 import { api } from "@/lib/fetcher";
+import { toMenuItemPayload } from "@/lib/menu-form";
 import { formatPrice } from "@/lib/utils";
 import type { MenuItemStatus } from "@/types";
 
@@ -20,6 +26,28 @@ type MenuItem = {
   status: MenuItemStatus;
   category: { id: string; name: string } | null;
 };
+
+type Category = { id: string; name: string };
+
+type MenuItemDetail = {
+  id: string;
+  name: string;
+  description: string | null;
+  price: string;
+  image: string | null;
+  categoryId: string;
+  kdsStationId: string | null;
+  status: MenuItemStatus;
+  optionGroups: {
+    name: string;
+    required: boolean;
+    minSelect: number;
+    maxSelect: number;
+    optionItems: { name: string; price: string }[];
+  }[];
+};
+
+const PAGE_SIZE = 10;
 
 const STATUS_OPTIONS = [
   { id: "available", label: "Available" },
@@ -34,21 +62,97 @@ const statusTone: Record<MenuItemStatus, "green" | "amber" | "neutral"> = {
 };
 
 export default function MenuListPage() {
-  const { restaurantId, loading: ctxLoading } = useRestaurant();
+  const { restaurantId, stations, loading: ctxLoading } = useRestaurant();
   const [items, setItems] = useState<MenuItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [total, setTotal] = useState(0);
+  const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<MenuItemFormValues | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [deleteItem, setDeleteItem] = useState<MenuItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = () => {
     if (!restaurantId) return;
     setLoading(true);
-    api<{ items: MenuItem[] }>(`/api/menu?restaurantId=${restaurantId}`)
-      .then((d) => setItems(d.items))
+    Promise.all([
+      api<{ items: MenuItem[]; total: number }>(
+        `/api/menu?restaurantId=${restaurantId}&offset=${offset}&limit=${PAGE_SIZE}`,
+      ),
+      api<{ categories: Category[] }>(
+        `/api/categories?restaurantId=${restaurantId}`,
+      ),
+    ])
+      .then(([m, c]) => {
+        setItems(m.items);
+        setTotal(m.total);
+        setCategories(c.categories);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [restaurantId]);
+  useEffect(load, [restaurantId, offset]);
+
+  const openEdit = (id: string) => {
+    setEditId(id);
+    setEditValues(null);
+    setEditLoading(true);
+    setError(null);
+    api<{ item: MenuItemDetail }>(`/api/menu/${id}`)
+      .then(({ item: it }) => {
+        setEditValues({
+          name: it.name,
+          description: it.description ?? "",
+          price: it.price,
+          image: it.image ?? "",
+          categoryId: it.categoryId,
+          kdsStationId: it.kdsStationId ?? "",
+          status: it.status,
+          optionGroups: it.optionGroups.map((g) => ({
+            name: g.name,
+            required: g.required,
+            minSelect: g.minSelect,
+            maxSelect: g.maxSelect,
+            optionItems: g.optionItems.map((o) => ({
+              name: o.name,
+              price: o.price,
+            })),
+          })),
+        });
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load item"))
+      .finally(() => setEditLoading(false));
+  };
+
+  const closeEdit = () => {
+    setEditId(null);
+    setEditValues(null);
+  };
+
+  const submitEdit = async (v: MenuItemFormValues) => {
+    if (!editId) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await api(`/api/menu/${editId}`, {
+        method: "PUT",
+        body: JSON.stringify(toMenuItemPayload(v)),
+      });
+      closeEdit();
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update item");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const changeStatus = async (id: string, status: string | null) => {
     if (!status) return;
@@ -66,13 +170,21 @@ export default function MenuListPage() {
     }
   };
 
-  const remove = async (id: string) => {
-    if (!confirm("Delete this menu item?")) return;
+  const confirmRemove = async () => {
+    if (!deleteItem) return;
+    setDeleting(true);
     try {
-      await api(`/api/menu/${id}`, { method: "DELETE" });
-      load();
+      await api(`/api/menu/${deleteItem.id}`, { method: "DELETE" });
+      setDeleteItem(null);
+      if (items.length === 1 && offset > 0) {
+        setOffset((o) => Math.max(0, o - PAGE_SIZE));
+      } else {
+        load();
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to delete item");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -134,12 +246,18 @@ export default function MenuListPage() {
                   </TD>
                   <TD className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Link href={`/dashboard/${restaurantId}/menu/${it.id}/edit`}>
-                        <Button size="sm" variant="secondary">
-                          Edit
-                        </Button>
-                      </Link>
-                      <Button size="sm" variant="danger" onPress={() => remove(it.id)}>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onPress={() => openEdit(it.id)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        onPress={() => setDeleteItem(it)}
+                      >
                         Delete
                       </Button>
                     </div>
@@ -149,7 +267,91 @@ export default function MenuListPage() {
             </tbody>
           </Table>
         )}
+
+        {total > 0 && (
+          <div className="mt-4 flex items-center justify-between">
+            <p className="text-sm text-ink-muted">
+              {offset + 1}–{Math.min(offset + PAGE_SIZE, total)} of {total}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                isDisabled={offset === 0}
+                onPress={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
+              >
+                Previous
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                isDisabled={offset + PAGE_SIZE >= total}
+                onPress={() => setOffset((o) => o + PAGE_SIZE)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
+
+      <Modal
+        isOpen={editId !== null}
+        onOpenChange={(open) => !open && closeEdit()}
+        className="sm:max-w-2xl"
+      >
+        <div className="p-5">
+          <h2 className="sticky top-0 z-10 -mx-5 -mt-5 mb-4 border-b border-line bg-white px-5 py-4 text-xl font-bold text-ink">
+            Edit Menu Item
+          </h2>
+          {editLoading || !editValues ? (
+            <Loading />
+          ) : (
+            <MenuItemForm
+              defaultValues={editValues}
+              categories={categories}
+              stations={stations}
+              submitting={submitting}
+              onSubmit={submitEdit}
+              stickyFooter
+            />
+          )}
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={deleteItem !== null}
+        onOpenChange={(open) => !open && setDeleteItem(null)}
+      >
+        <div className="flex flex-col gap-4 p-5">
+          <div>
+            <h2 className="text-lg font-semibold text-ink">Delete menu item?</h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              {deleteItem
+                ? `“${deleteItem.name}” will be deleted. This can't be undone.`
+                : ""}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              className="flex-1"
+              isDisabled={deleting}
+              onPress={() => setDeleteItem(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              className="flex-1"
+              isDisabled={deleting}
+              onPress={confirmRemove}
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

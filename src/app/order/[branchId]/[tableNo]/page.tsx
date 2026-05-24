@@ -35,6 +35,7 @@ export default function MenuPage() {
   const [statusOpen, setStatusOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showTop, setShowTop] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -54,6 +55,13 @@ export default function MenuPage() {
       )
       .catch(() => setBrand(null));
   }, [branchId]);
+
+  useEffect(() => {
+    const onScroll = () => setShowTop(window.scrollY > 400);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const q = search.trim().toLowerCase();
   const sections = useMemo(() => {
@@ -102,6 +110,11 @@ export default function MenuPage() {
 
     const observer = new IntersectionObserver(
       (entries) => {
+        // Near the top of the page, keep "All" highlighted.
+        if (window.scrollY < 8) {
+          setActive("all");
+          return;
+        }
         const inView = entries.filter((e) => e.isIntersecting);
         if (inView.length === 0) return;
         const topmost = inView.reduce((a, b) =>
@@ -113,7 +126,15 @@ export default function MenuPage() {
       { rootMargin: "-25% 0px -70% 0px", threshold: 0 },
     );
     els.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
+
+    const onScroll = () => {
+      if (window.scrollY < 8) setActive("all");
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", onScroll);
+    };
   }, [q, sections]);
 
   const pickCategory = (id: string) => {
@@ -316,6 +337,30 @@ export default function MenuPage() {
         branchId={branchId}
         tableNo={tableNo}
       />
+
+      {showTop && (
+        <button
+          type="button"
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          aria-label="Back to top"
+          className={`fixed right-4 z-30 grid h-11 w-11 place-items-center rounded-full border border-line bg-white text-ink shadow-[0_4px_16px_rgba(0,0,0,0.15)] hover:bg-sand ${
+            cart.itemCount > 0 ? "bottom-24" : "bottom-5"
+          }`}
+        >
+          <svg
+            viewBox="0 0 16 16"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M8 13V3M3.5 7.5 8 3l4.5 4.5" />
+          </svg>
+        </button>
+      )}
 
       {cart.itemCount > 0 && (
         <div className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-2xl px-4 pb-5">

@@ -24,7 +24,7 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className="flex w-full shrink-0 flex-col gap-1 border-b border-line bg-white p-4 md:h-screen md:w-60 md:border-b-0 md:border-r">
+    <aside className="flex w-full shrink-0 flex-col gap-1 border-b border-line bg-white p-4 md:sticky md:top-0 md:h-screen md:w-60 md:self-start md:border-b-0 md:border-r">
       <Link
         href="/dashboard"
         className="mb-2 px-1 text-xs text-ink-muted hover:text-ink"
