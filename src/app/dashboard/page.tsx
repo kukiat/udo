@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { CreateRestaurantModal } from "@/components/dashboard/CreateRestaurantModal";
 import { Button } from "@/components/ui/Button";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import { Modal } from "@/components/ui/Modal";
@@ -18,9 +20,12 @@ type Restaurant = {
 };
 
 export default function DashboardHome() {
+  const router = useRouter();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [creating, setCreating] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -97,10 +102,17 @@ export default function DashboardHome() {
             and menu.
           </p>
         </div>
-        <Link href="/dashboard/new">
-          <Button>New restaurant</Button>
-        </Link>
+        <Button onPress={() => setCreating(true)}>New restaurant</Button>
       </div>
+
+      <CreateRestaurantModal
+        isOpen={creating}
+        onOpenChange={setCreating}
+        onCreated={(id) => {
+          setCreating(false);
+          router.push(`/dashboard/${id}`);
+        }}
+      />
 
       <Modal
         isOpen={editingId !== null}
@@ -190,9 +202,7 @@ export default function DashboardHome() {
             title="No restaurants yet"
             description="Create your first restaurant to get started."
             action={
-              <Link href="/dashboard/new">
-                <Button>New restaurant</Button>
-              </Link>
+              <Button onPress={() => setCreating(true)}>New restaurant</Button>
             }
           />
         ) : (
