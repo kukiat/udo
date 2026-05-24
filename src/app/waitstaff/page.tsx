@@ -96,6 +96,11 @@ export default function WaitstaffIndex() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
+                      {b.restaurant && (
+                        <p className="text-xs font-medium uppercase tracking-wide text-ink-muted">
+                          {b.restaurant.name}
+                        </p>
+                      )}
                       <p className="font-semibold text-ink">{b.name}</p>
                       {b.address && (
                         <p className="mt-1 text-sm text-ink-muted">{b.address}</p>
