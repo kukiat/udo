@@ -25,7 +25,6 @@ type BranchResponse = {
 };
 
 const URGENT_MS = 12 * 60 * 1000;
-const PAGE_SIZE = 4;
 const PACES = ["calm", "busy", "rush"] as const;
 type Pace = (typeof PACES)[number];
 
@@ -60,7 +59,6 @@ export default function KdsPage() {
   const [latency, setLatency] = useState<number | null>(null);
   const [connected, setConnected] = useState(false);
   const [pace, setPace] = useState<Pace>("busy");
-  const [page, setPage] = useState(0);
 
   const joinAt = useRef<number>(0);
 
@@ -216,19 +214,7 @@ export default function KdsPage() {
     [byStation, statusFilter],
   );
 
-  // Reset to the first page when filters change.
-  useEffect(() => setPage(0), [station, statusFilter]);
-
   const BOARD_STATUSES: OrderStatus[] = ["pending", "preparing", "ready"];
-
-  // Reset to first page when the filter shrinks the list past the page bound.
-  const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages - 1);
-  const pageOrders = visible.slice(
-    safePage * PAGE_SIZE,
-    safePage * PAGE_SIZE + PAGE_SIZE,
-  );
-  const remaining = visible.length - (safePage + 1) * PAGE_SIZE;
 
   // Stats (computed from the full active board).
   const avg = orders.length
@@ -439,66 +425,25 @@ export default function KdsPage() {
             </p>
           </div>
         ) : (
-          <>
-            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-              {pageOrders.map((o) => (
-                <KdsOrderCard
-                  key={o.id}
-                  order={o}
-                  now={now}
-                  stationId={stationId}
-                  stationsById={stationsById}
-                  onBump={bump}
-                  onCancel={setCancelTarget}
-                  bumping={bumpingId === o.id}
-                />
-              ))}
-            </div>
-
-            {totalPages > 1 && (
-              <div className="mt-5 flex items-center justify-center gap-3 text-sm text-ink-muted">
-                <button
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  disabled={safePage === 0}
-                  className="rounded-lg px-2 py-1 hover:bg-white disabled:opacity-30"
-                >
-                  ‹
-                </button>
-                {remaining > 0 ? (
-                  <span>+ {remaining} more on next page</span>
-                ) : (
-                  <span>
-                    Page {safePage + 1} of {totalPages}
-                  </span>
-                )}
-                <div className="flex gap-1">
-                  {Array.from({ length: totalPages }).map((_, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setPage(i)}
-                      aria-label={`Page ${i + 1}`}
-                      className={cn(
-                        "h-2 w-2 rounded-full transition",
-                        i === safePage ? "bg-ink" : "bg-line hover:bg-ink-muted",
-                      )}
-                    />
-                  ))}
-                </div>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                  disabled={safePage >= totalPages - 1}
-                  className="rounded-lg px-2 py-1 hover:bg-white disabled:opacity-30"
-                >
-                  ›
-                </button>
-              </div>
-            )}
-          </>
+          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+            {visible.map((o) => (
+              <KdsOrderCard
+                key={o.id}
+                order={o}
+                now={now}
+                stationId={stationId}
+                stationsById={stationsById}
+                onBump={bump}
+                onCancel={setCancelTarget}
+                bumping={bumpingId === o.id}
+              />
+            ))}
+          </div>
         )}
       </main>
 
       {/* ---------- Footer ---------- */}
-      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-white px-5 py-3">
+      <footer className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-white px-5 py-3">
         <div className="flex gap-2">
           {[
             { label: "Recall", icon: "↺" },
