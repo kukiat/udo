@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import {
   branchKdsRoom,
+  branchRoom,
   setIO,
   tableRoom,
   type AppIOServer,
@@ -67,6 +68,11 @@ app.prepare().then(() => {
       socket.join(branchKdsRoom(branchId));
       joinedKdsBranch = branchId;
       await broadcastScreenCount(branchId);
+    });
+
+    // Floor staff (waitstaff) observe the whole branch — no connection limit.
+    socket.on("branch:join", ({ branchId }) => {
+      socket.join(branchRoom(branchId));
     });
 
     socket.on("table:join", ({ tableId }) => {

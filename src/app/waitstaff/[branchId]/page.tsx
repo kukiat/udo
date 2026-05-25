@@ -15,6 +15,7 @@ import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/cn";
 import { api } from "@/lib/fetcher";
+import { getSocket } from "@/lib/socket-client";
 import type { OrderDTO, OrderStatus } from "@/types";
 
 type TableRow = {
@@ -47,7 +48,6 @@ const FILTER_STATUSES: OrderStatus[] = [
   "preparing",
   "served",
 ];
-const POLL_MS = 5000;
 
 // An order can still be cancelled while the kitchen hasn't finished it.
 const canCancel = (status: OrderStatus) =>
@@ -179,16 +179,34 @@ export default function WaitstaffPage() {
       .finally(() => setLoading(false));
   }, [branchId, loadOrders, loadTables, loadSessions]);
 
+  // Live updates via the branch room — replaces interval polling. A new order,
+  // a status change, or a settled bill all shift orders/tables/sessions, so we
+  // refresh the affected slices in response to each event.
   useEffect(() => {
-    const t = setInterval(() => {
+    const socket = getSocket();
+
+    const refreshOrders = () => loadOrders().catch(() => {});
+    const refreshAll = () => {
       loadOrders().catch(() => {});
-      loadSessions().catch(() => {});
-      // Tables must refresh too: paying a bill (in POS) closes the session and
-      // frees the table, and that status change needs to surface here.
       loadTables().catch(() => {});
-    }, POLL_MS);
-    return () => clearInterval(t);
-  }, [loadOrders, loadSessions, loadTables]);
+      loadSessions().catch(() => {});
+    };
+
+    socket.on("order:new", refreshAll);
+    socket.on("order:status-update", refreshOrders);
+    socket.on("bill:paid", refreshAll);
+
+    const join = () => socket.emit("branch:join", { branchId });
+    if (socket.connected) join();
+    socket.on("connect", join);
+
+    return () => {
+      socket.off("order:new", refreshAll);
+      socket.off("order:status-update", refreshOrders);
+      socket.off("bill:paid", refreshAll);
+      socket.off("connect", join);
+    };
+  }, [branchId, loadOrders, loadTables, loadSessions]);
 
   const markServed = async (order: OrderDTO) => {
     setServingId(order.id);

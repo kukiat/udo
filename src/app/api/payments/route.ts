@@ -129,7 +129,7 @@ export async function POST(req: Request) {
       const dto = await loadOrderDTO(o.id);
       if (dto) emitOrderStatusUpdate(dto);
     }
-    emitBillPaid(data.sessionId, session.tableId);
+    emitBillPaid(computed.branchId, data.sessionId, session.tableId);
 
     return Response.json(
       {
