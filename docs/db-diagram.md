@@ -1,176 +1,243 @@
 # RMS Database Diagram
 
-Entity-relationship diagram generated from `src/db/schema.ts`.
+Paste the DBML below into [dbdiagram.io](https://dbdiagram.io) to visualise the schema.
 
-```mermaid
-erDiagram
-    restaurants ||--o{ branches : has
-    restaurants ||--o{ users : has
-    restaurants ||--o{ categories : has
-    restaurants ||--o{ menu_items : has
+```dbml
+// ─── Enums ──────────────────────────────────────────────────────────────────
 
-    branches ||--o{ users : "employs"
-    branches ||--o{ tables : has
-    branches ||--o{ table_sessions : has
-    branches ||--o{ kds_stations : has
-    branches ||--o{ branch_menu_items : has
-    branches ||--o{ orders : has
+Enum user_role {
+  owner
+  admin
+  branch_manager
+  cashier
+  kitchen_staff
+  waitstaff
+}
 
-    tables ||--o{ table_sessions : has
-    tables ||--o{ orders : has
+Enum table_status {
+  available
+  occupied
+}
 
-    table_sessions ||--o{ orders : contains
-    table_sessions ||--o| bills : "billed by"
+Enum session_status {
+  active
+  closed
+}
 
-    categories ||--o{ menu_items : groups
+Enum menu_item_status {
+  available
+  sold_out
+  hidden
+}
 
-    kds_stations ||--o{ menu_items : routes
+Enum order_status {
+  pending
+  preparing
+  ready
+  served
+  completed
+  cancelled
+}
 
-    menu_items ||--o{ branch_menu_items : "overridden by"
-    menu_items ||--o{ option_groups : has
-    menu_items ||--o{ order_items : "ordered as"
+Enum order_type {
+  dine_in
+  take_away
+}
 
-    option_groups ||--o{ option_items : has
+Enum bill_status {
+  open
+  requested
+  paid
+}
 
-    option_items ||--o{ order_item_options : "chosen as"
+Enum payment_method {
+  cash
+  card
+  qr
+}
 
-    orders ||--o{ order_items : contains
+Enum shift_status {
+  open
+  closed
+}
 
-    order_items ||--o{ order_item_options : has
+// ─── Tables ─────────────────────────────────────────────────────────────────
 
-    restaurants {
-        uuid id PK
-        text name
-        text logo
-        timestamptz created_at
-    }
+Table restaurants {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name text [not null]
+  logo text
+  created_at timestamptz [not null, default: `now()`]
+}
 
-    branches {
-        uuid id PK
-        uuid restaurant_id FK
-        text name
-        text address
-        jsonb settings "maxKdsScreens, vatRate, serviceChargeRate"
-    }
+Table branches {
+  id uuid [pk, default: `gen_random_uuid()`]
+  restaurant_id uuid [not null, ref: > restaurants.id]
+  name text [not null]
+  address text
+  settings jsonb [not null, default: '{"maxKdsScreens":3,"vatRate":0.07,"serviceChargeRate":0}', note: 'maxKdsScreens, vatRate, serviceChargeRate']
+}
 
-    users {
-        uuid id PK
-        text email UK
-        text name
-        text password_hash
-        enum role "owner|admin|branch_manager|cashier|kitchen_staff"
-        uuid restaurant_id FK
-        uuid branch_id FK "nullable"
-        timestamptz created_at
-    }
+Table users {
+  id uuid [pk, default: `gen_random_uuid()`]
+  email text [not null, unique]
+  name text [not null]
+  password_hash text [not null]
+  role user_role [not null]
+  restaurant_id uuid [not null, ref: > restaurants.id]
+  branch_id uuid [ref: > branches.id]
+  created_at timestamptz [not null, default: `now()`]
+}
 
-    tables {
-        uuid id PK
-        uuid branch_id FK
-        text table_number
-        enum status "available|occupied"
-    }
+Table sessions {
+  id uuid [pk, default: `gen_random_uuid()`, note: 'doubles as opaque cookie token']
+  user_id uuid [not null, ref: > users.id]
+  expires_at timestamptz [not null]
+  created_at timestamptz [not null, default: `now()`]
+}
 
-    table_sessions {
-        uuid id PK
-        uuid branch_id FK
-        uuid table_id FK
-        enum status "active|closed"
-        timestamptz created_at
-        timestamptz closed_at "nullable"
-    }
+Table tables {
+  id uuid [pk, default: `gen_random_uuid()`]
+  branch_id uuid [not null, ref: > branches.id]
+  table_number text [not null]
+  status table_status [not null, default: 'available']
 
-    categories {
-        uuid id PK
-        uuid restaurant_id FK
-        text name
-        int sort_order
-        text image
-    }
+  indexes {
+    (branch_id, table_number) [unique]
+  }
+}
 
-    kds_stations {
-        uuid id PK
-        uuid branch_id FK
-        text name
-        int sort_order
-    }
+Table table_sessions {
+  id uuid [pk, default: `gen_random_uuid()`]
+  branch_id uuid [not null, ref: > branches.id]
+  table_id uuid [not null, ref: > tables.id]
+  status session_status [not null, default: 'active']
+  created_at timestamptz [not null, default: `now()`]
+  closed_at timestamptz
+}
 
-    menu_items {
-        uuid id PK
-        uuid restaurant_id FK
-        text name
-        text description
-        numeric price
-        text image
-        uuid category_id FK
-        uuid kds_station_id FK "nullable"
-        enum status "available|sold_out|hidden"
-        timestamptz deleted_at "nullable, soft delete"
-    }
+Table categories {
+  id uuid [pk, default: `gen_random_uuid()`]
+  restaurant_id uuid [not null, ref: > restaurants.id]
+  parent_id uuid [ref: > categories.id, note: 'null = top-level']
+  name text [not null]
+  sort_order int [not null, default: 0]
+  image text
+}
 
-    branch_menu_items {
-        uuid id PK
-        uuid branch_id FK
-        uuid menu_item_id FK
-        numeric price "nullable override"
-        bool is_available
-    }
+Table kds_stations {
+  id uuid [pk, default: `gen_random_uuid()`]
+  branch_id uuid [not null, ref: > branches.id]
+  name text [not null]
+  sort_order int [not null, default: 0]
+}
 
-    option_groups {
-        uuid id PK
-        uuid menu_item_id FK
-        text name
-        bool required
-        int min_select
-        int max_select
-        int sort_order
-    }
+Table menu_items {
+  id uuid [pk, default: `gen_random_uuid()`]
+  restaurant_id uuid [not null, ref: > restaurants.id]
+  name text [not null]
+  description text
+  price numeric(10,2) [not null]
+  image text
+  category_id uuid [not null, ref: > categories.id]
+  kds_station_id uuid [ref: > kds_stations.id]
+  status menu_item_status [not null, default: 'available']
+  deleted_at timestamptz [note: 'soft delete']
+}
 
-    option_items {
-        uuid id PK
-        uuid option_group_id FK
-        text name
-        numeric price
-        int sort_order
-    }
+Table branch_menu_items {
+  id uuid [pk, default: `gen_random_uuid()`]
+  branch_id uuid [not null, ref: > branches.id]
+  menu_item_id uuid [not null, ref: > menu_items.id]
+  price numeric(10,2) [note: 'nullable override']
+  is_available boolean [not null, default: true]
 
-    orders {
-        uuid id PK
-        uuid branch_id FK
-        uuid table_id FK
-        uuid table_session_id FK
-        text order_number
-        enum status "pending|preparing|ready|served|completed"
-        enum type "dine_in|take_away"
-        numeric total_amount
-        timestamptz created_at
-    }
+  indexes {
+    (branch_id, menu_item_id) [unique]
+  }
+}
 
-    order_items {
-        uuid id PK
-        uuid order_id FK
-        uuid menu_item_id FK
-        int quantity
-        numeric unit_price
-        text note
-    }
+Table option_groups {
+  id uuid [pk, default: `gen_random_uuid()`]
+  menu_item_id uuid [not null, ref: > menu_items.id]
+  name text [not null]
+  required boolean [not null, default: false]
+  min_select int [not null, default: 0]
+  max_select int [not null, default: 1]
+  sort_order int [not null, default: 0]
+}
 
-    order_item_options {
-        uuid id PK
-        uuid order_item_id FK
-        uuid option_item_id FK
-        numeric price
-    }
+Table option_items {
+  id uuid [pk, default: `gen_random_uuid()`]
+  option_group_id uuid [not null, ref: > option_groups.id]
+  name text [not null]
+  price numeric(10,2) [not null, default: 0]
+  sort_order int [not null, default: 0]
+}
 
-    bills {
-        uuid id PK
-        uuid table_session_id FK
-        numeric subtotal
-        numeric vat
-        numeric service_charge
-        numeric discount
-        numeric total_amount
-        enum status "open|requested|paid"
-        timestamptz created_at
-    }
+Table orders {
+  id uuid [pk, default: `gen_random_uuid()`]
+  branch_id uuid [not null, ref: > branches.id]
+  table_id uuid [not null, ref: > tables.id]
+  table_session_id uuid [not null, ref: > table_sessions.id]
+  order_number text [not null]
+  status order_status [not null, default: 'pending']
+  type order_type [not null, default: 'dine_in']
+  total_amount numeric(10,2) [not null, default: 0]
+  created_at timestamptz [not null, default: `now()`]
+  cancelled_at timestamptz
+  cancel_reason text
+}
+
+Table order_items {
+  id uuid [pk, default: `gen_random_uuid()`]
+  order_id uuid [not null, ref: > orders.id]
+  menu_item_id uuid [not null, ref: > menu_items.id]
+  quantity int [not null, default: 1]
+  unit_price numeric(10,2) [not null]
+  note text
+}
+
+Table order_item_options {
+  id uuid [pk, default: `gen_random_uuid()`]
+  order_item_id uuid [not null, ref: > order_items.id]
+  option_item_id uuid [not null, ref: > option_items.id]
+  price numeric(10,2) [not null, default: 0]
+}
+
+Table bills {
+  id uuid [pk, default: `gen_random_uuid()`]
+  table_session_id uuid [not null, unique, ref: - table_sessions.id]
+  subtotal numeric(10,2) [not null, default: 0]
+  vat numeric(10,2) [not null, default: 0]
+  service_charge numeric(10,2) [not null, default: 0]
+  discount numeric(10,2) [not null, default: 0]
+  total_amount numeric(10,2) [not null, default: 0]
+  status bill_status [not null, default: 'open']
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table shifts {
+  id uuid [pk, default: `gen_random_uuid()`]
+  branch_id uuid [not null, ref: > branches.id]
+  cashier_id uuid [not null, ref: > users.id]
+  status shift_status [not null, default: 'open']
+  opening_float numeric(10,2) [not null, default: 0]
+  closing_amount numeric(10,2) [note: 'null while open']
+  note text
+  opened_at timestamptz [not null, default: `now()`]
+  closed_at timestamptz
+}
+
+Table payments {
+  id uuid [pk, default: `gen_random_uuid()`]
+  bill_id uuid [not null, ref: > bills.id]
+  shift_id uuid [ref: > shifts.id]
+  cashier_id uuid [ref: > users.id]
+  method payment_method [not null]
+  amount numeric(10,2) [not null]
+  tendered numeric(10,2) [note: 'cash: amount handed over']
+  change numeric(10,2) [note: 'cash: change returned']
+  created_at timestamptz [not null, default: `now()`]
+}
 ```
