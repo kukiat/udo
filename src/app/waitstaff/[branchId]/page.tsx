@@ -53,6 +53,51 @@ const FILTER_STATUSES: OrderStatus[] = [
 const canCancel = (status: OrderStatus) =>
   status === "pending" || status === "preparing";
 
+function StatCard({
+  label,
+  value,
+  tone = "neutral",
+  highlight = false,
+}: {
+  label: string;
+  value: number;
+  tone?: "neutral" | "amber" | "green";
+  highlight?: boolean;
+}) {
+  const valueTone = {
+    neutral: "text-ink",
+    amber: "text-amber-600",
+    green: "text-green-600",
+  }[tone];
+  return (
+    <div
+      className={cn(
+        "rounded-card border p-4 shadow-card",
+        highlight
+          ? "border-transparent bg-clay-500 text-white"
+          : "border-line bg-white",
+      )}
+    >
+      <p
+        className={cn(
+          "text-sm font-medium",
+          highlight ? "text-white/80" : "text-ink-muted",
+        )}
+      >
+        {label}
+      </p>
+      <p
+        className={cn(
+          "mt-1 text-2xl font-bold",
+          highlight ? "text-white" : valueTone,
+        )}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
 export default function WaitstaffPage() {
   const { branchId } = useParams<{ branchId: string }>();
   const router = useRouter();
@@ -282,21 +327,36 @@ export default function WaitstaffPage() {
     return m;
   }, [readyOrders]);
 
-  // Selected table for the detail pane; defaults to the first table.
-  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
+  // Table selected for the detail modal (null = modal closed).
+  const [detailTableId, setDetailTableId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | OrderStatus>("all");
-  useEffect(() => {
-    setSelectedTableId((curr) =>
-      curr && tables.some((t) => t.id === curr)
-        ? curr
-        : tables[0]?.id ?? null,
-    );
-  }, [tables]);
+  // Grid toolbar filters.
+  const [search, setSearch] = useState("");
+  const [tableFilter, setTableFilter] = useState<"all" | "available" | "occupied">(
+    "all",
+  );
 
-  const selectedTable = tables.find((t) => t.id === selectedTableId) ?? null;
-  const selectedOrders = selectedTableId
-    ? ordersByTable.get(selectedTableId) ?? []
+  const openDetail = (tableId: string) => {
+    setStatusFilter("all");
+    setDetailTableId(tableId);
+  };
+
+  const selectedTable = tables.find((t) => t.id === detailTableId) ?? null;
+  const selectedOrders = detailTableId
+    ? ordersByTable.get(detailTableId) ?? []
     : [];
+
+  const filteredTables = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return tables.filter((t) => {
+      if (tableFilter !== "all" && t.status !== tableFilter) return false;
+      if (q && !t.tableNumber.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [tables, tableFilter, search]);
+
+  const occupiedCount = tables.filter((t) => t.status === "occupied").length;
+  const availableCount = tables.filter((t) => t.status === "available").length;
 
   // Flatten the selected table's orders into individual menu-item lines,
   // filtered by status and sorted ready → pending → preparing → served.
@@ -353,26 +413,53 @@ export default function WaitstaffPage() {
         </div>
       </header>
 
-      <div className="mx-auto flex max-w-6xl flex-col gap-5 p-4 sm:p-5 md:flex-row">
-        {/* ---------- Side menu: Tables ---------- */}
-        <aside className="w-full shrink-0 md:w-64">
-          <div className="flex items-center justify-between px-1">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
-              Tables ({tables.length})
-            </h2>
-            {readyOrders.length > 0 && (
-              <Badge tone="green">{readyOrders.length} ready</Badge>
-            )}
+      <div className="mx-auto max-w-6xl p-4 sm:p-5">
+        {error && (
+          <div className="mb-4">
+            <ErrorState message={error} />
           </div>
+        )}
 
-          {/* Add table */}
-          <div className="mt-3 flex gap-2">
+        {/* ---------- Stat cards ---------- */}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatCard
+            highlight
+            label="Total Orders"
+            value={orders.length}
+          />
+          <StatCard label="Occupied" value={occupiedCount} tone="amber" />
+          <StatCard label="Ready" value={readyOrders.length} tone="green" />
+          <StatCard label="Available" value={availableCount} tone="neutral" />
+        </div>
+
+        {/* ---------- Toolbar: search, status filter, add table ---------- */}
+        <div className="mt-5 flex flex-wrap items-center gap-3 rounded-card border border-line bg-white p-3 shadow-card">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search tables…"
+            className="min-w-[10rem] flex-1 rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-clay-300 focus:ring-2 focus:ring-clay-100"
+          />
+          <Select
+            label=""
+            className="w-44"
+            options={[
+              { id: "all", label: "All statuses" },
+              { id: "available", label: "Available" },
+              { id: "occupied", label: "Occupied" },
+            ]}
+            selectedKey={tableFilter}
+            onSelectionChange={(k) =>
+              setTableFilter(k as "all" | "available" | "occupied")
+            }
+          />
+          <div className="flex items-center gap-2">
             <input
               value={newTable}
               onChange={(e) => setNewTable(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addTable()}
               placeholder="New table #"
-              className="w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-clay-300 focus:ring-2 focus:ring-clay-100"
+              className="w-32 rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-clay-300 focus:ring-2 focus:ring-clay-100"
             />
             <Button
               size="sm"
@@ -382,207 +469,221 @@ export default function WaitstaffPage() {
               Add
             </Button>
           </div>
-          {tableError && (
-            <p className="mt-1 text-sm text-red-600">{tableError}</p>
-          )}
+        </div>
+        {tableError && <p className="mt-2 text-sm text-red-600">{tableError}</p>}
 
-          {/* Table list — horizontal scroll strip on mobile, vertical on md+ */}
-          <nav className="mt-3 flex gap-2 overflow-x-auto pb-1 md:flex-col md:gap-1 md:overflow-visible md:pb-0">
-            {tables.length === 0 ? (
-              <p className="px-1 text-sm text-ink-muted">No tables yet.</p>
-            ) : (
-              tables.map((t) => {
-                const active = t.id === selectedTableId;
-                const ready = readyByTable.get(t.id) ?? 0;
-                const count = (ordersByTable.get(t.id) ?? []).length;
+        {/* ---------- Table card grid ---------- */}
+        {filteredTables.length === 0 ? (
+          <div className="mt-5">
+            <EmptyState
+              title={tables.length === 0 ? "No tables yet" : "No tables match"}
+              description={
+                tables.length === 0
+                  ? "Add a table to start monitoring orders."
+                  : "Try a different search or status filter."
+              }
+            />
+          </div>
+        ) : (
+          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {filteredTables.map((t) => {
+              const ready = readyByTable.get(t.id) ?? 0;
+              const count = (ordersByTable.get(t.id) ?? []).length;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => openDetail(t.id)}
+                  className="group flex flex-col gap-3 rounded-card border border-line bg-white p-4 text-left shadow-card transition-colors hover:border-clay-300"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sand text-sm font-bold text-ink-soft">
+                        {t.tableNumber}
+                      </span>
+                      <span className="font-semibold text-ink">
+                        Table {t.tableNumber}
+                      </span>
+                    </div>
+                    <Badge tone={t.status === "occupied" ? "amber" : "green"}>
+                      {t.status}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-line pt-3 text-sm text-ink-muted">
+                    <span>
+                      {count} active order{count === 1 ? "" : "s"}
+                    </span>
+                    {ready > 0 ? (
+                      <span className="flex items-center gap-1.5 font-medium text-green-700">
+                        <span className="h-2 w-2 rounded-full bg-green-500" />
+                        {ready} ready
+                      </span>
+                    ) : (
+                      <span className="text-ink-muted">—</span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ---------- Detail modal: selected table ---------- */}
+      <Modal
+        isOpen={selectedTable !== null}
+        onOpenChange={(open) => !open && setDetailTableId(null)}
+      >
+        {selectedTable && (
+          <div className="p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-xl font-bold text-ink">
+                Table {selectedTable.tableNumber}
+              </h2>
+              <div className="flex flex-wrap items-center gap-2">
+                {sessionByTable.has(selectedTable.id) && (
+                  <Link
+                    href={`/pos/${branchId}?session=${sessionByTable.get(
+                      selectedTable.id,
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button size="sm" variant="secondary">
+                      Cashier / POS
+                    </Button>
+                  </Link>
+                )}
+                {sessionByTable.has(selectedTable.id) ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onPress={() => showLink(selectedTable)}
+                  >
+                    Order link
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    isDisabled={openingTableId === selectedTable.id}
+                    onPress={() => openSession(selectedTable)}
+                  >
+                    {openingTableId === selectedTable.id
+                      ? "Opening…"
+                      : "Open session"}
+                  </Button>
+                )}
+                <Badge
+                  tone={
+                    selectedTable.status === "occupied" ? "amber" : "neutral"
+                  }
+                >
+                  {selectedTable.status}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Status filter */}
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              {(["all", ...FILTER_STATUSES] as const).map((s) => {
+                const active = statusFilter === s;
+                const count =
+                  s === "all"
+                    ? selectedOrders.reduce((n, o) => n + o.items.length, 0)
+                    : statusCount(s);
                 return (
                   <button
-                    key={t.id}
-                    onClick={() => setSelectedTableId(t.id)}
+                    key={s}
+                    onClick={() => setStatusFilter(s)}
                     className={cn(
-                      "flex shrink-0 items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left text-sm transition-colors md:w-full md:shrink",
+                      "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide transition",
                       active
-                        ? "border-clay-300 bg-clay-50 text-clay-700"
-                        : "border-line text-ink-soft hover:bg-sand md:border-transparent",
+                        ? "bg-ink text-white"
+                        : "border border-line bg-white text-ink-soft hover:bg-sand",
                     )}
                   >
-                    <span className="flex items-center gap-2 font-medium">
-                      {ready > 0 && (
-                        <span className="h-2 w-2 rounded-full bg-green-500" />
+                    {s === "all" ? "All" : s}
+                    <span
+                      className={cn(
+                        "rounded-full px-1.5 text-[10px]",
+                        active ? "bg-white/20" : "bg-sand text-ink-muted",
                       )}
-                      Table {t.tableNumber}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      {count > 0 && (
-                        <span className="text-xs text-ink-muted">{count}</span>
-                      )}
-                      <Badge tone={t.status === "occupied" ? "amber" : "neutral"}>
-                        {t.status}
-                      </Badge>
+                    >
+                      {count}
                     </span>
                   </button>
                 );
-              })
-            )}
-          </nav>
-        </aside>
-
-        {/* ---------- Detail: selected table ---------- */}
-        <main className="min-w-0 flex-1">
-          {error && (
-            <div className="mb-4">
-              <ErrorState message={error} />
+              })}
             </div>
-          )}
 
-          {!selectedTable ? (
-            <EmptyState
-              title="No table selected"
-              description="Add a table or pick one from the list to view its menu items."
-            />
-          ) : (
-            <div className="rounded-card border border-line bg-white p-4 shadow-card sm:p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-xl font-bold text-ink">
-                  Table {selectedTable.tableNumber}
-                </h2>
-                <div className="flex flex-wrap items-center gap-2">
-                  {sessionByTable.has(selectedTable.id) && (
-                    <Link
-                      href={`/pos/${branchId}?session=${sessionByTable.get(
-                        selectedTable.id,
-                      )}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Button size="sm" variant="secondary">
-                        Cashier / POS
-                      </Button>
-                    </Link>
-                  )}
-                  {sessionByTable.has(selectedTable.id) ? (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onPress={() => showLink(selectedTable)}
-                    >
-                      Order link
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      isDisabled={openingTableId === selectedTable.id}
-                      onPress={() => openSession(selectedTable)}
-                    >
-                      {openingTableId === selectedTable.id
-                        ? "Opening…"
-                        : "Open session"}
-                    </Button>
-                  )}
-                  <Badge
-                    tone={
-                      selectedTable.status === "occupied" ? "amber" : "neutral"
-                    }
-                  >
-                    {selectedTable.status}
-                  </Badge>
-                </div>
-              </div>
-
-              {/* Status filter */}
-              <div className="mt-4 flex flex-wrap gap-1.5">
-                {(["all", ...FILTER_STATUSES] as const).map((s) => {
-                  const active = statusFilter === s;
-                  const count =
-                    s === "all"
-                      ? selectedOrders.reduce((n, o) => n + o.items.length, 0)
-                      : statusCount(s);
-                  return (
-                    <button
-                      key={s}
-                      onClick={() => setStatusFilter(s)}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide transition",
-                        active
-                          ? "bg-ink text-white"
-                          : "border border-line bg-white text-ink-soft hover:bg-sand",
+            {/* Menu item list (sorted ready → pending → preparing → served) */}
+            {menuLines.length === 0 ? (
+              <p className="mt-5 text-sm text-ink-muted">
+                {selectedOrders.length === 0
+                  ? "No active orders on this table."
+                  : "No items match this status."}
+              </p>
+            ) : (
+              <ul className="mt-4 max-h-[50vh] divide-y divide-line overflow-y-auto">
+                {menuLines.map(({ key, order, item }) => (
+                  <li key={key} className="flex items-start gap-3 py-2.5">
+                    <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-sand text-xs font-semibold text-ink-soft">
+                      {item.quantity}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-ink">
+                        {item.name}
+                      </p>
+                      {(item.options.length > 0 || item.note) && (
+                        <p className="text-xs italic text-ink-muted">
+                          {[
+                            ...item.options.map((o) => o.name),
+                            ...(item.note ? [item.note] : []),
+                          ].join(" · ")}
+                        </p>
                       )}
-                    >
-                      {s === "all" ? "All" : s}
-                      <span
-                        className={cn(
-                          "rounded-full px-1.5 text-[10px]",
-                          active ? "bg-white/20" : "bg-sand text-ink-muted",
-                        )}
-                      >
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+                      <p className="mt-0.5 text-[11px] text-ink-muted">
+                        {order.orderNumber}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1.5">
+                      <Badge tone={STATUS_TONE[order.status] ?? "neutral"}>
+                        {order.status}
+                      </Badge>
+                      {order.status === "ready" && (
+                        <Button
+                          size="sm"
+                          isDisabled={servingId === order.id}
+                          onPress={() => markServed(order)}
+                        >
+                          {servingId === order.id ? "Serving…" : "Serve"}
+                        </Button>
+                      )}
+                      {canCancel(order.status) && (
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onPress={() => setCancelTarget(order)}
+                        >
+                          Cancel
+                        </Button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
 
-              {/* Menu item list (sorted ready → pending → preparing → served) */}
-              {menuLines.length === 0 ? (
-                <p className="mt-5 text-sm text-ink-muted">
-                  {selectedOrders.length === 0
-                    ? "No active orders on this table."
-                    : "No items match this status."}
-                </p>
-              ) : (
-                <ul className="mt-4 divide-y divide-line">
-                  {menuLines.map(({ key, order, item }) => (
-                    <li key={key} className="flex items-start gap-3 py-2.5">
-                      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-sand text-xs font-semibold text-ink-soft">
-                        {item.quantity}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-ink">
-                          {item.name}
-                        </p>
-                        {(item.options.length > 0 || item.note) && (
-                          <p className="text-xs italic text-ink-muted">
-                            {[
-                              ...item.options.map((o) => o.name),
-                              ...(item.note ? [item.note] : []),
-                            ].join(" · ")}
-                          </p>
-                        )}
-                        <p className="mt-0.5 text-[11px] text-ink-muted">
-                          {order.orderNumber}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 flex-col items-end gap-1.5">
-                        <Badge tone={STATUS_TONE[order.status] ?? "neutral"}>
-                          {order.status}
-                        </Badge>
-                        {order.status === "ready" && (
-                          <Button
-                            size="sm"
-                            isDisabled={servingId === order.id}
-                            onPress={() => markServed(order)}
-                          >
-                            {servingId === order.id ? "Serving…" : "Serve"}
-                          </Button>
-                        )}
-                        {canCancel(order.status) && (
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            onPress={() => setCancelTarget(order)}
-                          >
-                            Cancel
-                          </Button>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
+            <div className="mt-5 flex justify-end">
+              <Button
+                variant="secondary"
+                onPress={() => setDetailTableId(null)}
+              >
+                Close
+              </Button>
             </div>
-          )}
-        </main>
-      </div>
+          </div>
+        )}
+      </Modal>
 
       <CancelOrderDialog
         order={cancelTarget}
