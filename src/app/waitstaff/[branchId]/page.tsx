@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CancelOrderDialog } from "@/components/order/CancelOrderDialog";
 import { AccountMenu } from "@/components/ui/AccountMenu";
@@ -52,6 +52,33 @@ const FILTER_STATUSES: OrderStatus[] = [
 // An order can still be cancelled while the kitchen hasn't finished it.
 const canCancel = (status: OrderStatus) =>
   status === "pending" || status === "preparing";
+
+// Next status a waiter can advance an order to, with the button label.
+const NEXT_STATUS: Partial<Record<OrderStatus, { next: OrderStatus; label: string }>> = {
+  pending: { next: "preparing", label: "Start" },
+  preparing: { next: "ready", label: "Ready" },
+  ready: { next: "served", label: "Serve" },
+};
+
+// Wall-clock time the order was placed, e.g. "14:32".
+const startClock = (createdAt: string) =>
+  new Date(createdAt).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+// Time since the order was placed, e.g. "5:20".
+const elapsed = (createdAt: string, now: number) => {
+  const ms = Math.max(0, now - new Date(createdAt).getTime());
+  const mins = Math.floor(ms / 60000);
+  const secs = Math.floor((ms % 60000) / 1000);
+  return `${mins}:${String(secs).padStart(2, "0")}`;
+};
+
+// Orders still on the floor past this age are flagged as overdue.
+const OVERDUE_MS = 10 * 60 * 1000;
+const isOverdue = (createdAt: string, now: number) =>
+  now - new Date(createdAt).getTime() >= OVERDUE_MS;
 
 function StatCard({
   label,
@@ -253,17 +280,17 @@ export default function WaitstaffPage() {
     };
   }, [branchId, loadOrders, loadTables, loadSessions]);
 
-  const markServed = async (order: OrderDTO) => {
+  const advanceStatus = async (order: OrderDTO, next: OrderStatus) => {
     setServingId(order.id);
     setError(null);
     try {
       await api(`/api/orders/${order.id}/status`, {
         method: "PATCH",
-        body: JSON.stringify({ status: "served" }),
+        body: JSON.stringify({ status: next }),
       });
       await loadOrders();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to mark served");
+      setError(e instanceof Error ? e.message : "Failed to update status");
     } finally {
       setServingId(null);
     }
@@ -330,6 +357,38 @@ export default function WaitstaffPage() {
   // Table selected for the detail modal (null = modal closed).
   const [detailTableId, setDetailTableId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | OrderStatus>("all");
+  // Ticking clock so elapsed times and overdue alerts update live.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Briefly highlight orders that just arrived or changed status.
+  const [flashIds, setFlashIds] = useState<Set<string>>(new Set());
+  const prevStatusRef = useRef<Map<string, OrderStatus> | null>(null);
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    const snapshot = new Map(orders.map((o) => [o.id, o.status]));
+    prevStatusRef.current = snapshot;
+    // Skip the first load — don't flash every pre-existing order on mount.
+    if (prev === null) return;
+
+    const changed = orders
+      .filter((o) => prev.get(o.id) !== o.status)
+      .map((o) => o.id);
+    if (changed.length === 0) return;
+
+    setFlashIds((curr) => new Set([...curr, ...changed]));
+    const timer = setTimeout(() => {
+      setFlashIds((curr) => {
+        const next = new Set(curr);
+        changed.forEach((id) => next.delete(id));
+        return next;
+      });
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [orders]);
   // Grid toolbar filters.
   const [search, setSearch] = useState("");
   const [tableFilter, setTableFilter] = useState<"all" | "available" | "occupied">(
@@ -488,12 +547,23 @@ export default function WaitstaffPage() {
           <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {filteredTables.map((t) => {
               const ready = readyByTable.get(t.id) ?? 0;
-              const count = (ordersByTable.get(t.id) ?? []).length;
+              const tableOrders = ordersByTable.get(t.id) ?? [];
+              const count = tableOrders.length;
+              const overdue = tableOrders.filter(
+                (o) => o.status !== "served" && isOverdue(o.createdAt, now),
+              ).length;
+              const flashing = tableOrders.some((o) => flashIds.has(o.id));
               return (
                 <button
                   key={t.id}
                   onClick={() => openDetail(t.id)}
-                  className="group flex flex-col gap-3 rounded-card border border-line bg-white p-4 text-left shadow-card transition-colors hover:border-clay-300"
+                  className={cn(
+                    "group flex flex-col gap-3 rounded-card border bg-white p-4 text-left shadow-card transition-all duration-500",
+                    overdue > 0
+                      ? "border-red-300 ring-1 ring-red-200"
+                      : "border-line hover:border-clay-300",
+                    flashing && "border-clay-300 bg-clay-50 ring-2 ring-clay-200",
+                  )}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2.5">
@@ -504,9 +574,15 @@ export default function WaitstaffPage() {
                         Table {t.tableNumber}
                       </span>
                     </div>
-                    <Badge tone={t.status === "occupied" ? "amber" : "green"}>
-                      {t.status}
-                    </Badge>
+                    {overdue > 0 ? (
+                      <Badge tone="red" className="animate-pulse">
+                        {overdue} overdue
+                      </Badge>
+                    ) : (
+                      <Badge tone={t.status === "occupied" ? "amber" : "green"}>
+                        {t.status}
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex items-center justify-between border-t border-line pt-3 text-sm text-ink-muted">
                     <span>
@@ -623,9 +699,25 @@ export default function WaitstaffPage() {
                   : "No items match this status."}
               </p>
             ) : (
-              <ul className="mt-4 max-h-[50vh] divide-y divide-line overflow-y-auto">
-                {menuLines.map(({ key, order, item }) => (
-                  <li key={key} className="flex items-start gap-3 py-2.5">
+              <ul className="mt-4 max-h-[50vh] space-y-1 overflow-y-auto overflow-x-hidden pr-1">
+                {menuLines.map(({ key, order, item }) => {
+                  const overdue =
+                    order.status !== "served" &&
+                    isOverdue(order.createdAt, now);
+                  const flash = flashIds.has(order.id);
+                  return (
+                  <li
+                    key={key}
+                    className={cn(
+                      "flex items-start gap-3 border px-2.5 py-2.5 transition-all",
+                      "animate-in fade-in slide-in-from-top-1 duration-300",
+                      overdue
+                        ? "rounded-lg border-red-200 bg-red-50"
+                        : "border-transparent border-b-line",
+                      flash &&
+                        "rounded-lg border-clay-300 bg-clay-50 ring-2 ring-clay-200",
+                    )}
+                  >
                     <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-sand text-xs font-semibold text-ink-soft">
                       {item.quantity}
                     </span>
@@ -641,35 +733,68 @@ export default function WaitstaffPage() {
                           ].join(" · ")}
                         </p>
                       )}
-                      <p className="mt-0.5 text-[11px] text-ink-muted">
-                        {order.orderNumber}
+                      <p
+                        className={cn(
+                          "mt-0.5 text-[11px]",
+                          overdue
+                            ? "font-semibold text-red-600"
+                            : "text-ink-muted",
+                        )}
+                      >
+                        {order.orderNumber} · Started {startClock(order.createdAt)}{" "}
+                        · {elapsed(order.createdAt, now)} elapsed
                       </p>
                     </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <div className="flex shrink-0 items-center gap-2">
+                      {overdue && (
+                        <Badge tone="red" className="animate-pulse">
+                          Overdue
+                        </Badge>
+                      )}
                       <Badge tone={STATUS_TONE[order.status] ?? "neutral"}>
                         {order.status}
                       </Badge>
-                      {order.status === "ready" && (
+                      {NEXT_STATUS[order.status] && (
                         <Button
                           size="sm"
                           isDisabled={servingId === order.id}
-                          onPress={() => markServed(order)}
+                          onPress={() =>
+                            advanceStatus(
+                              order,
+                              NEXT_STATUS[order.status]!.next,
+                            )
+                          }
                         >
-                          {servingId === order.id ? "Serving…" : "Serve"}
+                          {servingId === order.id
+                            ? "Updating…"
+                            : NEXT_STATUS[order.status]!.label}
                         </Button>
                       )}
                       {canCancel(order.status) && (
                         <Button
                           size="sm"
                           variant="danger"
+                          aria-label="Cancel order"
+                          className="px-2"
                           onPress={() => setCancelTarget(order)}
                         >
-                          Cancel
+                          <svg
+                            viewBox="0 0 16 16"
+                            width={16}
+                            height={16}
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                            strokeLinecap="round"
+                          >
+                            <path d="M4 4l8 8M12 4l-8 8" />
+                          </svg>
                         </Button>
                       )}
                     </div>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             )}
 
