@@ -44,7 +44,7 @@ export default function Home() {
             desc="Pick a branch, open a table session for the order link"
           />
           <Card
-            href={`/kds/${data.branch.id}`}
+            href="/kds"
             title="Kitchen Display"
             desc="Live order board"
           />

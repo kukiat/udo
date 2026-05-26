@@ -3,12 +3,14 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import type { OrderDTO, OrderStatus } from "@/types";
 
-// Valid forward transitions for an order's lifecycle. An order may be cancelled
-// only before the kitchen has finished it (pending/preparing).
+// Valid transitions for an order's lifecycle. Forward moves advance prep;
+// kitchen staff may also step an order back one stage to correct a mistake
+// (preparing → pending, ready → preparing). An order may be cancelled only
+// before the kitchen has finished it (pending/preparing).
 const TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   pending: ["preparing", "cancelled"],
-  preparing: ["ready", "cancelled"],
-  ready: ["served"],
+  preparing: ["ready", "pending", "cancelled"],
+  ready: ["served", "preparing"],
   served: ["completed"],
   completed: [],
   cancelled: [],

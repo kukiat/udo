@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, count, eq } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { parseBody, serverError } from "@/lib/api";
@@ -16,16 +16,34 @@ export async function GET(req: Request) {
     const restaurantId = searchParams.get("restaurantId");
     const withRestaurant = searchParams.get("withRestaurant") === "true";
 
+    const where = restaurantId
+      ? eq(schema.branches.restaurantId, restaurantId)
+      : undefined;
+
+    // Pagination: offset (default 0) + limit (default 10, max 100). Omit
+    // `limit` from the query string to return all branches (unpaginated).
+    const hasLimit = searchParams.has("limit");
+    const limit = hasLimit
+      ? Math.min(100, Math.max(1, Number(searchParams.get("limit")) || 10))
+      : undefined;
+    const offset = Math.max(0, Number(searchParams.get("offset")) || 0);
+
     const rows = await db.query.branches.findMany({
-      where: restaurantId
-        ? eq(schema.branches.restaurantId, restaurantId)
-        : undefined,
+      where,
       orderBy: [asc(schema.branches.name)],
       with: withRestaurant
         ? { restaurant: { columns: { id: true, name: true } } }
         : undefined,
+      limit,
+      offset: hasLimit ? offset : undefined,
     });
-    return Response.json({ branches: rows });
+
+    const [{ value: total } = { value: 0 }] = await db
+      .select({ value: count() })
+      .from(schema.branches)
+      .where(where);
+
+    return Response.json({ branches: rows, total });
   } catch (err) {
     console.error("GET /api/branches", err);
     return serverError();

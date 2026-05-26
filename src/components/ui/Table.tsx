@@ -35,12 +35,16 @@ export function TH({
 export function TR({
   className,
   children,
+  onClick,
 }: {
   className?: string;
   children: React.ReactNode;
+  onClick?: () => void;
 }) {
   return (
-    <tr className={cn("border-t border-line", className)}>{children}</tr>
+    <tr className={cn("border-t border-line", className)} onClick={onClick}>
+      {children}
+    </tr>
   );
 }
 

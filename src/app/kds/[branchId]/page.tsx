@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -58,6 +59,23 @@ const LANES: {
   },
 ];
 
+// Forward status transition used by both the bump button and drag-and-drop.
+const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
+  pending: "preparing",
+  preparing: "ready",
+  ready: "served",
+};
+
+// One-step-back transition, for dragging an order to the previous lane.
+const PREV_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
+  preparing: "pending",
+  ready: "preparing",
+};
+
+const BOARD_LANE_STATUSES = new Set<OrderStatus>(LANES.map((l) => l.status));
+
+const EMPTY_DONE: Set<string> = new Set();
+
 function mmss(ms: number): string {
   const m = Math.floor(ms / 60000);
   const s = Math.floor((ms % 60000) / 1000);
@@ -95,6 +113,20 @@ export default function KdsPage() {
   const [bumpingId, setBumpingId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<OrderDTO | null>(null);
   const [cancelling, setCancelling] = useState(false);
+
+  // Checked-off line items per order (prep tracking), lifted from the card.
+  const [done, setDone] = useState<Record<string, Set<string>>>({});
+  const toggleItem = useCallback((orderId: string, itemId: string) => {
+    setDone((prev) => {
+      const set = new Set(prev[orderId]);
+      set.has(itemId) ? set.delete(itemId) : set.add(itemId);
+      return { ...prev, [orderId]: set };
+    });
+  }, []);
+
+  // Drag-and-drop state for moving an order between status lanes.
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overLane, setOverLane] = useState<OrderStatus | null>(null);
 
   const [branchInfo, setBranchInfo] = useState<BranchResponse["branch"] | null>(
     null,
@@ -272,6 +304,52 @@ export default function KdsPage() {
     [byStation],
   );
 
+  // An order is "ready" to advance once every (station-visible) line item is
+  // checked off. Gates both the bump button and drag-and-drop.
+  const isReady = useCallback(
+    (o: OrderDTO) => {
+      const items = stationId
+        ? o.items.filter((i) => i.kdsStationId === stationId)
+        : o.items;
+      const set = done[o.id];
+      return items.length > 0 && !!set && items.every((i) => set.has(i.id));
+    },
+    [done, stationId],
+  );
+
+  // Whether the order currently being dragged may be dropped into a lane.
+  // Forward (next lane) requires every item checked off; back (previous lane)
+  // is always allowed so staff can correct a premature bump.
+  const dragOrder = dragId ? orders.find((o) => o.id === dragId) : undefined;
+  const canDropInto = useCallback(
+    (laneStatus: OrderStatus) => {
+      if (!dragOrder) return false;
+      if (NEXT_STATUS[dragOrder.status] === laneStatus) return isReady(dragOrder);
+      if (PREV_STATUS[dragOrder.status] === laneStatus) return true;
+      return false;
+    },
+    [dragOrder, isReady],
+  );
+
+  const handleDrop = (laneStatus: OrderStatus) => {
+    setOverLane(null);
+    const o = dragId ? orders.find((x) => x.id === dragId) : undefined;
+    setDragId(null);
+    if (!o) return;
+    const forward = NEXT_STATUS[o.status] === laneStatus && isReady(o);
+    const backward = PREV_STATUS[o.status] === laneStatus;
+    if (forward || backward) {
+      // Moving the order to a new lane resets its item prep checklist so the
+      // next stage starts clean.
+      setDone((prev) => {
+        if (!prev[o.id]) return prev;
+        const { [o.id]: _, ...rest } = prev;
+        return rest;
+      });
+      bump(o, laneStatus);
+    }
+  };
+
   // Stats (computed from the full active board).
   const avg = orders.length
     ? mmss(
@@ -318,9 +396,13 @@ export default function KdsPage() {
       {/* ---------- Top bar ---------- */}
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line bg-white px-5 py-3">
         <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-cream text-ink">
+          <Link
+            href="/"
+            aria-label="Back to home"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-cream text-ink transition hover:bg-sand"
+          >
             ⌂
-          </span>
+          </Link>
           <div>
             <p className="text-sm font-bold text-ink">
               {branchInfo?.restaurant.name ?? "—"}{" "}
@@ -442,53 +524,116 @@ export default function KdsPage() {
 
       {/* ---------- Board (status lanes) ---------- */}
       <main className="flex flex-1 gap-4 overflow-x-auto px-5 py-5">
-        {lanes.map((lane) => (
-          <section
-            key={lane.status}
-            className="flex min-w-[320px] flex-1 flex-col rounded-card bg-white/50"
-          >
-            {/* Lane header */}
-            <div
+        {lanes.map((lane) => {
+          const isDropTarget = canDropInto(lane.status);
+          const isOver = overLane === lane.status;
+          return (
+            <section
+              key={lane.status}
+              onDragOver={(e) => {
+                if (!isDropTarget) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                if (!isOver) setOverLane(lane.status);
+              }}
+              onDragLeave={(e) => {
+                // Ignore leaves bubbling from child elements.
+                if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                setOverLane((prev) => (prev === lane.status ? null : prev));
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                handleDrop(lane.status);
+              }}
               className={cn(
-                "sticky top-0 z-10 flex items-center justify-between rounded-t-card border-t-2 bg-white px-4 py-2.5",
-                lane.head,
+                "flex min-w-[320px] flex-1 flex-col rounded-card bg-white/50 transition",
+                isDropTarget && "outline-dashed outline-2 outline-offset-2 outline-ink/20",
+                isOver && "bg-ink/5 outline-ink/50",
               )}
             >
-              <div className="flex items-center gap-2">
-                <span className={cn("h-2.5 w-2.5 rounded-full", lane.dot)} />
-                <p className="text-sm font-bold uppercase tracking-wide text-ink">
-                  {lane.label}
-                </p>
-                <span className="text-[11px] text-ink-muted">{lane.hint}</span>
-              </div>
-              <span className="rounded-full bg-sand px-2 py-0.5 text-xs font-bold tabular-nums text-ink-soft">
-                {lane.orders.length}
-              </span>
-            </div>
-
-            {/* Lane cards — 1 per row */}
-            <div className="flex flex-1 flex-col gap-3 px-2 py-3">
-              {lane.orders.length === 0 ? (
-                <div className="flex flex-1 items-center justify-center rounded-card border border-dashed border-line py-16 text-center text-sm text-ink-muted">
-                  No orders
+              {/* Lane header */}
+              <div
+                className={cn(
+                  "sticky top-0 z-10 flex items-center justify-between rounded-t-card border-t-2 bg-white px-4 py-2.5",
+                  lane.head,
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={cn("h-2.5 w-2.5 rounded-full", lane.dot)} />
+                  <p className="text-sm font-bold uppercase tracking-wide text-ink">
+                    {lane.label}
+                  </p>
+                  <span className="text-[11px] text-ink-muted">{lane.hint}</span>
                 </div>
-              ) : (
-                lane.orders.map((o) => (
-                  <KdsOrderCard
-                    key={o.id}
-                    order={o}
-                    now={now}
-                    stationId={stationId}
-                    stationsById={stationsById}
-                    onBump={bump}
-                    onCancel={setCancelTarget}
-                    bumping={bumpingId === o.id}
-                  />
-                ))
-              )}
-            </div>
-          </section>
-        ))}
+                <span className="rounded-full bg-sand px-2 py-0.5 text-xs font-bold tabular-nums text-ink-soft">
+                  {lane.orders.length}
+                </span>
+              </div>
+
+              {/* Lane cards — 1 per row */}
+              <div className="flex flex-1 flex-col gap-3 px-2 py-3">
+                {lane.orders.length === 0 ? (
+                  <div className="flex flex-1 items-center justify-center rounded-card border border-dashed border-line py-16 text-center text-sm text-ink-muted">
+                    {isOver ? "Drop to move here" : "No orders"}
+                  </div>
+                ) : (
+                  lane.orders.map((o) => {
+                    const ready = isReady(o);
+                    // Forward only when ready and the next status is a lane;
+                    // backward whenever a previous lane exists.
+                    const canForward =
+                      ready &&
+                      !!NEXT_STATUS[o.status] &&
+                      BOARD_LANE_STATUSES.has(NEXT_STATUS[o.status]!);
+                    const canBackward = !!PREV_STATUS[o.status];
+                    const canDrag = canForward || canBackward;
+                    return (
+                      <div
+                        key={o.id}
+                        draggable={canDrag}
+                        onDragStart={(e) => {
+                          if (!canDrag) {
+                            e.preventDefault();
+                            return;
+                          }
+                          e.dataTransfer.effectAllowed = "move";
+                          setDragId(o.id);
+                        }}
+                        onDragEnd={() => {
+                          setDragId(null);
+                          setOverLane(null);
+                        }}
+                        className={cn(
+                          canDrag && "cursor-grab active:cursor-grabbing",
+                          dragId === o.id && "opacity-50",
+                        )}
+                        title={
+                          canDrag
+                            ? canForward
+                              ? "Drag to an adjacent lane to change status"
+                              : "Drag back to the previous lane"
+                            : undefined
+                        }
+                      >
+                        <KdsOrderCard
+                          order={o}
+                          now={now}
+                          stationId={stationId}
+                          stationsById={stationsById}
+                          onBump={bump}
+                          onCancel={setCancelTarget}
+                          bumping={bumpingId === o.id}
+                          done={done[o.id] ?? EMPTY_DONE}
+                          onToggleItem={(itemId) => toggleItem(o.id, itemId)}
+                        />
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </section>
+          );
+        })}
       </main>
 
       {/* ---------- Footer ---------- */}

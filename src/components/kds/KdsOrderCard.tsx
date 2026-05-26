@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import { cn } from "@/lib/cn";
 import type { OrderDTO, OrderItemDTO, OrderStatus } from "@/types";
@@ -81,6 +81,8 @@ export function KdsOrderCard({
   onBump,
   onCancel,
   bumping,
+  done,
+  onToggleItem,
 }: {
   order: OrderDTO;
   now: number;
@@ -89,15 +91,12 @@ export function KdsOrderCard({
   onBump: (order: OrderDTO, next: OrderStatus) => void;
   onCancel: (order: OrderDTO) => void;
   bumping: boolean;
+  // "Checked off" line items (prep tracking), lifted to the board so it can
+  // gate drag-and-drop / bumping.
+  done: Set<string>;
+  onToggleItem: (itemId: string) => void;
 }) {
-  // Local-only "checked off" state for line items (visual prep tracking).
-  const [done, setDone] = useState<Set<string>>(new Set());
-  const toggle = (id: string) =>
-    setDone((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+  const toggle = onToggleItem;
 
   const items = stationId
     ? order.items.filter((i) => i.kdsStationId === stationId)
