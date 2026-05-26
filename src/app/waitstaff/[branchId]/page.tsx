@@ -25,6 +25,7 @@ type TableRow = {
 };
 type Branch = { id: string; name: string };
 type BranchInfo = { id: string; name: string; restaurant: { name: string } };
+type SessionInfo = { sessionId: string; createdAt: string };
 
 // Statuses a waiter monitors per table (everything still on the floor).
 const MONITORED: OrderStatus[] = ["pending", "preparing", "ready", "served"];
@@ -73,6 +74,24 @@ const elapsed = (createdAt: string, now: number) => {
   const mins = Math.floor(ms / 60000);
   const secs = Math.floor((ms % 60000) / 1000);
   return `${mins}:${String(secs).padStart(2, "0")}`;
+};
+
+// Session start as a readable date + wall-clock time, e.g. "May 26, 14:32".
+const sessionStart = (createdAt: string) =>
+  new Date(createdAt).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+// How long the session has been open, e.g. "1h 05m" or "12m".
+const sessionDuration = (createdAt: string, now: number) => {
+  const ms = Math.max(0, now - new Date(createdAt).getTime());
+  const totalMins = Math.floor(ms / 60000);
+  const hours = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  return hours > 0 ? `${hours}h ${String(mins).padStart(2, "0")}m` : `${mins}m`;
 };
 
 // Orders still on the floor past this age are flagged as overdue.
@@ -144,8 +163,9 @@ export default function WaitstaffPage() {
   const [addingTable, setAddingTable] = useState(false);
   const [tableError, setTableError] = useState<string | null>(null);
 
-  // Active session id per table id — used to gate / build the order link.
-  const [sessionByTable, setSessionByTable] = useState<Map<string, string>>(
+  // Active session per table id — used to gate / build the order link and to
+  // show the session start time + how long it's been open.
+  const [sessionByTable, setSessionByTable] = useState<Map<string, SessionInfo>>(
     new Map(),
   );
   const [openingTableId, setOpeningTableId] = useState<string | null>(null);
@@ -170,11 +190,16 @@ export default function WaitstaffPage() {
   }, [branchId]);
 
   const loadSessions = useCallback(async () => {
-    const d = await api<{ sessions: { sessionId: string; tableId: string }[] }>(
-      `/api/pos/sessions?branchId=${branchId}`,
-    );
+    const d = await api<{
+      sessions: { sessionId: string; tableId: string; createdAt: string }[];
+    }>(`/api/pos/sessions?branchId=${branchId}`);
     setSessionByTable(
-      new Map(d.sessions.map((s) => [s.tableId, s.sessionId])),
+      new Map(
+        d.sessions.map((s) => [
+          s.tableId,
+          { sessionId: s.sessionId, createdAt: s.createdAt },
+        ]),
+      ),
     );
   }, [branchId]);
 
@@ -208,12 +233,12 @@ export default function WaitstaffPage() {
   };
 
   const showLink = (table: TableRow) => {
-    const sessionId = sessionByTable.get(table.id);
-    if (!sessionId) return;
+    const session = sessionByTable.get(table.id);
+    if (!session) return;
     setCopied(false);
     setLinkModal({
       tableNumber: table.tableNumber,
-      url: orderLink(table.tableNumber, sessionId),
+      url: orderLink(table.tableNumber, session.sessionId),
     });
   };
 
@@ -621,9 +646,9 @@ export default function WaitstaffPage() {
               <div className="flex flex-wrap items-center gap-2">
                 {sessionByTable.has(selectedTable.id) && (
                   <Link
-                    href={`/pos/${branchId}?session=${sessionByTable.get(
-                      selectedTable.id,
-                    )}`}
+                    href={`/pos/${branchId}?session=${
+                      sessionByTable.get(selectedTable.id)!.sessionId
+                    }`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -660,6 +685,28 @@ export default function WaitstaffPage() {
                 </Badge>
               </div>
             </div>
+
+            {/* Session start time + how long it's been open */}
+            {(() => {
+              const session = sessionByTable.get(selectedTable.id);
+              if (!session) return null;
+              return (
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-line bg-sand px-3 py-2 text-sm">
+                  <span className="text-ink-muted">
+                    Started{" "}
+                    <span className="font-medium text-ink">
+                      {sessionStart(session.createdAt)}
+                    </span>
+                  </span>
+                  <span className="text-ink-muted">
+                    Open for{" "}
+                    <span className="font-medium text-ink">
+                      {sessionDuration(session.createdAt, now)}
+                    </span>
+                  </span>
+                </div>
+              );
+            })()}
 
             {/* Status filter */}
             <div className="mt-4 flex flex-wrap gap-1.5">

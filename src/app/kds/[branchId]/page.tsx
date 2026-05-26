@@ -28,6 +28,36 @@ const URGENT_MS = 12 * 60 * 1000;
 const PACES = ["calm", "busy", "rush"] as const;
 type Pace = (typeof PACES)[number];
 
+const LANES: {
+  status: OrderStatus;
+  label: string;
+  hint: string;
+  dot: string;
+  head: string;
+}[] = [
+  {
+    status: "pending",
+    label: "New",
+    hint: "Awaiting start",
+    dot: "bg-slate-400",
+    head: "border-slate-300",
+  },
+  {
+    status: "preparing",
+    label: "Preparing",
+    hint: "On the line",
+    dot: "bg-blue-500",
+    head: "border-blue-300",
+  },
+  {
+    status: "ready",
+    label: "Ready",
+    hint: "Pass / serve",
+    dot: "bg-green-500",
+    head: "border-green-300",
+  },
+];
+
 function mmss(ms: number): string {
   const m = Math.floor(ms / 60000);
   const s = Math.floor((ms % 60000) / 1000);
@@ -40,7 +70,6 @@ export default function KdsPage() {
   const [orders, setOrders] = useState<OrderDTO[]>([]);
   const [stations, setStations] = useState<Station[]>([]);
   const [station, setStation] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<"all" | OrderStatus>("all");
   const [now, setNow] = useState(() => Date.now());
   const [bumpingId, setBumpingId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<OrderDTO | null>(null);
@@ -206,15 +235,14 @@ export default function KdsPage() {
     [orders, stationId],
   );
 
-  const visible = useMemo(
+  const lanes = useMemo(
     () =>
-      statusFilter === "all"
-        ? byStation
-        : byStation.filter((o) => o.status === statusFilter),
-    [byStation, statusFilter],
+      LANES.map((lane) => ({
+        ...lane,
+        orders: byStation.filter((o) => o.status === lane.status),
+      })),
+    [byStation],
   );
-
-  const BOARD_STATUSES: OrderStatus[] = ["pending", "preparing", "ready"];
 
   // Stats (computed from the full active board).
   const avg = orders.length
@@ -331,7 +359,7 @@ export default function KdsPage() {
         </div>
       </header>
 
-      {/* ---------- Station tabs + status filter ---------- */}
+      {/* ---------- Station tabs ---------- */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-white px-5 py-2.5">
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -376,70 +404,63 @@ export default function KdsPage() {
             );
           })}
         </div>
-
-        {/* Status filter */}
-        <div className="flex rounded-full border border-line bg-cream p-0.5 text-[11px] font-bold uppercase tracking-wide">
-          {(["all", ...BOARD_STATUSES] as const).map((s) => {
-            const active = statusFilter === s;
-            const count =
-              s === "all"
-                ? byStation.length
-                : byStation.filter((o) => o.status === s).length;
-            return (
-              <button
-                key={s}
-                onClick={() => setStatusFilter(s)}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-3 py-1 transition",
-                  active ? "bg-ink text-white" : "text-ink-muted hover:text-ink",
-                )}
-              >
-                {s === "all" ? "All" : s}
-                <span
-                  className={cn(
-                    "rounded-full px-1.5 text-[10px]",
-                    active ? "bg-white/20" : "bg-white text-ink-muted",
-                  )}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
       </div>
 
-      {/* ---------- Board ---------- */}
-      <main className="flex-1 px-5 py-5">
-        {error && (
-          <div className="mb-4">
-            <ErrorState message={error} />
-          </div>
-        )}
+      {error && (
+        <div className="px-5 pt-4">
+          <ErrorState message={error} />
+        </div>
+      )}
 
-        {visible.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 py-24 text-center">
-            <p className="text-lg font-semibold text-ink">All clear</p>
-            <p className="text-sm text-ink-muted">
-              New orders appear here automatically.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-            {visible.map((o) => (
-              <KdsOrderCard
-                key={o.id}
-                order={o}
-                now={now}
-                stationId={stationId}
-                stationsById={stationsById}
-                onBump={bump}
-                onCancel={setCancelTarget}
-                bumping={bumpingId === o.id}
-              />
-            ))}
-          </div>
-        )}
+      {/* ---------- Board (status lanes) ---------- */}
+      <main className="flex flex-1 gap-4 overflow-x-auto px-5 py-5">
+        {lanes.map((lane) => (
+          <section
+            key={lane.status}
+            className="flex min-w-[520px] flex-1 flex-col rounded-card bg-white/50"
+          >
+            {/* Lane header */}
+            <div
+              className={cn(
+                "sticky top-0 z-10 flex items-center justify-between rounded-t-card border-t-2 bg-white px-4 py-2.5",
+                lane.head,
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <span className={cn("h-2.5 w-2.5 rounded-full", lane.dot)} />
+                <p className="text-sm font-bold uppercase tracking-wide text-ink">
+                  {lane.label}
+                </p>
+                <span className="text-[11px] text-ink-muted">{lane.hint}</span>
+              </div>
+              <span className="rounded-full bg-sand px-2 py-0.5 text-xs font-bold tabular-nums text-ink-soft">
+                {lane.orders.length}
+              </span>
+            </div>
+
+            {/* Lane cards — 2 per row */}
+            <div className="grid flex-1 auto-rows-min grid-cols-2 gap-3 px-2 py-3">
+              {lane.orders.length === 0 ? (
+                <div className="col-span-2 flex items-center justify-center rounded-card border border-dashed border-line py-16 text-center text-sm text-ink-muted">
+                  No orders
+                </div>
+              ) : (
+                lane.orders.map((o) => (
+                  <KdsOrderCard
+                    key={o.id}
+                    order={o}
+                    now={now}
+                    stationId={stationId}
+                    stationsById={stationsById}
+                    onBump={bump}
+                    onCancel={setCancelTarget}
+                    bumping={bumpingId === o.id}
+                  />
+                ))
+              )}
+            </div>
+          </section>
+        ))}
       </main>
 
       {/* ---------- Footer ---------- */}
