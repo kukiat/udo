@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { ItemSwatch } from "@/components/menu/ItemSwatch";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { EmptyState, Loading } from "@/components/ui/States";
@@ -132,6 +133,14 @@ export default function CartPage() {
                     className="grid grid-cols-[1fr_auto] gap-2.5 border-b border-line py-3"
                   >
                     <div className="flex min-w-0 gap-2.5">
+                      <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl">
+                        <ItemSwatch
+                          id={l.menuItemId}
+                          name={l.name}
+                          image={l.image}
+                          size="lg"
+                        />
+                      </div>
                       <div className="inline-flex h-fit items-center rounded-full border border-line">
                         <button
                           onClick={() =>

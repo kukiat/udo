@@ -548,7 +548,9 @@ export default function WaitstaffPage() {
             {filteredTables.map((t) => {
               const ready = readyByTable.get(t.id) ?? 0;
               const tableOrders = ordersByTable.get(t.id) ?? [];
-              const count = tableOrders.length;
+              const count = tableOrders.filter(
+                (o) => o.status !== "served",
+              ).length;
               const overdue = tableOrders.filter(
                 (o) => o.status !== "served" && isOverdue(o.createdAt, now),
               ).length;
@@ -559,10 +561,11 @@ export default function WaitstaffPage() {
                   onClick={() => openDetail(t.id)}
                   className={cn(
                     "group flex flex-col gap-3 rounded-card border bg-white p-4 text-left shadow-card transition-all duration-500",
-                    overdue > 0
-                      ? "border-red-300 ring-1 ring-red-200"
-                      : "border-line hover:border-clay-300",
-                    flashing && "border-clay-300 bg-clay-50 ring-2 ring-clay-200",
+                    flashing
+                      ? "border-orange-300 bg-orange-50"
+                      : overdue > 0
+                        ? "border-red-300 ring-1 ring-red-200"
+                        : "border-line hover:border-clay-300",
                   )}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -711,11 +714,11 @@ export default function WaitstaffPage() {
                     className={cn(
                       "flex items-start gap-3 border px-2.5 py-2.5 transition-all",
                       "animate-in fade-in slide-in-from-top-1 duration-300",
-                      overdue
-                        ? "rounded-lg border-red-200 bg-red-50"
-                        : "border-transparent border-b-line",
-                      flash &&
-                        "rounded-lg border-clay-300 bg-clay-50 ring-2 ring-clay-200",
+                      flash
+                        ? "rounded-lg border-orange-300 bg-orange-50"
+                        : overdue
+                          ? "rounded-lg border-red-200 bg-red-50"
+                          : "border-transparent border-b-line",
                     )}
                   >
                     <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-sand text-xs font-semibold text-ink-soft">
@@ -741,8 +744,11 @@ export default function WaitstaffPage() {
                             : "text-ink-muted",
                         )}
                       >
-                        {order.orderNumber} · Started {startClock(order.createdAt)}{" "}
-                        · {elapsed(order.createdAt, now)} elapsed
+                        {order.orderNumber} · Started{" "}
+                        {startClock(order.createdAt)}
+                        {(order.status === "pending" ||
+                          order.status === "preparing") &&
+                          ` · ${elapsed(order.createdAt, now)} elapsed`}
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
@@ -758,6 +764,10 @@ export default function WaitstaffPage() {
                         <Button
                           size="sm"
                           isDisabled={servingId === order.id}
+                          className={cn(
+                            order.status === "ready" &&
+                              "!bg-green-600 hover:!bg-green-700",
+                          )}
                           onPress={() =>
                             advanceStatus(
                               order,
