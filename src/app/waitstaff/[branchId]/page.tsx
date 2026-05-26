@@ -76,15 +76,6 @@ const elapsed = (createdAt: string, now: number) => {
   return `${mins}:${String(secs).padStart(2, "0")}`;
 };
 
-// Session start as a readable date + wall-clock time, e.g. "May 26, 14:32".
-const sessionStart = (createdAt: string) =>
-  new Date(createdAt).toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
 // How long the session has been open, e.g. "1h 05m" or "12m".
 const sessionDuration = (createdAt: string, now: number) => {
   const ms = Math.max(0, now - new Date(createdAt).getTime());
@@ -572,6 +563,7 @@ export default function WaitstaffPage() {
           <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {filteredTables.map((t) => {
               const ready = readyByTable.get(t.id) ?? 0;
+              const session = sessionByTable.get(t.id);
               const tableOrders = ordersByTable.get(t.id) ?? [];
               const count = tableOrders.filter(
                 (o) => o.status !== "served",
@@ -625,6 +617,22 @@ export default function WaitstaffPage() {
                       <span className="text-ink-muted">—</span>
                     )}
                   </div>
+                  {session && (
+                    <div className="flex items-center justify-between text-xs text-ink-muted">
+                      <span>
+                        Started{" "}
+                        <span className="font-medium text-ink">
+                          {startClock(session.createdAt)}
+                        </span>
+                      </span>
+                      <span>
+                        Open{" "}
+                        <span className="font-medium text-green-600">
+                          {sessionDuration(session.createdAt, now)}
+                        </span>
+                      </span>
+                    </div>
+                  )}
                 </button>
               );
             })}
@@ -685,28 +693,6 @@ export default function WaitstaffPage() {
                 </Badge>
               </div>
             </div>
-
-            {/* Session start time + how long it's been open */}
-            {(() => {
-              const session = sessionByTable.get(selectedTable.id);
-              if (!session) return null;
-              return (
-                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-line bg-sand px-3 py-2 text-sm">
-                  <span className="text-ink-muted">
-                    Started{" "}
-                    <span className="font-medium text-ink">
-                      {sessionStart(session.createdAt)}
-                    </span>
-                  </span>
-                  <span className="text-ink-muted">
-                    Open for{" "}
-                    <span className="font-medium text-ink">
-                      {sessionDuration(session.createdAt, now)}
-                    </span>
-                  </span>
-                </div>
-              );
-            })()}
 
             {/* Status filter */}
             <div className="mt-4 flex flex-wrap gap-1.5">

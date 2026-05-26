@@ -120,6 +120,8 @@ export function KdsOrderCard({
   const t = TIER[tier];
   const next = NEXT[order.status];
   const totalQty = items.reduce((s, i) => s + i.quantity, 0);
+  // All line items must be checked off before the order can be advanced.
+  const allItemsReady = items.length > 0 && items.every((i) => done.has(i.id));
 
   if (items.length === 0) return null;
 
@@ -140,13 +142,14 @@ export function KdsOrderCard({
             <p className="text-lg font-extrabold tracking-tight text-ink">
               {order.orderNumber}
             </p>
-            <p className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-soft">
+            <p className="mt-0.5 flex flex-nowrap items-center gap-1.5 whitespace-nowrap text-xs text-ink-soft">
               <span className="font-semibold">T{order.tableNumber}</span>
               <span className="text-ink-muted">·</span>
               <span>{totalQty} cvr</span>
-            </p>
-            <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-ink-muted">
-              {order.type === "take_away" ? "Take-away" : "Dine-in"}
+              <span className="text-ink-muted">·</span>
+              <span className="font-medium uppercase tracking-wide text-ink-muted">
+                {order.type === "take_away" ? "Take-away" : "Dine-in"}
+              </span>
             </p>
           </div>
           <div
@@ -237,9 +240,6 @@ export function KdsOrderCard({
                           </p>
                         )}
                       </div>
-                      <span className="shrink-0 rounded bg-ink/5 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink-soft">
-                        T{order.tableNumber}
-                      </span>
                       {stationName && (
                         <span
                           className={cn(
@@ -275,8 +275,11 @@ export function KdsOrderCard({
       {next && (
         <button
           onClick={() => onBump(order, next)}
-          disabled={bumping}
-          className="m-3 ml-5 flex items-center justify-center gap-2 rounded-xl bg-ink py-3 text-sm font-bold uppercase tracking-widest text-white transition hover:bg-ink-soft disabled:opacity-50"
+          disabled={bumping || !allItemsReady}
+          title={
+            allItemsReady ? undefined : "Check off all items before advancing"
+          }
+          className="m-2 ml-5 flex items-center justify-center gap-1.5 rounded-lg bg-ink py-1.5 text-xs font-bold uppercase tracking-wide text-white transition hover:bg-ink-soft disabled:cursor-not-allowed disabled:opacity-50"
         >
           {next}
         </button>

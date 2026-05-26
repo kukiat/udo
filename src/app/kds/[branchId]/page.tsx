@@ -1,7 +1,7 @@
 "use client";
 
-import { useParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { KdsOrderCard, stationStyle } from "@/components/kds/KdsOrderCard";
 import { CancelOrderDialog } from "@/components/order/CancelOrderDialog";
@@ -66,10 +66,31 @@ function mmss(ms: number): string {
 
 export default function KdsPage() {
   const { branchId } = useParams<{ branchId: string }>();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const [orders, setOrders] = useState<OrderDTO[]>([]);
   const [stations, setStations] = useState<Station[]>([]);
-  const [station, setStation] = useState<string>("all");
+  const rawStation = searchParams.get("station") ?? "all";
+  // Fall back to "all" if the URL points at a station that doesn't exist
+  // (only once stations have loaded, so we don't clobber during fetch).
+  const station =
+    rawStation !== "all" &&
+    stations.length > 0 &&
+    !stations.some((s) => s.id === rawStation)
+      ? "all"
+      : rawStation;
+  const setStation = useCallback(
+    (next: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (next === "all") params.delete("station");
+      else params.set("station", next);
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
   const [now, setNow] = useState(() => Date.now());
   const [bumpingId, setBumpingId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<OrderDTO | null>(null);
@@ -90,6 +111,13 @@ export default function KdsPage() {
   const [pace, setPace] = useState<Pace>("busy");
 
   const joinAt = useRef<number>(0);
+
+  // If the URL holds an unknown station, normalize it back to "all".
+  useEffect(() => {
+    if (rawStation !== "all" && stations.length > 0 && rawStation !== station) {
+      setStation("all");
+    }
+  }, [rawStation, station, stations.length, setStation]);
 
   // Ticking clock for elapsed timers / overdue detection.
   useEffect(() => {
@@ -417,7 +445,7 @@ export default function KdsPage() {
         {lanes.map((lane) => (
           <section
             key={lane.status}
-            className="flex min-w-[520px] flex-1 flex-col rounded-card bg-white/50"
+            className="flex min-w-[320px] flex-1 flex-col rounded-card bg-white/50"
           >
             {/* Lane header */}
             <div
@@ -438,10 +466,10 @@ export default function KdsPage() {
               </span>
             </div>
 
-            {/* Lane cards — 2 per row */}
-            <div className="grid flex-1 auto-rows-min grid-cols-2 gap-3 px-2 py-3">
+            {/* Lane cards — 1 per row */}
+            <div className="flex flex-1 flex-col gap-3 px-2 py-3">
               {lane.orders.length === 0 ? (
-                <div className="col-span-2 flex items-center justify-center rounded-card border border-dashed border-line py-16 text-center text-sm text-ink-muted">
+                <div className="flex flex-1 items-center justify-center rounded-card border border-dashed border-line py-16 text-center text-sm text-ink-muted">
                   No orders
                 </div>
               ) : (
