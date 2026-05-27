@@ -2,6 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { errorResponse, notFound, parseBody, serverError } from "@/lib/api";
+import { emitBillRequested } from "@/lib/socket";
 import { billRequestSchema } from "@/lib/validation";
 
 // Orders still in the kitchen pipeline — the check can't be requested until
@@ -12,6 +13,12 @@ export async function POST(req: Request) {
   try {
     const { data, error } = await parseBody(req, billRequestSchema);
     if (error) return error;
+
+    const session = await db.query.tableSessions.findFirst({
+      where: eq(schema.tableSessions.id, data.sessionId),
+      columns: { id: true, branchId: true, tableId: true },
+    });
+    if (!session) return notFound("Session not found");
 
     const unserved = await db.query.orders.findFirst({
       where: and(
@@ -41,16 +48,13 @@ export async function POST(req: Request) {
         .returning();
     } else {
       // No bill computed yet — create a placeholder in requested state.
-      const session = await db.query.tableSessions.findFirst({
-        where: eq(schema.tableSessions.id, data.sessionId),
-        columns: { id: true },
-      });
-      if (!session) return notFound("Session not found");
       [bill] = await db
         .insert(schema.bills)
         .values({ tableSessionId: data.sessionId, status: "requested" })
         .returning();
     }
+
+    emitBillRequested(session.branchId, data.sessionId, session.tableId);
 
     return Response.json({ bill });
   } catch (err) {

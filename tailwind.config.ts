@@ -43,6 +43,15 @@ export default {
       boxShadow: {
         card: "0 1px 3px rgba(31,30,28,0.06), 0 1px 2px rgba(31,30,28,0.04)",
       },
+      keyframes: {
+        "border-blink": {
+          "0%, 100%": { borderColor: "#facc15" },
+          "50%": { borderColor: "transparent" },
+        },
+      },
+      animation: {
+        "border-blink": "border-blink 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+      },
     },
   },
   plugins: [

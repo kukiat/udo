@@ -7,6 +7,7 @@ import {
   MenuItemForm,
   type MenuItemFormValues,
 } from "@/components/dashboard/MenuItemForm";
+import { ItemSwatch } from "@/components/menu/ItemSwatch";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -23,6 +24,7 @@ type MenuItem = {
   id: string;
   name: string;
   price: string;
+  image: string | null;
   status: MenuItemStatus;
   category: { id: string; name: string } | null;
 };
@@ -220,6 +222,7 @@ export default function MenuListPage() {
           <Table>
             <THead>
               <TR>
+                <TH className="w-16">Image</TH>
                 <TH>Name</TH>
                 <TH>Category</TH>
                 <TH className="w-28">Price</TH>
@@ -230,6 +233,15 @@ export default function MenuListPage() {
             <tbody>
               {items.map((it) => (
                 <TR key={it.id}>
+                  <TD>
+                    <ItemSwatch
+                      id={it.id}
+                      name={it.name}
+                      image={it.image}
+                      size="xs"
+                      className="rounded-lg"
+                    />
+                  </TD>
                   <TD className="font-medium text-ink">{it.name}</TD>
                   <TD className="text-ink-muted">{it.category?.name ?? "—"}</TD>
                   <TD>{formatPrice(it.price)}</TD>

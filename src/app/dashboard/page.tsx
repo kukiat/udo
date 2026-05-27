@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { CreateRestaurantModal } from "@/components/dashboard/CreateRestaurantModal";
+import { TopBar } from "@/components/dashboard/TopBar";
 import { Button } from "@/components/ui/Button";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import { Modal } from "@/components/ui/Modal";
@@ -90,11 +91,26 @@ export default function DashboardHome() {
     }
   };
 
-  if (loading) return <Loading />;
+  const topBar = (
+    <TopBar
+      left={<span className="text-sm font-semibold text-ink">Restaurants</span>}
+    />
+  );
+
+  if (loading) {
+    return (
+      <>
+        {topBar}
+        <Loading />
+      </>
+    );
+  }
 
   return (
-    <div className="mx-auto max-w-3xl p-5 md:p-8">
-      <div className="flex items-start justify-between gap-3">
+    <>
+      {topBar}
+      <div className="mx-auto max-w-3xl p-5 md:p-8">
+        <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-ink">Restaurants</h1>
           <p className="text-ink-muted">
@@ -253,6 +269,7 @@ export default function DashboardHome() {
           </Table>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

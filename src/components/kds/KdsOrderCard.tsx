@@ -119,8 +119,6 @@ export function KdsOrderCard({
   const t = TIER[tier];
   const next = NEXT[order.status];
   const totalQty = items.reduce((s, i) => s + i.quantity, 0);
-  // All line items must be checked off before the order can be advanced.
-  const allItemsReady = items.length > 0 && items.every((i) => done.has(i.id));
 
   if (items.length === 0) return null;
 
@@ -274,10 +272,7 @@ export function KdsOrderCard({
       {next && (
         <button
           onClick={() => onBump(order, next)}
-          disabled={bumping || !allItemsReady}
-          title={
-            allItemsReady ? undefined : "Check off all items before advancing"
-          }
+          disabled={bumping}
           className="m-2 ml-5 flex items-center justify-center gap-1.5 rounded-lg bg-ink py-1.5 text-xs font-bold uppercase tracking-wide text-white transition hover:bg-ink-soft disabled:cursor-not-allowed disabled:opacity-50"
         >
           {next}

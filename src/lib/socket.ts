@@ -54,3 +54,14 @@ export function emitBillPaid(branchId: string, sessionId: string, tableId: strin
   io.to(tableRoom(tableId)).emit("bill:paid", { sessionId, tableId });
   io.to(branchRoom(branchId)).emit("bill:paid", { sessionId, tableId });
 }
+
+/** Notify the branch floor staff that a table has requested the check. */
+export function emitBillRequested(
+  branchId: string,
+  sessionId: string,
+  tableId: string,
+) {
+  const io = getIO();
+  if (!io) return;
+  io.to(branchRoom(branchId)).emit("bill:requested", { sessionId, tableId });
+}

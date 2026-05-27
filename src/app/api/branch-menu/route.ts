@@ -38,6 +38,7 @@ export async function GET(req: Request) {
       return {
         menuItemId: item.id,
         name: item.name,
+        image: item.image ?? null,
         categoryName: item.category?.name ?? null,
         basePrice: item.price,
         masterStatus: item.status,

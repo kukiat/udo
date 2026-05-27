@@ -42,12 +42,17 @@ export function ItemSwatch({
   name: string;
   id: string;
   image?: string | null;
-  size?: "sm" | "lg";
+  size?: "xs" | "sm" | "lg";
   className?: string;
 }) {
   const color = PALETTE[hash(id || name) % PALETTE.length];
   const big = size === "lg";
-  const dims = big ? "h-full w-full" : "h-[76px] w-[76px]";
+  const dims =
+    size === "lg"
+      ? "h-full w-full"
+      : size === "xs"
+        ? "h-11 w-11"
+        : "h-[76px] w-[76px]";
 
   if (image) {
     return (

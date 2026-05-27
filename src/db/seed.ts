@@ -477,7 +477,7 @@ async function main() {
         name: "Original Recipe Bucket",
         description: "8 pieces of signature pressure-fried chicken with 11 herbs and spices.",
         price: "399.00",
-        image: img("1626082927389-6cd097cee6a6"),
+        image: img("1610057099431-d73a1c9d2f2f"),
         category: "Fried Chicken",
       },
       {
@@ -506,7 +506,7 @@ async function main() {
         name: "Coleslaw",
         description: "Creamy house coleslaw, served chilled.",
         price: "39.00",
-        image: img("1625938145312-c88c11bb2c40"),
+        image: img("1529059997568-3d847b1154f0"),
         category: "Sides",
         station: "cold",
       },
@@ -599,7 +599,7 @@ async function main() {
         name: "Double Bacon Burger",
         description: "Two beef patties, crispy bacon, double cheese and pickles.",
         price: "259.00",
-        image: img("1553979459-d2229ba7433a"),
+        image: img("1572802419224-296b0aeee0d9"),
         category: "Burgers",
       },
       {

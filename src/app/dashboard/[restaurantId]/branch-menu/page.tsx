@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { ItemSwatch } from "@/components/menu/ItemSwatch";
 import { Button } from "@/components/ui/Button";
 import { Switch } from "@/components/ui/Switch";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
@@ -13,6 +14,7 @@ import { formatPrice } from "@/lib/utils";
 type Row = {
   menuItemId: string;
   name: string;
+  image: string | null;
   categoryName: string | null;
   basePrice: string;
   isAvailable: boolean;
@@ -118,6 +120,7 @@ export default function BranchMenuPage() {
           <Table>
             <THead>
               <TR>
+                <TH className="w-16">Image</TH>
                 <TH>Item</TH>
                 <TH>Category</TH>
                 <TH className="w-28">Base price</TH>
@@ -128,6 +131,15 @@ export default function BranchMenuPage() {
             <tbody>
               {rows.map((r) => (
                 <TR key={r.menuItemId}>
+                  <TD>
+                    <ItemSwatch
+                      id={r.menuItemId}
+                      name={r.name}
+                      image={r.image}
+                      size="xs"
+                      className="rounded-lg"
+                    />
+                  </TD>
                   <TD className="font-medium text-ink">{r.name}</TD>
                   <TD className="text-ink-muted">{r.categoryName ?? "—"}</TD>
                   <TD>{formatPrice(r.basePrice)}</TD>

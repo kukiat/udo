@@ -25,7 +25,11 @@ type TableRow = {
 };
 type Branch = { id: string; name: string };
 type BranchInfo = { id: string; name: string; restaurant: { name: string } };
-type SessionInfo = { sessionId: string; createdAt: string };
+type SessionInfo = {
+  sessionId: string;
+  createdAt: string;
+  billStatus: "open" | "requested" | "paid";
+};
 
 // Statuses a waiter monitors per table (everything still on the floor).
 const MONITORED: OrderStatus[] = ["pending", "preparing", "ready", "served"];
@@ -98,13 +102,14 @@ function StatCard({
 }: {
   label: string;
   value: number;
-  tone?: "neutral" | "amber" | "green";
+  tone?: "neutral" | "amber" | "green" | "clay";
   highlight?: boolean;
 }) {
   const valueTone = {
     neutral: "text-ink",
     amber: "text-amber-600",
     green: "text-green-600",
+    clay: "text-clay-600",
   }[tone];
   return (
     <div
@@ -182,13 +187,22 @@ export default function WaitstaffPage() {
 
   const loadSessions = useCallback(async () => {
     const d = await api<{
-      sessions: { sessionId: string; tableId: string; createdAt: string }[];
+      sessions: {
+        sessionId: string;
+        tableId: string;
+        createdAt: string;
+        billStatus: "open" | "requested" | "paid";
+      }[];
     }>(`/api/pos/sessions?branchId=${branchId}`);
     setSessionByTable(
       new Map(
         d.sessions.map((s) => [
           s.tableId,
-          { sessionId: s.sessionId, createdAt: s.createdAt },
+          {
+            sessionId: s.sessionId,
+            createdAt: s.createdAt,
+            billStatus: s.billStatus,
+          },
         ]),
       ),
     );
@@ -280,9 +294,12 @@ export default function WaitstaffPage() {
       loadSessions().catch(() => {});
     };
 
+    const refreshSessions = () => loadSessions().catch(() => {});
+
     socket.on("order:new", refreshAll);
     socket.on("order:status-update", refreshOrders);
     socket.on("bill:paid", refreshAll);
+    socket.on("bill:requested", refreshSessions);
 
     const join = () => socket.emit("branch:join", { branchId });
     if (socket.connected) join();
@@ -292,6 +309,7 @@ export default function WaitstaffPage() {
       socket.off("order:new", refreshAll);
       socket.off("order:status-update", refreshOrders);
       socket.off("bill:paid", refreshAll);
+      socket.off("bill:requested", refreshSessions);
       socket.off("connect", join);
     };
   }, [branchId, loadOrders, loadTables, loadSessions]);
@@ -369,6 +387,15 @@ export default function WaitstaffPage() {
       m.set(o.tableId, (m.get(o.tableId) ?? 0) + 1);
     return m;
   }, [readyOrders]);
+
+  // Tables whose customers have asked for the check.
+  const checkRequestedCount = useMemo(
+    () =>
+      Array.from(sessionByTable.values()).filter(
+        (s) => s.billStatus === "requested",
+      ).length,
+    [sessionByTable],
+  );
 
   // Table selected for the detail modal (null = modal closed).
   const [detailTableId, setDetailTableId] = useState<string | null>(null);
@@ -496,7 +523,7 @@ export default function WaitstaffPage() {
         )}
 
         {/* ---------- Stat cards ---------- */}
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
           <StatCard
             highlight
             label="Total Orders"
@@ -504,6 +531,11 @@ export default function WaitstaffPage() {
           />
           <StatCard label="Occupied" value={occupiedCount} tone="amber" />
           <StatCard label="Ready" value={readyOrders.length} tone="green" />
+          <StatCard
+            label="Check requested"
+            value={checkRequestedCount}
+            tone="clay"
+          />
           <StatCard label="Available" value={availableCount} tone="neutral" />
         </div>
 
@@ -564,6 +596,7 @@ export default function WaitstaffPage() {
             {filteredTables.map((t) => {
               const ready = readyByTable.get(t.id) ?? 0;
               const session = sessionByTable.get(t.id);
+              const checkRequested = session?.billStatus === "requested";
               const tableOrders = ordersByTable.get(t.id) ?? [];
               const count = tableOrders.filter(
                 (o) => o.status !== "served",
@@ -580,9 +613,11 @@ export default function WaitstaffPage() {
                     "group flex flex-col gap-3 rounded-card border bg-white p-4 text-left shadow-card transition-all duration-500",
                     flashing
                       ? "border-orange-300 bg-orange-50"
-                      : overdue > 0
-                        ? "border-red-300 ring-1 ring-red-200"
-                        : "border-line hover:border-clay-300",
+                      : checkRequested
+                        ? "animate-border-blink border-yellow-400 bg-yellow-50 ring-1 ring-yellow-300"
+                        : overdue > 0
+                          ? "border-red-300 ring-1 ring-red-200"
+                          : "border-line hover:border-clay-300",
                   )}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -604,6 +639,12 @@ export default function WaitstaffPage() {
                       </Badge>
                     )}
                   </div>
+                  {checkRequested && (
+                    <div className="flex items-center gap-1.5 rounded-lg bg-yellow-400 px-2.5 py-1.5 text-xs font-semibold text-white">
+                      <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
+                      Check requested
+                    </div>
+                  )}
                   <div className="flex items-center justify-between border-t border-line pt-3 text-sm text-ink-muted">
                     <span>
                       {count} active order{count === 1 ? "" : "s"}
@@ -683,6 +724,14 @@ export default function WaitstaffPage() {
                       ? "Opening…"
                       : "Open session"}
                   </Button>
+                )}
+                {sessionByTable.get(selectedTable.id)?.billStatus ===
+                  "requested" && (
+                  <Badge
+                    className="animate-pulse !bg-yellow-400 !text-white"
+                  >
+                    Check requested
+                  </Badge>
                 )}
                 <Badge
                   tone={

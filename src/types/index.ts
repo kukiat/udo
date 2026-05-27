@@ -132,6 +132,7 @@ export type KdsRejectPayload = { reason: string; max: number };
 export type ScreenCountPayload = { branchId: string; count: number; max: number };
 export type TableJoinPayload = { tableId: string };
 export type BillPaidPayload = { sessionId: string; tableId: string };
+export type BillRequestedPayload = { sessionId: string; tableId: string };
 
 export type ServerToClientEvents = {
   "kds:reject": (p: KdsRejectPayload) => void;
@@ -139,6 +140,7 @@ export type ServerToClientEvents = {
   "order:new": (order: OrderDTO) => void;
   "order:status-update": (p: { order: OrderDTO }) => void;
   "bill:paid": (p: BillPaidPayload) => void;
+  "bill:requested": (p: BillRequestedPayload) => void;
 };
 
 export type ClientToServerEvents = {
