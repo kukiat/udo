@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { KdsOrderCard, stationStyle } from "@/components/kds/KdsOrderCard";
 import { CancelOrderDialog } from "@/components/order/CancelOrderDialog";
@@ -571,7 +578,7 @@ export default function KdsPage() {
               </div>
 
               {/* Lane cards — 1 per row */}
-              <div className="flex flex-1 flex-col gap-3 px-2 py-3">
+              <FlipList className="flex flex-1 flex-col gap-3 px-2 py-3">
                 {lane.orders.length === 0 ? (
                   <div className="flex flex-1 items-center justify-center rounded-card border border-dashed border-line py-16 text-center text-sm text-ink-muted">
                     {isOver ? "Drop to move here" : "No orders"}
@@ -590,6 +597,7 @@ export default function KdsPage() {
                     return (
                       <div
                         key={o.id}
+                        data-flip-key={o.id}
                         draggable={canDrag}
                         onDragStart={(e) => {
                           if (!canDrag) {
@@ -630,7 +638,7 @@ export default function KdsPage() {
                     );
                   })
                 )}
-              </div>
+              </FlipList>
             </section>
           );
         })}
@@ -695,6 +703,68 @@ function Stat({
       <p className="mt-1 text-[10px] uppercase tracking-wide text-ink-muted">
         {label}
       </p>
+    </div>
+  );
+}
+
+const useIsoLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+// Animates its keyed children: new cards drop in from the top, and cards that
+// change position (e.g. an order sliding down as it ages or gets bumped) glide
+// to their new spot via the FLIP technique. Children must carry data-flip-key.
+function FlipList({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  // Resting offsetTop per key. offsetTop ignores CSS transforms, so an
+  // in-flight animation won't poison the next measurement (avoids jitter on
+  // the 1s clock tick).
+  const prev = useRef<Map<string, number>>(new Map());
+
+  useIsoLayoutEffect(() => {
+    const container = ref.current;
+    if (!container) return;
+    const nodes = Array.from(container.children).filter(
+      (n): n is HTMLElement =>
+        n instanceof HTMLElement && !!n.dataset.flipKey,
+    );
+
+    for (const node of nodes) {
+      const key = node.dataset.flipKey!;
+      const next = node.offsetTop;
+      const last = prev.current.get(key);
+      if (last !== undefined) {
+        const dy = last - next;
+        if (dy) {
+          node.animate(
+            [{ transform: `translateY(${dy}px)` }, { transform: "translateY(0)" }],
+            { duration: 320, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+          );
+        }
+      } else {
+        node.animate(
+          [
+            { transform: "translateY(-18px)", opacity: 0 },
+            { transform: "translateY(0)", opacity: 1 },
+          ],
+          { duration: 320, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+        );
+      }
+    }
+
+    prev.current = new Map(
+      nodes.map((n) => [n.dataset.flipKey!, n.offsetTop]),
+    );
+  });
+
+  return (
+    <div ref={ref} className={className}>
+      {children}
     </div>
   );
 }

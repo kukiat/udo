@@ -7,6 +7,7 @@ import { PaymentModal } from "@/components/pos/PaymentModal";
 import { Receipt } from "@/components/pos/Receipt";
 import { ShiftBar } from "@/components/pos/ShiftBar";
 import { AccountMenu } from "@/components/ui/AccountMenu";
+import { HomeLink } from "@/components/ui/HomeLink";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -143,7 +144,10 @@ function PosPageInner() {
   return (
     <div className="mx-auto max-w-6xl p-4 md:p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-ink">Point of Sale</h1>
+        <div className="flex items-center gap-3">
+          <HomeLink />
+          <h1 className="text-2xl font-bold text-ink">Point of Sale</h1>
+        </div>
         <AccountMenu />
       </div>
 

@@ -1,14 +1,18 @@
 "use client";
 
 import { AccountMenu } from "@/components/ui/AccountMenu";
+import { HomeLink } from "@/components/ui/HomeLink";
 import { Select } from "@/components/ui/Select";
 import { useRestaurant } from "@/contexts/RestaurantContext";
 
-// Shared topbar shell: optional left content, account menu pinned right.
+// Shared topbar shell: home icon + optional left content, account menu right.
 export function TopBar({ left }: { left?: React.ReactNode }) {
   return (
     <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-line bg-white px-4 md:px-6">
-      <div className="flex min-w-0 items-center gap-3">{left}</div>
+      <div className="flex min-w-0 items-center gap-3">
+        <HomeLink />
+        {left}
+      </div>
       <AccountMenu />
     </header>
   );

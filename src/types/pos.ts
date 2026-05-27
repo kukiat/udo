@@ -40,6 +40,9 @@ export type BillLineItem = {
 export type ReceiptData = {
   sessionId: string;
   branchId: string;
+  branchName: string;
+  branchAddress: string | null;
+  restaurantName: string;
   tableNumber: string;
   totals: BillTotals;
   lineItems: BillLineItem[];

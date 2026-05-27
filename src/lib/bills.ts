@@ -14,6 +14,9 @@ export type BillLineItem = {
 export type SessionBill = {
   sessionId: string;
   branchId: string;
+  branchName: string;
+  branchAddress: string | null;
+  restaurantName: string;
   tableNumber: string;
   totals: BillTotals;
   lineItems: BillLineItem[];
@@ -30,7 +33,10 @@ export async function computeSessionBill(
   const session = await db.query.tableSessions.findFirst({
     where: eq(schema.tableSessions.id, sessionId),
     with: {
-      branch: { columns: { settings: true } },
+      branch: {
+        columns: { name: true, address: true, settings: true },
+        with: { restaurant: { columns: { name: true } } },
+      },
       table: { columns: { tableNumber: true } },
       orders: {
         with: {
@@ -78,6 +84,9 @@ export async function computeSessionBill(
   return {
     sessionId,
     branchId: session.branchId,
+    branchName: session.branch.name,
+    branchAddress: session.branch.address,
+    restaurantName: session.branch.restaurant.name,
     tableNumber: session.table.tableNumber,
     totals,
     lineItems,

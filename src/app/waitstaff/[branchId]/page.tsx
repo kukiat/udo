@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CancelOrderDialog } from "@/components/order/CancelOrderDialog";
 import { AccountMenu } from "@/components/ui/AccountMenu";
+import { HomeLink } from "@/components/ui/HomeLink";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -488,13 +489,16 @@ export default function WaitstaffPage() {
   return (
     <div className="min-h-screen bg-cream">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-white px-4 py-3 sm:px-5 sm:py-4">
-        <div>
-          <h1 className="text-xl font-bold text-ink">Waitstaff</h1>
-          {branch && (
-            <p className="mt-0.5 text-sm text-ink-muted">
-              {branch.restaurant.name}
-            </p>
-          )}
+        <div className="flex items-center gap-3">
+          <HomeLink />
+          <div>
+            <h1 className="text-xl font-bold text-ink">Waitstaff</h1>
+            {branch && (
+              <p className="mt-0.5 text-sm text-ink-muted">
+                {branch.restaurant.name}
+              </p>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-3">
           {branches.length > 0 && (

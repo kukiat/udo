@@ -22,7 +22,12 @@ export function Receipt({
     <div className="p-5">
       <div id="receipt-print" className="mx-auto max-w-xs text-sm text-ink">
         <div className="text-center">
-          <p className="text-base font-bold">Payment Receipt</p>
+          <p className="text-base font-bold">{receipt.restaurantName}</p>
+          <p className="text-xs font-medium text-ink-soft">{receipt.branchName}</p>
+          {receipt.branchAddress && (
+            <p className="text-xs text-ink-muted">{receipt.branchAddress}</p>
+          )}
+          <p className="mt-2 text-sm font-semibold">Payment Receipt</p>
           <p className="text-xs text-ink-muted">Table {receipt.tableNumber}</p>
         </div>
         <hr className="my-3 border-line" />
