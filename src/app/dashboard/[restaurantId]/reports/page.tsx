@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { DateRangePicker } from "@/components/ui/DateRangePicker";
 import { ErrorState, Loading } from "@/components/ui/States";
-import { TD, TH, THead, TR, Table } from "@/components/ui/Table";
 import { useRestaurant } from "@/contexts/RestaurantContext";
 import { api } from "@/lib/fetcher";
 import { formatPrice } from "@/lib/utils";
@@ -21,11 +21,13 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
 const daysAgoISO = (n: number) =>
   new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
 
-const METHOD_LABEL: Record<string, string> = {
-  cash: "Cash",
-  card: "Card",
-  qr: "QR / e-wallet",
+const METHOD: Record<string, { th: string; en: string; color: string }> = {
+  qr: { th: "พร้อมเพย์ / QR", en: "PromptPay", color: "lime" },
+  cash: { th: "เงินสด", en: "Cash", color: "butter" },
+  card: { th: "บัตร", en: "Card", color: "coral" },
 };
+
+const CAT_HUES = [32, 18, 50, 95, 65, 110, 200, 300];
 
 export default function ReportsPage() {
   const { branchId, branchName, loading: ctxLoading } = useRestaurant();
@@ -54,40 +56,37 @@ export default function ReportsPage() {
   const maxDay = data
     ? Math.max(1, ...data.byDay.map((d) => parseFloat(d.total)))
     : 1;
+  const payTotal = data
+    ? data.paymentBreakdown.reduce((s, p) => s + parseFloat(p.total), 0)
+    : 0;
+  const catTotal = data
+    ? data.byCategory.reduce((s, c) => s + parseFloat(c.total), 0)
+    : 0;
 
   return (
     <div className="max-w-5xl">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h1 className="text-2xl font-bold text-ink">Sales Reports</h1>
-          <p className="text-sm text-ink-muted">{branchName ?? "—"}</p>
+          <div className="h-display" style={{ fontSize: 44 }}>
+            รายงานยอดขาย
+          </div>
+          <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 4 }}>
+            SALES REPORTS · {branchName ?? "—"}
+          </div>
         </div>
-        <div className="flex items-end gap-2">
-          <label className="flex flex-col gap-1 text-xs text-ink-soft">
-            From
-            <input
-              type="date"
-              value={from}
-              max={to}
-              onChange={(e) => setFrom(e.target.value)}
-              className="rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-clay-300"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-ink-soft">
-            To
-            <input
-              type="date"
-              value={to}
-              max={todayISO()}
-              onChange={(e) => setTo(e.target.value)}
-              className="rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-clay-300"
-            />
-          </label>
-        </div>
+        <DateRangePicker
+          label="ช่วงเวลา · DATE RANGE"
+          value={{ from, to }}
+          max={todayISO()}
+          onChange={(r) => {
+            setFrom(r.from);
+            setTo(r.to);
+          }}
+        />
       </div>
 
       {error && (
-        <div className="mt-4">
+        <div style={{ marginBottom: 16 }}>
           <ErrorState message={error} onRetry={load} />
         </div>
       )}
@@ -95,144 +94,168 @@ export default function ReportsPage() {
       {loading || !data ? (
         <Loading />
       ) : (
-        <div className="mt-5 flex flex-col gap-5">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Stat label="Total sales" value={formatPrice(data.summary.totalSales)} />
-            <Stat label="Transactions" value={String(data.summary.orderCount)} />
-            <Stat label="Avg. ticket" value={formatPrice(data.summary.avgTicket)} />
+        <>
+          {/* Big stats */}
+          <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(3, 1fr)", marginBottom: 18 }}>
+            <div
+              className="stat"
+              style={{
+                background: "linear-gradient(135deg, oklch(0.3 0.1 130) 0%, var(--surface) 100%)",
+                borderColor: "var(--lime)",
+              }}
+            >
+              <div className="eyebrow">
+                ยอดขายรวม <span style={{ opacity: 0.6 }}>· TOTAL SALES</span>
+              </div>
+              <div className="num mono" style={{ color: "var(--lime)" }}>
+                {formatPrice(data.summary.totalSales)}
+              </div>
+            </div>
+            <div className="stat">
+              <div className="eyebrow">
+                รายการขาย <span style={{ opacity: 0.6 }}>· TRANSACTIONS</span>
+              </div>
+              <div className="num mono">{data.summary.orderCount}</div>
+            </div>
+            <div className="stat">
+              <div className="eyebrow">
+                เฉลี่ย/บิล <span style={{ opacity: 0.6 }}>· AVG TICKET</span>
+              </div>
+              <div className="num mono">{formatPrice(data.summary.avgTicket)}</div>
+            </div>
           </div>
 
-          <Card title="Sales by day">
+          {/* Sales by day */}
+          <div className="card" style={{ padding: 22, marginBottom: 18 }}>
+            <div style={{ marginBottom: 16 }}>
+              <div className="h-2">ยอดขายรายวัน</div>
+              <div className="eyebrow">SALES BY DAY</div>
+            </div>
             {data.byDay.length === 0 ? (
               <Empty />
             ) : (
-              <div className="flex flex-col gap-1.5">
-                {data.byDay.map((d) => (
-                  <div key={d.date} className="flex items-center gap-3 text-sm">
-                    <span className="w-24 shrink-0 text-ink-muted">{d.date}</span>
-                    <div className="h-4 flex-1 overflow-hidden rounded-full bg-sand">
-                      <div
-                        className="h-full rounded-full bg-clay-400"
-                        style={{
-                          width: `${(parseFloat(d.total) / maxDay) * 100}%`,
-                        }}
-                      />
+              <div className="col" style={{ gap: 8 }}>
+                {data.byDay.map((d, i) => {
+                  const last = i === data.byDay.length - 1;
+                  return (
+                    <div key={d.date} className="row" style={{ gap: 12, fontSize: 13 }}>
+                      <span className="mono" style={{ width: 90, color: "var(--text-3)", flexShrink: 0 }}>
+                        {d.date.slice(5)}
+                      </span>
+                      <div style={{ flex: 1, height: 14, background: "var(--bg-elev)", borderRadius: 99, overflow: "hidden" }}>
+                        <div
+                          style={{
+                            height: "100%",
+                            borderRadius: 99,
+                            width: `${(parseFloat(d.total) / maxDay) * 100}%`,
+                            background: last ? "var(--coral)" : "var(--coral-soft)",
+                          }}
+                        />
+                      </div>
+                      <span className="mono" style={{ width: 90, textAlign: "right", fontWeight: 700, flexShrink: 0 }}>
+                        {formatPrice(d.total)}
+                      </span>
                     </div>
-                    <span className="w-24 shrink-0 text-right font-medium text-ink">
-                      {formatPrice(d.total)}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
-          </Card>
+          </div>
 
-          <div className="grid gap-5 lg:grid-cols-2">
-            <Card title="Payment methods">
+          <div className="grid gap-3.5" style={{ gridTemplateColumns: "1fr 1fr" }}>
+            {/* Payment methods */}
+            <div className="card" style={{ padding: 22 }}>
+              <div className="h-2" style={{ marginBottom: 4 }}>วิธีชำระ</div>
+              <div className="eyebrow" style={{ marginBottom: 18 }}>PAYMENT METHODS</div>
               {data.paymentBreakdown.length === 0 ? (
                 <Empty />
               ) : (
-                <Table>
-                  <THead>
-                    <TR>
-                      <TH>Method</TH>
-                      <TH className="text-right">Count</TH>
-                      <TH className="text-right">Total</TH>
-                    </TR>
-                  </THead>
-                  <tbody>
-                    {data.paymentBreakdown.map((p) => (
-                      <TR key={p.method}>
-                        <TD>{METHOD_LABEL[p.method] ?? p.method}</TD>
-                        <TD className="text-right">{p.count}</TD>
-                        <TD className="text-right font-medium text-ink">
-                          {formatPrice(p.total)}
-                        </TD>
-                      </TR>
-                    ))}
-                  </tbody>
-                </Table>
+                data.paymentBreakdown.map((p) => {
+                  const m = METHOD[p.method] ?? { th: p.method, en: p.method, color: "sky" };
+                  const pct = payTotal ? Math.round((parseFloat(p.total) / payTotal) * 100) : 0;
+                  return (
+                    <div key={p.method} style={{ marginBottom: 14 }}>
+                      <div className="row" style={{ justifyContent: "space-between", marginBottom: 6 }}>
+                        <span style={{ fontSize: 13 }}>
+                          {m.th} <span style={{ color: "var(--text-3)", fontSize: 11 }}>· {m.en}</span>
+                        </span>
+                        <span className="mono" style={{ fontSize: 13, fontWeight: 700 }}>{pct}%</span>
+                      </div>
+                      <div style={{ height: 8, background: "var(--bg-elev)", borderRadius: 99 }}>
+                        <div style={{ width: `${pct}%`, height: "100%", background: `var(--${m.color})`, borderRadius: 99 }} />
+                      </div>
+                    </div>
+                  );
+                })
               )}
-            </Card>
+            </div>
 
-            <Card title="Sales by category">
+            {/* Sales by category */}
+            <div className="card" style={{ padding: 22 }}>
+              <div className="h-2" style={{ marginBottom: 4 }}>ยอดขายตามหมวด</div>
+              <div className="eyebrow" style={{ marginBottom: 18 }}>SALES BY CATEGORY</div>
               {data.byCategory.length === 0 ? (
                 <Empty />
               ) : (
-                <Table>
-                  <THead>
-                    <TR>
-                      <TH>Category</TH>
-                      <TH className="text-right">Qty</TH>
-                      <TH className="text-right">Total</TH>
-                    </TR>
-                  </THead>
-                  <tbody>
-                    {data.byCategory.map((c) => (
-                      <TR key={c.name}>
-                        <TD>{c.name}</TD>
-                        <TD className="text-right">{c.qty}</TD>
-                        <TD className="text-right font-medium text-ink">
-                          {formatPrice(c.total)}
-                        </TD>
-                      </TR>
-                    ))}
-                  </tbody>
-                </Table>
+                data.byCategory.map((c, i) => {
+                  const pct = catTotal ? Math.round((parseFloat(c.total) / catTotal) * 100) : 0;
+                  return (
+                    <div key={c.name} style={{ marginBottom: 10 }}>
+                      <div className="row" style={{ justifyContent: "space-between", marginBottom: 4 }}>
+                        <span style={{ fontSize: 13 }}>{c.name}</span>
+                        <span className="mono" style={{ fontSize: 12, fontWeight: 700 }}>{pct}%</span>
+                      </div>
+                      <div style={{ height: 6, background: "var(--bg-elev)", borderRadius: 99 }}>
+                        <div style={{ width: `${pct}%`, height: "100%", background: `oklch(0.7 0.18 ${CAT_HUES[i % CAT_HUES.length]})`, borderRadius: 99 }} />
+                      </div>
+                    </div>
+                  );
+                })
               )}
-            </Card>
+            </div>
           </div>
 
-          <Card title="Top items">
+          {/* Top items */}
+          <div className="card" style={{ padding: 22, marginTop: 18 }}>
+            <div className="h-2" style={{ marginBottom: 4 }}>เมนูขายดี</div>
+            <div className="eyebrow" style={{ marginBottom: 14 }}>TOP ITEMS</div>
             {data.topItems.length === 0 ? (
               <Empty />
             ) : (
-              <Table>
-                <THead>
-                  <TR>
-                    <TH>Item</TH>
-                    <TH className="text-right">Qty sold</TH>
-                    <TH className="text-right">Revenue</TH>
-                  </TR>
-                </THead>
-                <tbody>
-                  {data.topItems.map((it) => (
-                    <TR key={it.name}>
-                      <TD className="font-medium text-ink">{it.name}</TD>
-                      <TD className="text-right">{it.qty}</TD>
-                      <TD className="text-right">{formatPrice(it.total)}</TD>
-                    </TR>
-                  ))}
-                </tbody>
-              </Table>
+              data.topItems.map((it, i) => (
+                <div
+                  key={it.name}
+                  className="row"
+                  style={{
+                    gap: 12,
+                    padding: "8px 0",
+                    borderTop: i === 0 ? "none" : "1px dashed var(--border)",
+                  }}
+                >
+                  <span className="mono" style={{ width: 24, color: "var(--text-3)", fontWeight: 700 }}>
+                    {i + 1}.
+                  </span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{it.name}</div>
+                    <div style={{ fontSize: 10, color: "var(--text-3)" }}>{it.qty} จาน · sold</div>
+                  </div>
+                  <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: "var(--lime)" }}>
+                    {formatPrice(it.total)}
+                  </span>
+                </div>
+              ))
             )}
-          </Card>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-card border border-line bg-white p-4 shadow-card">
-      <p className="text-xs uppercase tracking-wide text-ink-muted">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-ink">{value}</p>
-    </div>
-  );
-}
-
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-ink-muted">
-        {title}
-      </h2>
-      {children}
-    </div>
-  );
-}
-
 function Empty() {
-  return <p className="text-sm text-ink-muted">No data in this range.</p>;
+  return (
+    <p style={{ fontSize: 13, color: "var(--text-3)" }}>
+      ไม่มีข้อมูลในช่วงนี้ · No data in this range.
+    </p>
+  );
 }
