@@ -8,12 +8,9 @@ import {
   type MenuItemFormValues,
 } from "@/components/dashboard/MenuItemForm";
 import { ItemSwatch } from "@/components/menu/ItemSwatch";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
-import { TD, TH, THead, TR, Table } from "@/components/ui/Table";
 import { useRestaurant } from "@/contexts/RestaurantContext";
 import { api } from "@/lib/fetcher";
 import { toMenuItemPayload } from "@/lib/menu-form";
@@ -51,16 +48,21 @@ type MenuItemDetail = {
 
 const PAGE_SIZE = 10;
 
-const STATUS_OPTIONS = [
-  { id: "available", label: "Available" },
-  { id: "sold_out", label: "Sold out" },
-  { id: "hidden", label: "Hidden" },
+const STATUS_OPTIONS: { id: MenuItemStatus; label: string }[] = [
+  { id: "available", label: "พร้อม · Available" },
+  { id: "sold_out", label: "หมด · Sold out" },
+  { id: "hidden", label: "ซ่อน · Hidden" },
 ];
 
-const statusTone: Record<MenuItemStatus, "green" | "amber" | "neutral"> = {
-  available: "green",
-  sold_out: "amber",
-  hidden: "neutral",
+const statusPill: Record<MenuItemStatus, string> = {
+  available: "pill-lime",
+  sold_out: "pill-danger",
+  hidden: "pill-muted",
+};
+const statusLabel: Record<MenuItemStatus, string> = {
+  available: "● พร้อม",
+  sold_out: "● หมด",
+  hidden: "● ซ่อน",
 };
 
 export default function MenuListPage() {
@@ -193,47 +195,54 @@ export default function MenuListPage() {
   if (ctxLoading || loading) return <Loading />;
 
   return (
-    <div className="max-w-4xl">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-ink">Menu Items</h1>
+    <div className="max-w-5xl">
+      <div className="row" style={{ justifyContent: "space-between", marginBottom: 18 }}>
+        <div>
+          <div className="h-display" style={{ fontSize: 44 }}>
+            รายการเมนู
+          </div>
+          <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 4 }}>
+            MENU ITEMS · {total} รายการ
+          </div>
+        </div>
         <Link href={`/dashboard/${restaurantId}/menu/create`}>
-          <Button>Create new item</Button>
+          <button className="btn btn-primary">＋ เพิ่มเมนู · CREATE NEW</button>
         </Link>
       </div>
 
       {error && (
-        <div className="mt-4">
+        <div style={{ marginBottom: 16 }}>
           <ErrorState message={error} onRetry={load} />
         </div>
       )}
 
-      <div className="mt-4">
-        {items.length === 0 ? (
-          <EmptyState
-            title="No menu items"
-            description="Create your first menu item to get started."
-            action={
-              <Link href={`/dashboard/${restaurantId}/menu/create`}>
-                <Button>Create new item</Button>
-              </Link>
-            }
-          />
-        ) : (
-          <Table>
-            <THead>
-              <TR>
-                <TH className="w-16">Image</TH>
-                <TH>Name</TH>
-                <TH>Category</TH>
-                <TH className="w-28">Price</TH>
-                <TH className="w-44">Status</TH>
-                <TH className="w-40 text-right">Actions</TH>
-              </TR>
-            </THead>
+      {items.length === 0 ? (
+        <EmptyState
+          title="No menu items"
+          description="Create your first menu item to get started."
+          action={
+            <Link href={`/dashboard/${restaurantId}/menu/create`}>
+              <button className="btn btn-primary">＋ เพิ่มเมนู · CREATE NEW</button>
+            </Link>
+          }
+        />
+      ) : (
+        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <table className="table">
+            <thead>
+              <tr>
+                <th style={{ width: 60 }} />
+                <th>เมนู · ITEM</th>
+                <th>หมวด · CAT</th>
+                <th style={{ textAlign: "right" }}>ราคา · PRICE</th>
+                <th>สถานะ · STATUS</th>
+                <th style={{ textAlign: "right" }} />
+              </tr>
+            </thead>
             <tbody>
               {items.map((it) => (
-                <TR key={it.id}>
-                  <TD>
+                <tr key={it.id}>
+                  <td>
                     <ItemSwatch
                       id={it.id}
                       name={it.name}
@@ -241,80 +250,96 @@ export default function MenuListPage() {
                       size="xs"
                       className="rounded-lg"
                     />
-                  </TD>
-                  <TD className="font-medium text-ink">{it.name}</TD>
-                  <TD className="text-ink-muted">{it.category?.name ?? "—"}</TD>
-                  <TD>{formatPrice(it.price)}</TD>
-                  <TD>
-                    <div className="flex items-center gap-2">
-                      <Badge tone={statusTone[it.status]}>{it.status}</Badge>
+                  </td>
+                  <td style={{ fontWeight: 700 }}>{it.name}</td>
+                  <td>
+                    <span className="pill" style={{ fontSize: 11 }}>
+                      {it.category?.name ?? "—"}
+                    </span>
+                  </td>
+                  <td
+                    className="mono"
+                    style={{ textAlign: "right", fontWeight: 700, color: "var(--lime)" }}
+                  >
+                    {formatPrice(it.price)}
+                  </td>
+                  <td>
+                    <div className="row" style={{ gap: 8 }}>
+                      <span className={`pill ${statusPill[it.status]}`} style={{ fontSize: 10 }}>
+                        {statusLabel[it.status]}
+                      </span>
                       <Select
-                        options={STATUS_OPTIONS}
+                        dark
+                        className="w-36"
+                        options={STATUS_OPTIONS.map((o) => ({ id: o.id, label: o.label }))}
                         selectedKey={it.status}
                         onSelectionChange={(k) => changeStatus(it.id, k)}
-                        className="w-32"
                       />
                     </div>
-                  </TD>
-                  <TD className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onPress={() => openEdit(it.id)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        onPress={() => setDeleteItem(it)}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </TD>
-                </TR>
+                  </td>
+                  <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                    <button
+                      className="pill"
+                      style={{ marginRight: 6, cursor: "pointer" }}
+                      onClick={() => openEdit(it.id)}
+                    >
+                      แก้
+                    </button>
+                    <button
+                      className="pill pill-danger"
+                      style={{ cursor: "pointer" }}
+                      onClick={() => setDeleteItem(it)}
+                    >
+                      ลบ
+                    </button>
+                  </td>
+                </tr>
               ))}
             </tbody>
-          </Table>
-        )}
+          </table>
+        </div>
+      )}
 
-        {total > 0 && (
-          <div className="mt-4 flex items-center justify-between">
-            <p className="text-sm text-ink-muted">
-              {offset + 1}–{Math.min(offset + PAGE_SIZE, total)} of {total}
-            </p>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="secondary"
-                isDisabled={offset === 0}
-                onPress={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
-              >
-                Previous
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                isDisabled={offset + PAGE_SIZE >= total}
-                onPress={() => setOffset((o) => o + PAGE_SIZE)}
-              >
-                Next
-              </Button>
-            </div>
+      {total > 0 && (
+        <div className="row" style={{ justifyContent: "space-between", marginTop: 16 }}>
+          <span style={{ fontSize: 12, color: "var(--text-3)" }}>
+            แสดง {offset + 1}–{Math.min(offset + PAGE_SIZE, total)} จาก {total}
+          </span>
+          <div className="row" style={{ gap: 6 }}>
+            <button
+              className="pill"
+              style={{ cursor: "pointer", opacity: offset === 0 ? 0.5 : 1 }}
+              disabled={offset === 0}
+              onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
+            >
+              ← ก่อนหน้า
+            </button>
+            <button
+              className="pill"
+              style={{
+                cursor: "pointer",
+                opacity: offset + PAGE_SIZE >= total ? 0.5 : 1,
+              }}
+              disabled={offset + PAGE_SIZE >= total}
+              onClick={() => setOffset((o) => o + PAGE_SIZE)}
+            >
+              ถัดไป →
+            </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <Modal
         isOpen={editId !== null}
         onOpenChange={(open) => !open && closeEdit()}
-        className="sm:max-w-2xl"
+        className="sm:max-w-2xl !border-[oklch(0.34_0.025_270)] !bg-[oklch(0.24_0.02_270)]"
       >
-        <div className="p-5">
-          <h2 className="sticky top-0 z-10 -mx-5 -mt-5 mb-4 border-b border-line bg-white px-5 py-4 text-xl font-bold text-ink">
-            Edit Menu Item
+        <div className="dir-a" style={{ padding: 20, background: "var(--surface)" }}>
+          <h2
+            className="eyebrow"
+            style={{ marginBottom: 14, fontSize: 13, color: "var(--text)" }}
+          >
+            แก้ไขเมนู · EDIT MENU ITEM
           </h2>
           {editLoading || !editValues ? (
             <Loading />
@@ -334,33 +359,32 @@ export default function MenuListPage() {
       <Modal
         isOpen={deleteItem !== null}
         onOpenChange={(open) => !open && setDeleteItem(null)}
+        className="!border-[oklch(0.34_0.025_270)] !bg-[oklch(0.24_0.02_270)]"
       >
-        <div className="flex flex-col gap-4 p-5">
+        <div className="dir-a col" style={{ gap: 16, padding: 20, background: "var(--surface)" }}>
           <div>
-            <h2 className="text-lg font-semibold text-ink">Delete menu item?</h2>
-            <p className="mt-1 text-sm text-ink-muted">
+            <h2 className="h-2">ลบเมนู? · Delete menu item?</h2>
+            <p style={{ marginTop: 4, fontSize: 13, color: "var(--text-3)" }}>
               {deleteItem
                 ? `“${deleteItem.name}” will be deleted. This can't be undone.`
                 : ""}
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="secondary"
-              className="flex-1"
-              isDisabled={deleting}
-              onPress={() => setDeleteItem(null)}
+          <div className="row" style={{ gap: 8 }}>
+            <button
+              className="btn btn-ghost grow"
+              disabled={deleting}
+              onClick={() => setDeleteItem(null)}
             >
-              Cancel
-            </Button>
-            <Button
-              variant="danger"
-              className="flex-1"
-              isDisabled={deleting}
-              onPress={confirmRemove}
+              ยกเลิก
+            </button>
+            <button
+              className="btn btn-danger grow"
+              disabled={deleting}
+              onClick={confirmRemove}
             >
-              {deleting ? "Deleting…" : "Delete"}
-            </Button>
+              {deleting ? "กำลังลบ…" : "ลบ · Delete"}
+            </button>
           </div>
         </div>
       </Modal>

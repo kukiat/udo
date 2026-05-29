@@ -6,5 +6,5 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   await requireAccess("dashboard", "/dashboard");
-  return <div className="min-h-screen bg-cream">{children}</div>;
+  return <div className="dir-a min-h-screen">{children}</div>;
 }

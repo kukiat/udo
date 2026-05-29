@@ -1,37 +1,116 @@
 "use client";
 
-import { useRef, useState } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 
-// Image picker that uploads a file to /api/uploads and reports the resulting
-// URL, with a manual URL field as a fallback. Value is the stored URL/path.
-export function ImageUpload({
-  label,
-  value,
-  onChange,
-  className,
-}: {
-  label?: string;
-  value: string | null;
-  onChange: (url: string | null) => void;
-  className?: string;
-}) {
+export type ImageUploadHandle = {
+  // Uploads a pending (not-yet-uploaded) file and returns its URL. When there
+  // is no pending file, resolves to the current value. Throws on upload error.
+  flush: () => Promise<string | null>;
+};
+
+async function uploadFile(file: File): Promise<string> {
+  const body = new FormData();
+  body.append("file", file);
+  const res = await fetch("/api/uploads", { method: "POST", body });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json?.error?.message ?? "Upload failed");
+  return json.url as string;
+}
+
+// Image picker that reports a stored URL via onChange, with a manual URL field
+// as a fallback.
+//
+// - Default (immediate) mode: uploads on pick and reports the URL right away.
+// - Deferred mode (`deferred`): shows a local preview on pick and holds the
+//   file until the parent calls `flush()` (via ref) at save time, so nothing is
+//   uploaded unless the form is actually saved.
+export const ImageUpload = forwardRef<
+  ImageUploadHandle,
+  {
+    label?: string;
+    value: string | null;
+    onChange: (url: string | null) => void;
+    className?: string;
+    deferred?: boolean;
+  }
+>(function ImageUpload({ label, value, onChange, className, deferred }, ref) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const upload = async (file: File) => {
-    setUploading(true);
+  // Deferred mode only: the picked-but-not-uploaded file and its object-URL preview.
+  const pendingFile = useRef<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+
+  const clearPending = () => {
+    pendingFile.current = null;
+    setPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  };
+
+  // When the value changes from outside (modal reopened, URL pasted, parent
+  // reset), drop any stale pending file/preview.
+  useEffect(() => {
+    clearPending();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  // Revoke the last object URL on unmount.
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      flush: async () => {
+        if (!pendingFile.current) return value;
+        setUploading(true);
+        setError(null);
+        try {
+          const url = await uploadFile(pendingFile.current);
+          clearPending();
+          onChange(url);
+          return url;
+        } catch (e) {
+          setError(e instanceof Error ? e.message : "Upload failed");
+          throw e;
+        } finally {
+          setUploading(false);
+        }
+      },
+    }),
+    // onChange/value captured fresh each render via closure recreation
+    [value, onChange],
+  );
+
+  const pick = async (file: File) => {
     setError(null);
+    if (deferred) {
+      pendingFile.current = file;
+      setPreview((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return URL.createObjectURL(file);
+      });
+      return;
+    }
+    setUploading(true);
     try {
-      const body = new FormData();
-      body.append("file", file);
-      const res = await fetch("/api/uploads", { method: "POST", body });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error?.message ?? "Upload failed");
-      onChange(json.url as string);
+      onChange(await uploadFile(file));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed");
     } finally {
@@ -39,20 +118,32 @@ export function ImageUpload({
     }
   };
 
+  const shown = preview ?? value;
+  const hasPending = preview !== null;
+
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
-      {label && (
-        <span className="text-sm font-medium text-ink-soft">{label}</span>
-      )}
+      {label && <span className="label">{label}</span>}
       <div className="flex items-start gap-3">
-        <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-line bg-sand">
-          {value ? (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+          title="Click to upload image"
+          aria-label="Upload image"
+          className="flex h-20 w-20 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-line bg-sand transition-colors hover:border-clay-300 disabled:cursor-wait"
+        >
+          {uploading ? (
+            <span className="text-xs text-ink-muted">Uploading…</span>
+          ) : shown ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={value} alt="" className="h-full w-full object-cover" />
+            <img src={shown} alt="" className="h-full w-full object-cover" />
           ) : (
-            <span className="text-xs text-ink-muted">No image</span>
+            <span className="px-1 text-center text-xs text-ink-muted">
+              Click to upload
+            </span>
           )}
-        </div>
+        </button>
         <div className="flex flex-1 flex-col gap-2">
           <input
             ref={inputRef}
@@ -61,39 +152,39 @@ export function ImageUpload({
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) upload(f);
+              if (f) pick(f);
               e.target.value = "";
             }}
           />
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              isDisabled={uploading}
-              onPress={() => inputRef.current?.click()}
-            >
-              {uploading ? "Uploading…" : "Upload image"}
-            </Button>
-            {value && (
+          {shown && (
+            <div className="flex gap-2">
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                onPress={() => onChange(null)}
+                onPress={() => {
+                  clearPending();
+                  onChange(null);
+                }}
               >
                 Remove
               </Button>
-            )}
-          </div>
-          <input
-            type="url"
-            value={value ?? ""}
-            placeholder="…or paste an image URL"
-            onChange={(e) => onChange(e.target.value || null)}
-            className="w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-clay-300 focus:ring-2 focus:ring-clay-100"
-          />
-          {value && (
+            </div>
+          )}
+          {hasPending ? (
+            <p className="text-xs text-ink-muted">
+              Image ready — uploads when you save.
+            </p>
+          ) : (
+            <input
+              type="url"
+              value={value ?? ""}
+              placeholder="…or paste an image URL"
+              onChange={(e) => onChange(e.target.value || null)}
+              className="input"
+            />
+          )}
+          {!hasPending && value && (
             <a
               href={value}
               target="_blank"
@@ -108,4 +199,4 @@ export function ImageUpload({
       </div>
     </div>
   );
-}
+});

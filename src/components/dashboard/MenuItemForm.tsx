@@ -1,11 +1,15 @@
 "use client";
 
-import { useForm, useFieldArray, type Control, type UseFormRegister } from "react-hook-form";
+import {
+  Controller,
+  useForm,
+  useFieldArray,
+  type Control,
+  type UseFormRegister,
+} from "react-hook-form";
 
-import { Button } from "@/components/ui/Button";
 import { ImageUpload } from "@/components/ui/ImageUpload";
-import { Switch } from "@/components/ui/Switch";
-import { cn } from "@/lib/cn";
+import { Select } from "@/components/ui/Select";
 
 export type MenuItemFormValues = {
   name: string;
@@ -25,9 +29,6 @@ export type MenuItemFormValues = {
 };
 
 type Option = { id: string; name: string };
-
-const inputClass =
-  "w-full rounded-xl border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-clay-300 focus:ring-2 focus:ring-clay-100";
 
 export function MenuItemForm({
   defaultValues,
@@ -59,27 +60,38 @@ export function MenuItemForm({
   });
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="max-w-2xl space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="col" style={{ gap: 16 }}>
       {/* Basic fields */}
-      <section className="space-y-4 rounded-card border border-line bg-white p-5 shadow-card">
-        <Field label="Name" error={errors.name?.message}>
+      <section className="card" style={{ padding: 20 }}>
+        <div className="eyebrow" style={{ marginBottom: 14 }}>
+          ① ข้อมูลเมนู · BASICS
+        </div>
+        <Field label="ชื่อ · NAME" error={errors.name?.message}>
           <input
             {...register("name", { required: "Name is required" })}
-            className={inputClass}
-            placeholder="e.g. Pad Thai"
+            className="input"
+            placeholder='เช่น "ผัดไทย"'
           />
         </Field>
 
-        <Field label="Description">
-          <textarea
-            {...register("description")}
-            className={`${inputClass} min-h-20 resize-y`}
-            placeholder="Short description"
-          />
-        </Field>
+        <div style={{ marginTop: 12 }}>
+          <Field label="คำอธิบาย · DESCRIPTION">
+            <textarea
+              {...register("description")}
+              className="input"
+              style={{ minHeight: 72, resize: "vertical" }}
+              placeholder="คำอธิบายสั้นๆ"
+            />
+          </Field>
+        </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Base price" error={errors.price?.message}>
+        <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr", marginTop: 12 }}>
+          <ImageUpload
+            label="รูปภาพ · IMAGE"
+            value={watch("image") || null}
+            onChange={(url) => setValue("image", url ?? "")}
+          />
+          <Field label="ราคา · PRICE" error={errors.price?.message}>
             <input
               {...register("price", {
                 required: "Price is required",
@@ -88,63 +100,82 @@ export function MenuItemForm({
                   message: "Enter a valid price",
                 },
               })}
-              className={inputClass}
+              className="input mono"
               placeholder="0.00"
               inputMode="decimal"
             />
           </Field>
-          <ImageUpload
-            label="Image"
-            value={watch("image") || null}
-            onChange={(url) => setValue("image", url ?? "")}
-          />
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
-          <Field label="Category" error={errors.categoryId?.message}>
-            <select
-              {...register("categoryId", { required: "Category is required" })}
-              className={inputClass}
-            >
-              <option value="">Select…</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="KDS station">
-            <select {...register("kdsStationId")} className={inputClass}>
-              <option value="">None</option>
-              {stations.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Status">
-            <select {...register("status")} className={inputClass}>
-              <option value="available">Available</option>
-              <option value="sold_out">Sold out</option>
-              <option value="hidden">Hidden</option>
-            </select>
-          </Field>
+        <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(3, 1fr)", marginTop: 12 }}>
+          <Controller
+            control={control}
+            name="categoryId"
+            rules={{ required: "Category is required" }}
+            render={({ field, fieldState }) => (
+              <div>
+                <Select
+                  dark
+                  label="หมวด · CATEGORY"
+                  placeholder="เลือก…"
+                  options={categories.map((c) => ({ id: c.id, label: c.name }))}
+                  selectedKey={field.value || null}
+                  onSelectionChange={(k) => field.onChange(k ?? "")}
+                />
+                {fieldState.error && (
+                  <span style={{ fontSize: 12, color: "oklch(0.75 0.16 18)", marginTop: 4, display: "block" }}>
+                    {fieldState.error.message}
+                  </span>
+                )}
+              </div>
+            )}
+          />
+          <Controller
+            control={control}
+            name="kdsStationId"
+            render={({ field }) => (
+              <Select
+                dark
+                label="สถานี · KDS"
+                placeholder="None"
+                options={[
+                  { id: "", label: "None" },
+                  ...stations.map((s) => ({ id: s.id, label: s.name })),
+                ]}
+                selectedKey={field.value || ""}
+                onSelectionChange={(k) => field.onChange(k ?? "")}
+              />
+            )}
+          />
+          <Controller
+            control={control}
+            name="status"
+            render={({ field }) => (
+              <Select
+                dark
+                label="สถานะ · STATUS"
+                options={[
+                  { id: "available", label: "พร้อม · Available" },
+                  { id: "sold_out", label: "หมด · Sold out" },
+                  { id: "hidden", label: "ซ่อน · Hidden" },
+                ]}
+                selectedKey={field.value}
+                onSelectionChange={(k) => k && field.onChange(k)}
+              />
+            )}
+          />
         </div>
       </section>
 
       {/* Option groups */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
-            Option Groups
-          </h2>
-          <Button
+      <section className="card" style={{ padding: 20 }}>
+        <div className="row" style={{ justifyContent: "space-between", marginBottom: 14 }}>
+          <div className="eyebrow">② ตัวเลือกเพิ่มเติม · OPTION GROUPS</div>
+          <button
             type="button"
-            variant="secondary"
-            size="sm"
-            onPress={() =>
+            className="btn btn-ghost"
+            style={{ padding: "6px 12px", fontSize: 12 }}
+            onClick={() =>
               append({
                 name: "",
                 required: false,
@@ -154,82 +185,109 @@ export function MenuItemForm({
               })
             }
           >
-            + Add option group
-          </Button>
+            ＋ เพิ่มกลุ่ม
+          </button>
         </div>
 
         {fields.length === 0 && (
-          <p className="rounded-card border border-dashed border-line bg-white/50 px-4 py-6 text-center text-sm text-ink-muted">
-            No option groups. Add one to offer choices like size or toppings.
-          </p>
+          <div
+            style={{
+              padding: 28,
+              borderRadius: 14,
+              border: "1px dashed var(--border-strong)",
+              textAlign: "center",
+              color: "var(--text-3)",
+              fontSize: 13,
+            }}
+          >
+            ยังไม่มีกลุ่มตัวเลือก
+            <br />
+            <span style={{ opacity: 0.7 }}>
+              No option groups · เพิ่มเพื่อให้ลูกค้าเลือก เช่น ขนาด ความเผ็ด
+            </span>
+          </div>
         )}
 
-        {fields.map((field, index) => (
-          <div
-            key={field.id}
-            className="space-y-3 rounded-card border border-line bg-white p-4 shadow-card"
-          >
-            <div className="flex items-start gap-3">
-              <input
-                {...register(`optionGroups.${index}.name`, {
-                  required: true,
-                })}
-                className={inputClass}
-                placeholder="Group name (e.g. Size)"
-              />
-              <button
-                type="button"
-                onClick={() => remove(index)}
-                className="shrink-0 rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-              >
-                Remove
-              </button>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-4">
-              <Switch
-                isSelected={watch(`optionGroups.${index}.required`)}
-                onChange={(v) => setValue(`optionGroups.${index}.required`, v)}
-              >
-                Required
-              </Switch>
-              <label className="flex items-center gap-2 text-sm text-ink-soft">
-                Min
+        <div className="col" style={{ gap: 10 }}>
+          {fields.map((field, index) => (
+            <div key={field.id} className="card-elev" style={{ padding: 14 }}>
+              <div className="row" style={{ gap: 8, alignItems: "flex-start" }}>
                 <input
-                  type="number"
-                  {...register(`optionGroups.${index}.minSelect`, {
-                    valueAsNumber: true,
-                  })}
-                  className="w-16 rounded-lg border border-line px-2 py-1 text-sm"
+                  {...register(`optionGroups.${index}.name`, { required: true })}
+                  className="input"
+                  placeholder="ชื่อกลุ่ม (เช่น ขนาด)"
                 />
-              </label>
-              <label className="flex items-center gap-2 text-sm text-ink-soft">
-                Max
-                <input
-                  type="number"
-                  {...register(`optionGroups.${index}.maxSelect`, {
-                    valueAsNumber: true,
-                  })}
-                  className="w-16 rounded-lg border border-line px-2 py-1 text-sm"
-                />
-              </label>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => remove(index)}
+                  className="pill pill-danger"
+                  style={{ cursor: "pointer", flexShrink: 0 }}
+                >
+                  ลบ
+                </button>
+              </div>
 
-            <OptionItemsField control={control} register={register} groupIndex={index} />
-          </div>
-        ))}
+              <div className="row" style={{ gap: 14, flexWrap: "wrap", marginTop: 10 }}>
+                <label className="row" style={{ gap: 6, fontSize: 13, cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={watch(`optionGroups.${index}.required`)}
+                    onChange={(e) =>
+                      setValue(`optionGroups.${index}.required`, e.target.checked)
+                    }
+                  />
+                  จำเป็น · Required
+                </label>
+                <label className="row" style={{ gap: 6, fontSize: 13, color: "var(--text-2)" }}>
+                  Min
+                  <input
+                    type="number"
+                    {...register(`optionGroups.${index}.minSelect`, {
+                      valueAsNumber: true,
+                    })}
+                    className="input mono"
+                    style={{ width: 64, padding: "6px 8px" }}
+                  />
+                </label>
+                <label className="row" style={{ gap: 6, fontSize: 13, color: "var(--text-2)" }}>
+                  Max
+                  <input
+                    type="number"
+                    {...register(`optionGroups.${index}.maxSelect`, {
+                      valueAsNumber: true,
+                    })}
+                    className="input mono"
+                    style={{ width: 64, padding: "6px 8px" }}
+                  />
+                </label>
+              </div>
+
+              <OptionItemsField control={control} register={register} groupIndex={index} />
+            </div>
+          ))}
+        </div>
       </section>
 
       <div
-        className={cn(
-          "flex justify-end gap-3",
-          stickyFooter &&
-            "sticky bottom-0 -mx-5 -mb-5 border-t border-line bg-white px-5 py-4",
-        )}
+        className="row"
+        style={{
+          justifyContent: "flex-end",
+          gap: 12,
+          ...(stickyFooter
+            ? {
+                position: "sticky",
+                bottom: 0,
+                margin: "0 -20px -20px",
+                padding: "16px 20px",
+                borderTop: "1px solid var(--border)",
+                background: "var(--surface)",
+              }
+            : {}),
+        }}
       >
-        <Button type="submit" size="lg" isDisabled={submitting}>
-          {submitting ? "Saving…" : "Save"}
-        </Button>
+        <button type="submit" className="btn btn-primary" disabled={submitting}>
+          {submitting ? "กำลังบันทึก…" : "บันทึก · SAVE"}
+        </button>
       </div>
     </form>
   );
@@ -251,28 +309,33 @@ function OptionItemsField({
   });
 
   return (
-    <div className="space-y-2 border-t border-line pt-3">
+    <div
+      className="col"
+      style={{ gap: 8, borderTop: "1px dashed var(--border)", paddingTop: 12, marginTop: 12 }}
+    >
       {fields.map((field, i) => (
-        <div key={field.id} className="flex items-center gap-2">
+        <div key={field.id} className="row" style={{ gap: 8 }}>
           <input
             {...register(`optionGroups.${groupIndex}.optionItems.${i}.name`, {
               required: true,
             })}
-            className={`${inputClass} flex-1`}
-            placeholder="Option name (e.g. Large)"
+            className="input"
+            placeholder="ชื่อตัวเลือก (เช่น ใหญ่)"
           />
           <input
             {...register(`optionGroups.${groupIndex}.optionItems.${i}.price`, {
               pattern: /^\d+(\.\d{1,2})?$/,
             })}
-            className={`${inputClass} w-28`}
-            placeholder="+ price"
+            className="input mono"
+            style={{ width: 110 }}
+            placeholder="+ ราคา"
             inputMode="decimal"
           />
           <button
             type="button"
             onClick={() => remove(i)}
-            className="shrink-0 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+            className="pill"
+            style={{ cursor: "pointer", flexShrink: 0 }}
           >
             −
           </button>
@@ -281,9 +344,18 @@ function OptionItemsField({
       <button
         type="button"
         onClick={() => append({ name: "", price: "0" })}
-        className="text-sm font-medium text-clay-700 hover:underline"
+        style={{
+          alignSelf: "flex-start",
+          fontSize: 13,
+          fontWeight: 600,
+          color: "var(--coral)",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          padding: 0,
+        }}
       >
-        + Add option
+        ＋ เพิ่มตัวเลือก
       </button>
     </div>
   );
@@ -299,10 +371,14 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-sm font-medium text-ink-soft">{label}</span>
+    <label style={{ display: "block" }}>
+      <span className="label">{label}</span>
       {children}
-      {error && <span className="text-xs text-red-600">{error}</span>}
+      {error && (
+        <span style={{ fontSize: 12, color: "oklch(0.75 0.16 18)", marginTop: 4, display: "block" }}>
+          {error}
+        </span>
+      )}
     </label>
   );
 }

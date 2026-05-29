@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
-import { Button } from "@/components/ui/Button";
-import { ImageUpload } from "@/components/ui/ImageUpload";
+import { ImageUpload, type ImageUploadHandle } from "@/components/ui/ImageUpload";
 import { Modal } from "@/components/ui/Modal";
 import { ErrorState } from "@/components/ui/States";
 import { api } from "@/lib/fetcher";
@@ -15,9 +14,6 @@ type BranchInput = {
   vat: string;
   service: string;
 };
-
-const FIELD =
-  "rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-clay-300 focus:ring-2 focus:ring-clay-100";
 
 const emptyBranch = (): BranchInput => ({
   name: "",
@@ -38,6 +34,7 @@ export function CreateRestaurantModal({
 }) {
   const [name, setName] = useState("");
   const [logo, setLogo] = useState("");
+  const logoRef = useRef<ImageUploadHandle>(null);
   const [branches, setBranches] = useState<BranchInput[]>([emptyBranch()]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,13 +65,14 @@ export function CreateRestaurantModal({
     setSubmitting(true);
     setError(null);
     try {
+      const logoUrl = await logoRef.current!.flush();
       const { restaurant } = await api<{ restaurant: { id: string } }>(
         "/api/restaurants",
         {
           method: "POST",
           body: JSON.stringify({
             name,
-            logo: logo.trim() || null,
+            logo: logoUrl,
             branches: branches.map((b) => ({
               name: b.name,
               address: b.address.trim() || null,
@@ -103,135 +101,126 @@ export function CreateRestaurantModal({
         if (!open) reset();
         onOpenChange(open);
       }}
-      className="sm:max-w-2xl"
+      className="sm:max-w-2xl !border-[oklch(0.34_0.025_270)] !bg-[oklch(0.24_0.02_270)]"
     >
-      <div className="p-5">
-        <h2 className="text-lg font-bold text-ink">New restaurant</h2>
-        <p className="text-sm text-ink-muted">
-          A restaurant needs at least one branch.
-        </p>
+      <div className="dir-a" style={{ padding: 24, background: "var(--surface)" }}>
+        <div className="h-display" style={{ fontSize: 32 }}>
+          ร้านใหม่
+        </div>
+        <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 4 }}>
+          NEW RESTAURANT · ต้องมีอย่างน้อย 1 สาขา
+        </div>
 
         {error && (
-          <div className="mt-4">
+          <div style={{ marginTop: 16 }}>
             <ErrorState message={error} />
           </div>
         )}
 
-        <section className="mt-4 rounded-card border border-line bg-white p-4">
-          <h3 className="text-sm font-semibold text-ink">Restaurant</h3>
-          <div className="mt-3 flex flex-col gap-3">
-            <label className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium text-ink-soft">Name</span>
+        <section className="card-elev" style={{ padding: 18, marginTop: 18 }}>
+          <div className="eyebrow" style={{ marginBottom: 14 }}>
+            ① ข้อมูลร้าน · RESTAURANT
+          </div>
+          <div className="col" style={{ gap: 12 }}>
+            <label style={{ display: "block" }}>
+              <span className="label">ชื่อร้าน · NAME</span>
               <input
+                className="input"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Restaurant name"
-                className={FIELD}
+                placeholder="ชื่อร้าน"
               />
             </label>
-            <ImageUpload
-              label="Logo (optional)"
-              value={logo || null}
-              onChange={(u) => setLogo(u ?? "")}
-            />
+            <div style={{ maxWidth: 360 }}>
+              <ImageUpload
+                ref={logoRef}
+                deferred
+                label="โลโก้ · LOGO (optional)"
+                value={logo || null}
+                onChange={(u) => setLogo(u ?? "")}
+              />
+            </div>
           </div>
         </section>
 
-        <section className="mt-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-ink">
-              Branches ({branches.length})
-            </h3>
-            <Button size="sm" variant="secondary" onPress={addBranch}>
-              + Add branch
-            </Button>
+        <section style={{ marginTop: 18 }}>
+          <div className="row" style={{ justifyContent: "space-between", marginBottom: 12 }}>
+            <div className="eyebrow">② สาขา · BRANCHES ({branches.length})</div>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ padding: "6px 12px", fontSize: 12 }}
+              onClick={addBranch}
+            >
+              ＋ เพิ่มสาขา
+            </button>
           </div>
 
-          <div className="mt-3 flex flex-col gap-3">
+          <div className="col" style={{ gap: 12 }}>
             {branches.map((b, i) => (
-              <div
-                key={i}
-                className="rounded-card border border-line bg-white p-4"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium uppercase tracking-wide text-ink-muted">
-                    Branch {i + 1}
-                  </span>
+              <div key={i} className="card-elev" style={{ padding: 18 }}>
+                <div className="row" style={{ justifyContent: "space-between", marginBottom: 12 }}>
+                  <span className="eyebrow">สาขา · BRANCH {i + 1}</span>
                   {branches.length > 1 && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onPress={() => removeBranch(i)}
+                    <button
+                      type="button"
+                      className="pill pill-danger"
+                      style={{ cursor: "pointer" }}
+                      onClick={() => removeBranch(i)}
                     >
-                      Remove
-                    </Button>
+                      ลบ
+                    </button>
                   )}
                 </div>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-sm font-medium text-ink-soft">
-                      Name
-                    </span>
+                <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
+                  <label style={{ display: "block" }}>
+                    <span className="label">ชื่อสาขา · NAME</span>
                     <input
+                      className="input"
                       value={b.name}
                       onChange={(e) => updateBranch(i, { name: e.target.value })}
-                      placeholder="Branch name"
-                      className={FIELD}
+                      placeholder="ชื่อสาขา"
                     />
                   </label>
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-sm font-medium text-ink-soft">
-                      Address
-                    </span>
+                  <label style={{ display: "block" }}>
+                    <span className="label">ที่อยู่ · ADDRESS</span>
                     <input
+                      className="input"
                       value={b.address}
-                      onChange={(e) =>
-                        updateBranch(i, { address: e.target.value })
-                      }
-                      placeholder="Optional"
-                      className={FIELD}
+                      onChange={(e) => updateBranch(i, { address: e.target.value })}
+                      placeholder="ไม่บังคับ"
                     />
                   </label>
                 </div>
-                <div className="mt-3 grid grid-cols-3 gap-3">
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-sm font-medium text-ink-soft">
-                      Max KDS
-                    </span>
+                <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(3, 1fr)", marginTop: 12 }}>
+                  <label style={{ display: "block" }}>
+                    <span className="label">KDS สูงสุด</span>
                     <input
+                      className="input mono"
                       type="number"
                       min={1}
                       value={b.maxKds}
-                      onChange={(e) =>
-                        updateBranch(i, { maxKds: e.target.value })
-                      }
-                      className={FIELD}
+                      onChange={(e) => updateBranch(i, { maxKds: e.target.value })}
                     />
                   </label>
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-sm font-medium text-ink-soft">
-                      VAT %
-                    </span>
+                  <label style={{ display: "block" }}>
+                    <span className="label">VAT %</span>
                     <input
+                      className="input mono"
                       type="number"
                       min={0}
                       value={b.vat}
                       onChange={(e) => updateBranch(i, { vat: e.target.value })}
-                      className={FIELD}
                     />
                   </label>
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-sm font-medium text-ink-soft">
-                      Service %
-                    </span>
+                  <label style={{ display: "block" }}>
+                    <span className="label">บริการ %</span>
                     <input
+                      className="input mono"
                       type="number"
                       min={0}
                       value={b.service}
-                      onChange={(e) =>
-                        updateBranch(i, { service: e.target.value })
-                      }
-                      className={FIELD}
+                      onChange={(e) => updateBranch(i, { service: e.target.value })}
                     />
                   </label>
                 </div>
@@ -240,22 +229,21 @@ export function CreateRestaurantModal({
           </div>
         </section>
 
-        <div className="mt-6 flex gap-2">
-          <Button
-            variant="ghost"
-            className="flex-1 border border-gray-300 bg-gray-200 hover:bg-gray-300"
-            onPress={() => onOpenChange(false)}
-            isDisabled={submitting}
+        <div className="row" style={{ gap: 8, marginTop: 24 }}>
+          <button
+            className="btn btn-ghost grow"
+            onClick={() => onOpenChange(false)}
+            disabled={submitting}
           >
-            Cancel
-          </Button>
-          <Button
-            className="flex-1"
-            onPress={submit}
-            isDisabled={submitting || !canSubmit}
+            ยกเลิก
+          </button>
+          <button
+            className="btn btn-primary grow"
+            onClick={submit}
+            disabled={submitting || !canSubmit}
           >
-            {submitting ? "Creating…" : "Create restaurant"}
-          </Button>
+            {submitting ? "กำลังสร้าง…" : "สร้างร้าน · CREATE"}
+          </button>
         </div>
       </div>
     </Modal>

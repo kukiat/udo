@@ -13,6 +13,311 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Hide spinner buttons on number inputs */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* ============================================================
+   Neon Diner (Direction A) — dark theme scoped to the dashboard.
+   Deep ink background, hot-coral + electric-lime accents, chunky
+   rounded cards, bilingual TH/EN. Applied via the .dir-a wrapper.
+   ============================================================ */
+.dir-a {
+  /* Match the rest of the app (KDS / order pages use Tailwind's font-sans). */
+  --font-display: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    sans-serif;
+  --font-mono: "SF Mono", "Menlo", "Monaco", "IBM Plex Mono", monospace;
+
+  --bg: oklch(0.16 0.018 270);
+  --bg-elev: oklch(0.21 0.02 270);
+  --surface: oklch(0.24 0.02 270);
+  --surface-2: oklch(0.28 0.022 270);
+  --border: oklch(0.34 0.025 270);
+  --border-strong: oklch(0.45 0.03 270);
+  --text: oklch(0.97 0.005 90);
+  --text-2: oklch(0.78 0.01 270);
+  --text-3: oklch(0.6 0.01 270);
+
+  --coral: oklch(0.72 0.21 28);
+  --coral-soft: oklch(0.45 0.12 28);
+  --lime: oklch(0.88 0.22 130);
+  --lime-soft: oklch(0.4 0.1 130);
+  --butter: oklch(0.86 0.16 85);
+  --butter-soft: oklch(0.4 0.08 85);
+  --berry: oklch(0.68 0.2 350);
+  --sky: oklch(0.78 0.16 230);
+
+  --status-new: var(--butter);
+  --status-prep: var(--coral);
+  --status-ready: var(--lime);
+  --status-urgent: oklch(0.7 0.22 18);
+
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+  --radius-xl: 28px;
+  --radius-pill: 999px;
+
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-display);
+  font-feature-settings: "ss01" on, "cv11" on;
+  letter-spacing: -0.005em;
+}
+
+/* Cards */
+.dir-a .card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.dir-a .card-elev {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+/* Buttons */
+.dir-a .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter 0.15s ease, background 0.15s ease;
+}
+.dir-a .btn:hover { filter: brightness(1.08); }
+.dir-a .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.dir-a .btn-primary {
+  background: var(--coral);
+  color: oklch(0.18 0.05 28);
+  font-weight: 700;
+  box-shadow: 0 1px 0 0 oklch(0.55 0.18 28) inset, 0 8px 24px -10px var(--coral);
+}
+.dir-a .btn-ghost {
+  background: transparent;
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.dir-a .btn-danger {
+  background: transparent;
+  border-color: oklch(0.45 0.16 18);
+  color: oklch(0.85 0.15 18);
+}
+.dir-a .btn-lime {
+  background: var(--lime);
+  color: oklch(0.22 0.1 130);
+  font-weight: 700;
+}
+
+/* Inputs */
+.dir-a .input {
+  background: oklch(0.12 0.012 270);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  width: 100%;
+  outline: none;
+}
+.dir-a .input::placeholder { color: var(--text-3); }
+.dir-a .input:focus {
+  border-color: var(--coral);
+  box-shadow: 0 0 0 3px oklch(0.45 0.12 28 / 0.3);
+}
+.dir-a .label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  font-weight: 600;
+  margin-bottom: 6px;
+  display: block;
+}
+
+/* Pills / chips */
+.dir-a .pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--text-2);
+}
+.dir-a .pill-on { background: var(--text); color: var(--bg); border-color: var(--text); }
+.dir-a .pill-coral { background: var(--coral-soft); border-color: var(--coral); color: var(--coral); }
+.dir-a .pill-lime { background: var(--lime-soft); border-color: var(--lime); color: var(--lime); }
+.dir-a .pill-butter { background: var(--butter-soft); border-color: var(--butter); color: var(--butter); }
+.dir-a .pill-danger { background: oklch(0.3 0.12 18); border-color: oklch(0.6 0.18 18); color: var(--text); }
+.dir-a .pill-muted { background: var(--bg-elev); border-color: var(--border); color: var(--text-3); }
+
+/* Status dot */
+.dir-a .dot { width: 8px; height: 8px; border-radius: 99px; flex-shrink: 0; }
+.dir-a .dot-new { background: var(--status-new); box-shadow: 0 0 12px var(--status-new); }
+.dir-a .dot-prep { background: var(--status-prep); box-shadow: 0 0 12px var(--status-prep); }
+.dir-a .dot-ready { background: var(--status-ready); box-shadow: 0 0 12px var(--status-ready); }
+.dir-a .dot-urgent { background: var(--status-urgent); box-shadow: 0 0 12px var(--status-urgent); }
+
+/* Type scale */
+.dir-a .h-display { font-size: 44px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+/* NOTE: h-1/h-2/h-3 also exist as Tailwind height utilities (0.25/0.5/0.75rem).
+   Force height:auto so our typography classes win over the height utility and
+   the text isn't clipped to a few pixels. */
+.dir-a .h-1 { height: auto; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
+.dir-a .h-2 { height: auto; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; }
+.dir-a .h-3 { height: auto; font-size: 16px; font-weight: 700; line-height: 1.25; }
+.dir-a .mono { font-family: var(--font-mono); letter-spacing: 0; }
+.dir-a .eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  font-weight: 600;
+}
+
+/* Topbar */
+.dir-a .topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  height: 60px;
+  box-sizing: border-box;
+}
+.dir-a .topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+.dir-a .brand-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--coral), var(--berry));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: oklch(0.98 0 0);
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: -0.04em;
+  box-shadow: 0 0 0 1px oklch(0.55 0.18 28) inset;
+}
+.dir-a .avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 99px;
+  background: var(--coral-soft);
+  color: var(--coral);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 11px;
+  border: 1px solid var(--coral);
+}
+
+/* Sidebar */
+.dir-a .sidebar {
+  width: 220px;
+  border-right: 1px solid var(--border);
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--bg);
+}
+.dir-a .nav-item {
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  color: var(--text-2);
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dir-a .nav-item:hover { background: var(--bg-elev); }
+.dir-a .nav-item.on { background: var(--coral-soft); color: var(--text); font-weight: 700; }
+
+/* Table */
+.dir-a .table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.dir-a .table th {
+  text-align: left;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--text-3);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.dir-a .table td {
+  padding: 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  vertical-align: middle;
+}
+.dir-a .table tr:last-child td { border-bottom: 0; }
+
+/* Stat tile */
+.dir-a .stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dir-a .stat .num { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+
+/* Layout helpers */
+.dir-a .row { display: flex; align-items: center; }
+.dir-a .col { display: flex; flex-direction: column; }
+.dir-a .grow { flex: 1; }
+
+/* Bilingual text — Thai primary, English secondary smaller below */
+.dir-a .bi { display: inline-flex; flex-direction: column; align-items: flex-start; line-height: 1.1; }
+.dir-a .bi-th { font-weight: 600; letter-spacing: -0.01em; }
+.dir-a .bi-en {
+  font-size: 0.62em;
+  opacity: 0.55;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-weight: 500;
+  margin-top: 2px;
+}
+.dir-a .bi-stack { display: inline-flex; flex-direction: column; }
+
 /* Print only the receipt body when window.print() is invoked from POS. */
 @media print {
   body * {

@@ -2,21 +2,20 @@
 
 import { useState } from "react";
 
-import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
-import { TD, TH, THead, TR, Table } from "@/components/ui/Table";
 import {
   useRestaurant,
   type BranchSummary,
 } from "@/contexts/RestaurantContext";
 import { api } from "@/lib/fetcher";
 
-const NUM_FIELD =
-  "w-28 rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-clay-300 focus:ring-2 focus:ring-clay-100";
+const MODAL_DARK = "!border-[oklch(0.34_0.025_270)] !bg-[oklch(0.24_0.02_270)]";
 
 export default function BranchesPage() {
   const { restaurantId, branches, loading, refresh } = useRestaurant();
 
+  const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
@@ -33,6 +32,12 @@ export default function BranchesPage() {
     setMaxKds("3");
     setVat("7");
     setService("0");
+  };
+
+  const openCreate = () => {
+    resetForm();
+    setError(null);
+    setFormOpen(true);
   };
 
   const submit = async () => {
@@ -66,6 +71,7 @@ export default function BranchesPage() {
         });
       }
       resetForm();
+      setFormOpen(false);
       await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save branch");
@@ -81,6 +87,8 @@ export default function BranchesPage() {
     setMaxKds(String(b.settings.maxKdsScreens));
     setVat(String(Math.round(b.settings.vatRate * 100)));
     setService(String(Math.round(b.settings.serviceChargeRate * 100)));
+    setError(null);
+    setFormOpen(true);
   };
 
   const remove = async (id: string) => {
@@ -97,124 +105,173 @@ export default function BranchesPage() {
   if (loading) return <Loading />;
 
   return (
-    <div className="max-w-4xl">
-      <h1 className="text-2xl font-bold text-ink">Branches</h1>
-
-      <div className="mt-4 flex flex-wrap items-end gap-3 rounded-card border border-line bg-white p-4 shadow-card">
-        <label className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-ink-soft">Name</span>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Branch name"
-            className="w-48 rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-clay-300 focus:ring-2 focus:ring-clay-100"
-          />
-        </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-ink-soft">Address</span>
-          <input
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="Optional"
-            className="w-56 rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-clay-300 focus:ring-2 focus:ring-clay-100"
-          />
-        </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-ink-soft">Max KDS</span>
-          <input
-            type="number"
-            min={1}
-            value={maxKds}
-            onChange={(e) => setMaxKds(e.target.value)}
-            className={NUM_FIELD}
-          />
-        </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-ink-soft">VAT %</span>
-          <input
-            type="number"
-            min={0}
-            value={vat}
-            onChange={(e) => setVat(e.target.value)}
-            className={NUM_FIELD}
-          />
-        </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-ink-soft">Service %</span>
-          <input
-            type="number"
-            min={0}
-            value={service}
-            onChange={(e) => setService(e.target.value)}
-            className={NUM_FIELD}
-          />
-        </label>
-        <Button onPress={submit} isDisabled={saving || !name.trim()}>
-          {editingId ? "Update" : "Add"}
-        </Button>
-        {editingId && (
-          <Button variant="ghost" onPress={resetForm}>
-            Cancel
-          </Button>
-        )}
+    <div className="max-w-5xl">
+      <div className="row" style={{ justifyContent: "space-between", marginBottom: 24 }}>
+        <div>
+          <div className="h-display" style={{ fontSize: 44 }}>
+            สาขา
+          </div>
+          <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 4 }}>
+            BRANCHES · จัดการสาขาของร้าน
+          </div>
+        </div>
+        <button className="btn btn-primary" onClick={openCreate}>
+          ＋ สาขาใหม่ · NEW BRANCH
+        </button>
       </div>
 
-      {error && (
-        <div className="mt-4">
+      <Modal
+        isOpen={formOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            resetForm();
+            setFormOpen(false);
+          }
+        }}
+        className={`sm:max-w-2xl ${MODAL_DARK}`}
+      >
+        <div className="dir-a" style={{ padding: 24, background: "var(--surface)" }}>
+          <div className="eyebrow" style={{ marginBottom: 16, fontSize: 13, color: "var(--text)" }}>
+            {editingId ? "แก้ไขสาขา · EDIT BRANCH" : "เพิ่มสาขา · NEW BRANCH"}
+          </div>
+          {error && (
+            <div style={{ marginBottom: 16 }}>
+              <ErrorState message={error} />
+            </div>
+          )}
+          <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
+            <div>
+              <span className="label">ชื่อสาขา · NAME</span>
+              <input
+                className="input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder='เช่น "สาขาทองหล่อ"'
+              />
+            </div>
+            <div>
+              <span className="label">ที่อยู่ · ADDRESS</span>
+              <input
+                className="input"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="ไม่บังคับ"
+              />
+            </div>
+          </div>
+          <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(3, 1fr)", marginTop: 12 }}>
+            <div>
+              <span className="label">KDS สูงสุด</span>
+              <input
+                className="input mono"
+                type="number"
+                min={1}
+                value={maxKds}
+                onChange={(e) => setMaxKds(e.target.value)}
+              />
+            </div>
+            <div>
+              <span className="label">VAT %</span>
+              <input
+                className="input mono"
+                type="number"
+                min={0}
+                value={vat}
+                onChange={(e) => setVat(e.target.value)}
+              />
+            </div>
+            <div>
+              <span className="label">บริการ %</span>
+              <input
+                className="input mono"
+                type="number"
+                min={0}
+                value={service}
+                onChange={(e) => setService(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="row" style={{ gap: 8, marginTop: 24 }}>
+            <button
+              className="btn btn-ghost grow"
+              onClick={() => {
+                resetForm();
+                setFormOpen(false);
+              }}
+            >
+              ยกเลิก
+            </button>
+            <button
+              className="btn btn-primary grow"
+              onClick={submit}
+              disabled={saving || !name.trim()}
+            >
+              {saving ? "กำลังบันทึก…" : editingId ? "บันทึก · UPDATE" : "＋ เพิ่ม · ADD"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {error && !formOpen && (
+        <div style={{ marginBottom: 16 }}>
           <ErrorState message={error} />
         </div>
       )}
 
-      <div className="mt-4">
-        {branches.length === 0 ? (
-          <EmptyState
-            title="No branches yet"
-            description="Add the first branch for this restaurant above."
-          />
-        ) : (
-          <Table>
-            <THead>
-              <TR>
-                <TH>Name</TH>
-                <TH>Address</TH>
-                <TH className="w-20">Max KDS</TH>
-                <TH className="w-16">VAT</TH>
-                <TH className="w-20">Service</TH>
-                <TH className="w-40 text-right">Actions</TH>
-              </TR>
-            </THead>
+      {branches.length === 0 ? (
+        <EmptyState
+          title="No branches yet"
+          description="Add the first branch for this restaurant above."
+        />
+      ) : (
+        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>ชื่อ · NAME</th>
+                <th>ที่อยู่ · ADDRESS</th>
+                <th style={{ textAlign: "right" }}>KDS</th>
+                <th style={{ textAlign: "right" }}>VAT</th>
+                <th style={{ textAlign: "right" }}>บริการ</th>
+                <th style={{ textAlign: "right" }} />
+              </tr>
+            </thead>
             <tbody>
               {branches.map((b) => (
-                <TR key={b.id}>
-                  <TD className="font-medium text-ink">{b.name}</TD>
-                  <TD className="text-ink-muted">{b.address ?? "—"}</TD>
-                  <TD>{b.settings.maxKdsScreens}</TD>
-                  <TD>{Math.round(b.settings.vatRate * 100)}%</TD>
-                  <TD>{Math.round(b.settings.serviceChargeRate * 100)}%</TD>
-                  <TD className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onPress={() => startEdit(b)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        onPress={() => remove(b.id)}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </TD>
-                </TR>
+                <tr key={b.id}>
+                  <td style={{ fontWeight: 700 }}>{b.name}</td>
+                  <td style={{ color: "var(--text-2)" }}>{b.address ?? "—"}</td>
+                  <td className="mono" style={{ textAlign: "right", fontWeight: 700 }}>
+                    {b.settings.maxKdsScreens}
+                  </td>
+                  <td className="mono" style={{ textAlign: "right" }}>
+                    {Math.round(b.settings.vatRate * 100)}%
+                  </td>
+                  <td className="mono" style={{ textAlign: "right" }}>
+                    {Math.round(b.settings.serviceChargeRate * 100)}%
+                  </td>
+                  <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                    <button
+                      className="pill"
+                      style={{ marginRight: 6, cursor: "pointer" }}
+                      onClick={() => startEdit(b)}
+                    >
+                      แก้ไข
+                    </button>
+                    <button
+                      className="pill pill-danger"
+                      style={{ cursor: "pointer" }}
+                      onClick={() => remove(b.id)}
+                    >
+                      ลบ
+                    </button>
+                  </td>
+                </tr>
               ))}
             </tbody>
-          </Table>
-        )}
-      </div>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
