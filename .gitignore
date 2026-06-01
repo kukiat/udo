@@ -6,3 +6,13 @@ build
 .env*.local
 *.log
 .DS_Store
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo
+
+# Local Claude permissions (per-developer)
+.claude/settings.local.json
+
+# Scratch / generated artifacts
+.tmp-design/
+screenshots/
