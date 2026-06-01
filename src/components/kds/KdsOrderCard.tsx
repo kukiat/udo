@@ -38,31 +38,31 @@ const TIER: Record<
   },
   warn: {
     bar: "#C98A14",
-    border: "#5E4B22",
-    bg: "#1E1B12",
+    border: "var(--tier-warn-border)",
+    bg: "var(--tier-warn-bg)",
     timerFg: "#C98A14",
-    timerBg: "rgba(201,138,20,0.10)",
+    timerBg: "rgba(201,138,20,0.14)",
   },
   alert: {
     bar: "#D9542B",
-    border: "#5C2A18",
-    bg: "#231410",
+    border: "var(--tier-alert-border)",
+    bg: "var(--tier-alert-bg)",
     timerFg: "#D9542B",
-    timerBg: "rgba(217,84,43,0.14)",
+    timerBg: "rgba(217,84,43,0.16)",
   },
   critical: {
     bar: "#B83A3A",
-    border: "#5B1F1F",
-    bg: "#241010",
-    timerFg: "#E66",
+    border: "var(--tier-critical-border)",
+    bg: "var(--tier-critical-bg)",
+    timerFg: "#B83A3A",
     timerBg: "rgba(184,58,58,0.18)",
     pulseBar: true,
   },
 };
 
 const READY_TONE = {
-  border: "#234A2B",
-  bg: "#10221A",
+  border: "var(--tier-ready-border)",
+  bg: "var(--tier-ready-bg)",
   bar: "#7AA56F",
 };
 
@@ -270,8 +270,8 @@ export function KdsOrderCard({
                 padding: "8px 10px",
                 marginTop: idx === 0 ? 4 : 4,
                 background: isDone
-                  ? "rgba(122,165,111,0.08)"
-                  : "rgba(255,255,255,0.02)",
+                  ? "var(--kds-item-bg-done)"
+                  : "var(--kds-item-bg)",
                 border: "1px solid var(--line)",
                 borderRadius: "var(--radius-sm)",
                 color: "inherit",
@@ -279,13 +279,13 @@ export function KdsOrderCard({
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = isDone
-                  ? "rgba(122,165,111,0.14)"
-                  : "rgba(255,255,255,0.06)";
+                  ? "var(--kds-item-bg-done-hover)"
+                  : "var(--kds-item-bg-hover)";
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = isDone
-                  ? "rgba(122,165,111,0.08)"
-                  : "rgba(255,255,255,0.02)";
+                  ? "var(--kds-item-bg-done)"
+                  : "var(--kds-item-bg)";
               }}
             >
               <span
@@ -294,12 +294,12 @@ export function KdsOrderCard({
                   height: 22,
                   borderRadius: 6,
                   background: isDone
-                    ? "#284B33"
+                    ? "var(--kds-item-done-icon-bg)"
                     : order.status === "preparing"
                       ? "rgba(217,84,43,0.15)"
                       : "var(--bg-sunken)",
                   color: isDone
-                    ? "#7AA56F"
+                    ? "#3a6f4e"
                     : order.status === "preparing"
                       ? "var(--accent)"
                       : "var(--ink-3)",
@@ -352,7 +352,7 @@ export function KdsOrderCard({
                     fontSize: 9,
                     padding: "2px 6px",
                     borderRadius: 999,
-                    background: "rgba(255,255,255,0.04)",
+                    background: "var(--kds-station-bg)",
                     color: accent,
                     fontWeight: 700,
                     letterSpacing: "0.06em",
@@ -391,7 +391,7 @@ export function KdsOrderCard({
           padding: 8,
           display: "flex",
           gap: 6,
-          background: "rgba(0,0,0,0.15)",
+          background: "var(--kds-footer-bg)",
         }}
       >
         {canCancel && (

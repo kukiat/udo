@@ -62,11 +62,51 @@ body {
 }
 
 /* ============================================================
-   KDS dark theme — scoped to .kds-theme.
-   Overrides the Marrow tokens with a kitchen-friendly dark
-   palette without affecting the rest of the app.
+   KDS theme — scoped to .kds-theme.
+   Provides a kitchen-friendly palette with both light (default)
+   and dark variants. The card-level urgency tiers are exposed
+   as CSS variables so KdsOrderCard adapts to either mode.
    ============================================================ */
 .kds-theme {
+  /* Surfaces — light (default) */
+  --bg: #fafaf7;
+  --bg-elev: #ffffff;
+  --bg-sunken: #f2f0ea;
+  --line: #e7e3d9;
+  --line-strong: #d6d1c4;
+  --ink: #161512;
+  --ink-2: #3a3833;
+  --ink-3: #6b675e;
+  --ink-4: #9a958a;
+  --accent-soft: #f6e2d8;
+  --olive-soft: #dee9d9;
+  --amber-soft: #f7e9c9;
+  --rose-soft: #f7d9d9;
+
+  /* Order-card urgency tiers — light variants */
+  --tier-warn-bg: #fdf6db;
+  --tier-warn-border: #efd693;
+  --tier-alert-bg: #fde7d8;
+  --tier-alert-border: #efb893;
+  --tier-critical-bg: #fbdcdc;
+  --tier-critical-border: #e6a4a4;
+  --tier-ready-bg: #ebf2dc;
+  --tier-ready-border: #b6d4a8;
+
+  /* Card-internal surfaces (light overlays on warm backgrounds) */
+  --kds-item-bg: rgba(22, 21, 18, 0.015);
+  --kds-item-bg-hover: rgba(22, 21, 18, 0.05);
+  --kds-item-bg-done: rgba(122, 165, 111, 0.16);
+  --kds-item-bg-done-hover: rgba(122, 165, 111, 0.24);
+  --kds-item-done-icon-bg: #cfe1c4;
+  --kds-station-bg: rgba(22, 21, 18, 0.04);
+  --kds-footer-bg: rgba(22, 21, 18, 0.025);
+
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.kds-theme.kds-dark {
   --bg: #0e0f0d;
   --bg-elev: #181a17;
   --bg-sunken: #0a0b09;
@@ -80,8 +120,23 @@ body {
   --olive-soft: #1a2a1f;
   --amber-soft: #2e2614;
   --rose-soft: #2e1818;
-  background: var(--bg);
-  color: var(--ink);
+
+  --tier-warn-bg: #1e1b12;
+  --tier-warn-border: #5e4b22;
+  --tier-alert-bg: #231410;
+  --tier-alert-border: #5c2a18;
+  --tier-critical-bg: #241010;
+  --tier-critical-border: #5b1f1f;
+  --tier-ready-bg: #10221a;
+  --tier-ready-border: #234a2b;
+
+  --kds-item-bg: rgba(255, 255, 255, 0.02);
+  --kds-item-bg-hover: rgba(255, 255, 255, 0.06);
+  --kds-item-bg-done: rgba(122, 165, 111, 0.08);
+  --kds-item-bg-done-hover: rgba(122, 165, 111, 0.14);
+  --kds-item-done-icon-bg: #284b33;
+  --kds-station-bg: rgba(255, 255, 255, 0.04);
+  --kds-footer-bg: rgba(0, 0, 0, 0.15);
 }
 
 /* ============================================================

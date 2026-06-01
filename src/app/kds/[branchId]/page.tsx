@@ -141,6 +141,25 @@ export default function KdsPage() {
   const [latency, setLatency] = useState<number | null>(null);
   const [connected, setConnected] = useState(false);
   const [pulse, setPulse] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+
+  useEffect(() => {
+    const stored =
+      typeof window !== "undefined"
+        ? (localStorage.getItem("rms.kds.theme") as "light" | "dark" | null)
+        : null;
+    if (stored === "light" || stored === "dark") setTheme(stored);
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => {
+      const next = prev === "light" ? "dark" : "light";
+      try {
+        localStorage.setItem("rms.kds.theme", next);
+      } catch {}
+      return next;
+    });
+  }, []);
 
   const joinAt = useRef<number>(0);
   const lastNewCount = useRef(0);
@@ -378,7 +397,10 @@ export default function KdsPage() {
   if (rejected) {
     return (
       <div
-        className="kds-theme flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center"
+        className={cn(
+          "kds-theme flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center",
+          theme === "dark" && "kds-dark",
+        )}
       >
         <div
           style={{
@@ -432,7 +454,12 @@ export default function KdsPage() {
   if (loading) return <Loading label="Loading orders…" />;
 
   return (
-    <div className="kds-theme flex min-h-screen flex-col">
+    <div
+      className={cn(
+        "kds-theme flex min-h-screen flex-col",
+        theme === "dark" && "kds-dark",
+      )}
+    >
       {/* ============ Header ============ */}
       <div
         className="sticky top-0 z-10 flex items-center justify-between"
@@ -491,6 +518,7 @@ export default function KdsPage() {
             max={screen?.max}
             latency={latency}
           />
+          <ThemeToggle theme={theme} onToggle={toggleTheme} />
           <AccountMenu />
         </div>
       </div>
@@ -902,6 +930,48 @@ function Pill({
         </span>
       )}
     </span>
+  );
+}
+
+function ThemeToggle({
+  theme,
+  onToggle,
+}: {
+  theme: "light" | "dark";
+  onToggle: () => void;
+}) {
+  const nextLabel = theme === "light" ? "Dark" : "Light";
+  return (
+    <button
+      onClick={onToggle}
+      aria-label={`Switch to ${nextLabel} theme`}
+      title={`Switch to ${nextLabel} theme`}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "6px 10px",
+        borderRadius: 8,
+        border: "1px solid transparent",
+        background: "transparent",
+        color: "var(--ink-2)",
+        cursor: "pointer",
+        fontSize: 12,
+        fontWeight: 500,
+        letterSpacing: "0.02em",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = "var(--bg-sunken)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "transparent";
+      }}
+    >
+      <span aria-hidden style={{ fontSize: 13, lineHeight: 1 }}>
+        {theme === "light" ? "◐" : "○"}
+      </span>
+      {nextLabel}
+    </button>
   );
 }
 
