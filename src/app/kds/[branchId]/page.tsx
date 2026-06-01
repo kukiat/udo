@@ -32,55 +32,52 @@ type BranchResponse = {
   };
 };
 
-const URGENT_MS = 12 * 60 * 1000;
-const PACES = ["calm", "busy", "rush"] as const;
-type Pace = (typeof PACES)[number];
+const ALERT_MS = 10 * 60 * 1000;
+const CRITICAL_MS = 15 * 60 * 1000;
 
+// Marrow lane definitions — map onto the existing OrderStatus values.
 const LANES: {
   status: OrderStatus;
   label: string;
   hint: string;
-  dot: string;
-  head: string;
+  accent: string;
+  icon: string; // single-character glyph
 }[] = [
   {
     status: "pending",
-    label: "New",
-    hint: "Awaiting start",
-    dot: "bg-slate-400",
-    head: "border-slate-300",
+    label: "Incoming",
+    hint: "Fired, not yet started",
+    accent: "var(--ink-3)",
+    icon: "◔",
   },
   {
     status: "preparing",
-    label: "Preparing",
-    hint: "On the line",
-    dot: "bg-blue-500",
-    head: "border-blue-300",
+    label: "Cooking",
+    hint: "In progress",
+    accent: "var(--accent)",
+    icon: "🔥",
   },
   {
     status: "ready",
     label: "Ready",
-    hint: "Pass / serve",
-    dot: "bg-green-500",
-    head: "border-green-300",
+    hint: "Awaiting pickup",
+    accent: "#7AA56F",
+    icon: "✓",
   },
 ];
 
-// Forward status transition used by both the bump button and drag-and-drop.
 const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
   pending: "preparing",
   preparing: "ready",
   ready: "served",
 };
 
-// One-step-back transition, for dragging an order to the previous lane.
 const PREV_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
   preparing: "pending",
   ready: "preparing",
 };
 
 const BOARD_LANE_STATUSES = new Set<OrderStatus>(LANES.map((l) => l.status));
-
 const EMPTY_DONE: Set<string> = new Set();
 
 function mmss(ms: number): string {
@@ -98,8 +95,6 @@ export default function KdsPage() {
   const [orders, setOrders] = useState<OrderDTO[]>([]);
   const [stations, setStations] = useState<Station[]>([]);
   const rawStation = searchParams.get("station") ?? "all";
-  // Fall back to "all" if the URL points at a station that doesn't exist
-  // (only once stations have loaded, so we don't clobber during fetch).
   const station =
     rawStation !== "all" &&
     stations.length > 0 &&
@@ -121,7 +116,6 @@ export default function KdsPage() {
   const [cancelTarget, setCancelTarget] = useState<OrderDTO | null>(null);
   const [cancelling, setCancelling] = useState(false);
 
-  // Checked-off line items per order (prep tracking), lifted from the card.
   const [done, setDone] = useState<Record<string, Set<string>>>({});
   const toggleItem = useCallback((orderId: string, itemId: string) => {
     setDone((prev) => {
@@ -131,7 +125,6 @@ export default function KdsPage() {
     });
   }, []);
 
-  // Drag-and-drop state for moving an order between status lanes.
   const [dragId, setDragId] = useState<string | null>(null);
   const [overLane, setOverLane] = useState<OrderStatus | null>(null);
 
@@ -147,22 +140,34 @@ export default function KdsPage() {
   const [serviced, setServiced] = useState(0);
   const [latency, setLatency] = useState<number | null>(null);
   const [connected, setConnected] = useState(false);
-  const [pace, setPace] = useState<Pace>("busy");
+  const [pulse, setPulse] = useState(false);
 
   const joinAt = useRef<number>(0);
+  const lastNewCount = useRef(0);
 
-  // If the URL holds an unknown station, normalize it back to "all".
+  // Normalize URL station if it points at an unknown id.
   useEffect(() => {
     if (rawStation !== "all" && stations.length > 0 && rawStation !== station) {
       setStation("all");
     }
   }, [rawStation, station, stations.length, setStation]);
 
-  // Ticking clock for elapsed timers / overdue detection.
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  // Pulse "Active" counter when a brand-new ticket arrives.
+  useEffect(() => {
+    const count = orders.filter((o) => o.status === "pending").length;
+    if (count > lastNewCount.current) {
+      setPulse(true);
+      const t = setTimeout(() => setPulse(false), 1400);
+      lastNewCount.current = count;
+      return () => clearTimeout(t);
+    }
+    lastNewCount.current = count;
+  }, [orders]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -289,7 +294,6 @@ export default function KdsPage() {
   const countForStation = (id: string) =>
     orders.filter((o) => o.items.some((i) => i.kdsStationId === id)).length;
 
-  // Orders matching the active station (any status) — drives status counts.
   const byStation = useMemo(
     () =>
       (stationId
@@ -311,8 +315,6 @@ export default function KdsPage() {
     [byStation],
   );
 
-  // An order is "ready" to advance once every (station-visible) line item is
-  // checked off. Gates both the bump button and drag-and-drop.
   const isReady = useCallback(
     (o: OrderDTO) => {
       const items = stationId
@@ -324,9 +326,6 @@ export default function KdsPage() {
     [done, stationId],
   );
 
-  // Whether the order currently being dragged may be dropped into a lane.
-  // Forward (next lane) requires every item checked off; back (previous lane)
-  // is always allowed so staff can correct a premature bump.
   const dragOrder = dragId ? orders.find((o) => o.id === dragId) : undefined;
   const canDropInto = useCallback(
     (laneStatus: OrderStatus) => {
@@ -346,8 +345,6 @@ export default function KdsPage() {
     const forward = NEXT_STATUS[o.status] === laneStatus && isReady(o);
     const backward = PREV_STATUS[o.status] === laneStatus;
     if (forward || backward) {
-      // Moving the order to a new lane resets its item prep checklist so the
-      // next stage starts clean.
       setDone((prev) => {
         if (!prev[o.id]) return prev;
         const { [o.id]: _, ...rest } = prev;
@@ -357,7 +354,18 @@ export default function KdsPage() {
     }
   };
 
-  // Stats (computed from the full active board).
+  // Live counters — Marrow header strip.
+  const activeCount = orders.length;
+  const longestMs = orders.reduce(
+    (max, o) => Math.max(max, now - new Date(o.createdAt).getTime()),
+    0,
+  );
+  const longestTone =
+    longestMs >= CRITICAL_MS
+      ? "rose"
+      : longestMs >= ALERT_MS
+        ? "amber"
+        : "ink";
   const avg = orders.length
     ? mmss(
         orders.reduce(
@@ -366,28 +374,53 @@ export default function KdsPage() {
         ) / orders.length,
       )
     : "0:00";
-  const urgent = orders.filter(
-    (o) =>
-      o.status !== "ready" && now - new Date(o.createdAt).getTime() >= URGENT_MS,
-  ).length;
-  const readyToBump = orders.filter((o) => o.status === "ready").length;
-
-  const clock = new Date(now);
-  const time = `${String(clock.getHours()).padStart(2, "0")}:${String(clock.getMinutes()).padStart(2, "0")}`;
-  const date = clock
-    .toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
-    .replace(",", " ·")
-    .toUpperCase();
 
   if (rejected) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-ink p-8 text-center">
-        <div className="rounded-card border border-red-300 bg-white px-8 py-10">
-          <h1 className="text-2xl font-bold text-red-600">Connection rejected</h1>
-          <p className="mt-2 max-w-sm text-ink-muted">{rejected}</p>
+      <div
+        className="kds-theme flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center"
+      >
+        <div
+          style={{
+            padding: 32,
+            border: "1px solid var(--rose)",
+            background: "var(--rose-soft)",
+            borderRadius: "var(--radius-lg)",
+            maxWidth: 420,
+          }}
+        >
+          <h1
+            style={{
+              fontSize: 22,
+              fontWeight: 700,
+              letterSpacing: "-0.02em",
+              color: "var(--rose)",
+            }}
+          >
+            Connection rejected
+          </h1>
+          <p
+            style={{
+              marginTop: 8,
+              color: "var(--ink-2)",
+              fontSize: 13,
+            }}
+          >
+            {rejected}
+          </p>
           <button
             onClick={() => location.reload()}
-            className="mt-5 rounded-xl border border-line bg-white px-4 py-2 text-sm hover:bg-sand"
+            style={{
+              marginTop: 20,
+              padding: "8px 14px",
+              borderRadius: "var(--radius-sm)",
+              border: "1px solid var(--line-strong)",
+              background: "var(--bg-elev)",
+              color: "var(--ink)",
+              cursor: "pointer",
+              fontSize: 13,
+              fontWeight: 500,
+            }}
           >
             Retry
           </button>
@@ -399,128 +432,111 @@ export default function KdsPage() {
   if (loading) return <Loading label="Loading orders…" />;
 
   return (
-    <div className="flex min-h-screen flex-col bg-sand">
-      {/* ---------- Top bar ---------- */}
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line bg-white px-5 py-3">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/"
-            aria-label="Back to home"
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-cream text-ink transition hover:bg-sand"
-          >
-            ⌂
-          </Link>
-          <div>
-            <p className="text-sm font-bold text-ink">
-              {branchInfo?.restaurant.name ?? "—"}{" "}
-              <span className="text-ink-muted">/ {branchInfo?.name ?? ""}</span>
-            </p>
-            <p className="text-[11px] uppercase tracking-wide text-ink-muted">
-              KDS · {branchInfo?.address ?? "Kitchen Display"}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-5">
-          <Stat value={String(orders.length)} label="Open" />
-          <Stat value={avg} label="Avg time" />
-          <Stat value={String(urgent)} label="Urgent" tone={urgent ? "red" : undefined} />
-          <Stat value={String(readyToBump)} label="Ready to bump" />
-          <Stat value={String(serviced)} label="Serviced · Tonight" />
-        </div>
-
+    <div className="kds-theme flex min-h-screen flex-col">
+      {/* ============ Header ============ */}
+      <div
+        className="sticky top-0 z-10 flex items-center justify-between"
+        style={{
+          height: 64,
+          paddingInline: 20,
+          background: "var(--bg-elev)",
+          borderBottom: "1px solid var(--line)",
+        }}
+      >
         <div className="flex items-center gap-4">
-          <div className="flex rounded-full border border-line bg-cream p-0.5 text-xs font-semibold">
-            {PACES.map((p) => (
-              <button
-                key={p}
-                onClick={() => setPace(p)}
-                className={cn(
-                  "rounded-full px-3 py-1 uppercase tracking-wide transition",
-                  pace === p ? "bg-ink text-white" : "text-ink-muted hover:text-ink",
-                )}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-          <div className="text-right leading-none">
-            <p className="font-mono text-lg font-bold tabular-nums text-ink">
-              {time}
-            </p>
-            <p className="text-[10px] uppercase tracking-wide text-ink-muted">
-              {date}
-            </p>
-          </div>
-          <span
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold",
-              connected
-                ? "border-green-200 bg-green-50 text-green-700"
-                : "border-line bg-cream text-ink-muted",
-            )}
-            title={screen ? `Screen ${screen.count} of ${screen.max}` : undefined}
-          >
+          <Link href="/" aria-label="Back to home">
+            <BrandMark />
+          </Link>
+          <div style={{ width: 1, height: 24, background: "var(--line)" }} />
+          <div className="flex items-baseline gap-3">
             <span
-              className={cn(
-                "h-1.5 w-1.5 rounded-full",
-                connected ? "animate-pulse bg-green-500" : "bg-ink-muted",
-              )}
-            />
-            {connected ? "LIVE" : "OFFLINE"}
-            {connected && latency !== null && (
-              <span className="font-normal text-green-600/70">{latency}ms</span>
-            )}
-          </span>
+              style={{
+                fontSize: 11,
+                color: "var(--ink-3)",
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                fontWeight: 600,
+              }}
+            >
+              Kitchen Display
+            </span>
+            <span
+              className="mono"
+              style={{ fontSize: 11, color: "var(--ink-4)" }}
+            >
+              {branchInfo?.restaurant.name ?? "—"} · {branchInfo?.name ?? ""}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <KdsCounter
+            label="Active"
+            value={String(activeCount)}
+            tone={pulse ? "accent" : "ink"}
+            pulse={pulse}
+          />
+          <KdsCounter
+            label="Longest"
+            value={mmss(longestMs)}
+            tone={longestTone}
+            mono
+          />
+          <KdsCounter label="Avg" value={avg} mono />
+          <KdsCounter label="Served" value={String(serviced)} tone="olive" />
+          <div style={{ width: 1, height: 28, background: "var(--line)", margin: "0 6px" }} />
+          <Pill
+            connected={connected}
+            count={screen?.count}
+            max={screen?.max}
+            latency={latency}
+          />
           <AccountMenu />
         </div>
-      </header>
+      </div>
 
-      {/* ---------- Station tabs ---------- */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-white px-5 py-2.5">
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setStation("all")}
-            className={cn(
-              "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition",
-              station === "all"
-                ? "bg-ink text-white"
-                : "border border-line bg-white text-ink-soft hover:bg-sand",
-            )}
-          >
-            All Stations
-            <span
-              className={cn(
-                "rounded-full px-1.5 text-[11px]",
-                station === "all" ? "bg-white/20" : "bg-sand text-ink-muted",
-              )}
-            >
-              {orders.length}
-            </span>
-          </button>
-          {stations.map((s) => {
-            const active = station === s.id;
-            const st = stationStyle(s.name);
-            return (
-              <button
-                key={s.id}
-                onClick={() => setStation(s.id)}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition",
-                  active
-                    ? "border-ink bg-ink/5 text-ink"
-                    : "border-line bg-white text-ink-soft hover:bg-sand",
-                )}
-              >
-                <span className={cn("h-2 w-2 rounded-full", st.dot)} />
-                {s.name}
-                <span className="rounded-full bg-sand px-1.5 text-[11px] text-ink-muted">
-                  {countForStation(s.id)}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+      {/* ============ Station strip + legend ============ */}
+      <div
+        className="flex items-center gap-2 flex-wrap"
+        style={{
+          padding: "12px 20px",
+          background: "var(--bg-sunken)",
+          borderBottom: "1px solid var(--line)",
+        }}
+      >
+        <span
+          style={{
+            fontSize: 10,
+            color: "var(--ink-4)",
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            fontWeight: 600,
+            marginRight: 4,
+          }}
+        >
+          Station
+        </span>
+        <StationPill
+          name="All"
+          count={activeCount}
+          active={station === "all"}
+          onClick={() => setStation("all")}
+        />
+        {stations.map((s) => {
+          const st = stationStyle(s.name);
+          return (
+            <StationPill
+              key={s.id}
+              name={s.name}
+              colorClass={st.dot}
+              count={countForStation(s.id)}
+              active={station === s.id}
+              onClick={() => setStation(s.id)}
+            />
+          );
+        })}
+        <div className="flex-1" />
+        <UrgencyLegend />
       </div>
 
       {error && (
@@ -529,8 +545,16 @@ export default function KdsPage() {
         </div>
       )}
 
-      {/* ---------- Board (status lanes) ---------- */}
-      <main className="flex flex-1 gap-4 overflow-x-auto px-5 py-5">
+      {/* ============ Kanban ============ */}
+      <main
+        className="flex-1"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr 1fr",
+          gap: 0,
+          minHeight: 0,
+        }}
+      >
         {lanes.map((lane) => {
           const isDropTarget = canDropInto(lane.status);
           const isOver = overLane === lane.status;
@@ -544,7 +568,6 @@ export default function KdsPage() {
                 if (!isOver) setOverLane(lane.status);
               }}
               onDragLeave={(e) => {
-                // Ignore leaves bubbling from child elements.
                 if (e.currentTarget.contains(e.relatedTarget as Node)) return;
                 setOverLane((prev) => (prev === lane.status ? null : prev));
               }}
@@ -552,42 +575,119 @@ export default function KdsPage() {
                 e.preventDefault();
                 handleDrop(lane.status);
               }}
-              className={cn(
-                "flex min-w-[320px] flex-1 flex-col rounded-card bg-white/50 transition",
-                isDropTarget && "outline-dashed outline-2 outline-offset-2 outline-ink/20",
-                isOver && "bg-ink/5 outline-ink/50",
-              )}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                borderRight: "1px solid var(--line)",
+                minWidth: 0,
+                background: "var(--bg)",
+              }}
             >
               {/* Lane header */}
               <div
-                className={cn(
-                  "sticky top-0 z-10 flex items-center justify-between rounded-t-card border-t-2 bg-white px-4 py-2.5",
-                  lane.head,
-                )}
+                style={{
+                  padding: "14px 18px",
+                  borderBottom: "1px solid var(--line)",
+                  background: "var(--bg-elev)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
               >
-                <div className="flex items-center gap-2">
-                  <span className={cn("h-2.5 w-2.5 rounded-full", lane.dot)} />
-                  <p className="text-sm font-bold uppercase tracking-wide text-ink">
-                    {lane.label}
-                  </p>
-                  <span className="text-[11px] text-ink-muted">{lane.hint}</span>
+                <div className="flex items-center gap-2.5">
+                  <span
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 8,
+                      background: "var(--bg-sunken)",
+                      color: lane.accent,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 14,
+                    }}
+                    aria-hidden
+                  >
+                    {lane.icon}
+                  </span>
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 600,
+                        letterSpacing: "-0.01em",
+                        color: "var(--ink)",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      {lane.label}
+                      <span
+                        className="tnum"
+                        style={{
+                          fontSize: 11,
+                          width: 20,
+                          height: 20,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderRadius: "50%",
+                          background: "var(--bg-sunken)",
+                          color: "var(--ink-2)",
+                          fontWeight: 600,
+                          lineHeight: 1,
+                        }}
+                      >
+                        {lane.orders.length}
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "var(--ink-3)",
+                        marginTop: 2,
+                      }}
+                    >
+                      {lane.hint}
+                    </div>
+                  </div>
                 </div>
-                <span className="rounded-full bg-sand px-2 py-0.5 text-xs font-bold tabular-nums text-ink-soft">
-                  {lane.orders.length}
-                </span>
               </div>
 
-              {/* Lane cards — 1 per row */}
-              <FlipList className="flex flex-1 flex-col gap-3 px-2 py-3">
+              {/* Lane cards */}
+              <FlipList
+                className={cn(
+                  "flex-1 flex flex-col gap-3 transition-colors overflow-y-auto",
+                  isOver && "bg-clay-500/5",
+                )}
+                style={{
+                  padding: 14,
+                  maxHeight: "calc(100vh - 64px - 53px)",
+                  outline: isDropTarget
+                    ? "2px dashed rgba(217,84,43,0.35)"
+                    : undefined,
+                  outlineOffset: -8,
+                  borderRadius: 0,
+                }}
+              >
                 {lane.orders.length === 0 ? (
-                  <div className="flex flex-1 items-center justify-center rounded-card border border-dashed border-line py-16 text-center text-sm text-ink-muted">
-                    {isOver ? "Drop to move here" : "No orders"}
+                  <div
+                    style={{
+                      padding: 36,
+                      textAlign: "center",
+                      color: "var(--ink-4)",
+                      border: "1px dashed var(--line)",
+                      borderRadius: "var(--radius)",
+                      fontSize: 12,
+                    }}
+                  >
+                    {isOver ? "Drop to move here" : laneEmpty(lane.status)}
                   </div>
                 ) : (
                   lane.orders.map((o) => {
                     const ready = isReady(o);
-                    // Forward only when ready and the next status is a lane;
-                    // backward whenever a previous lane exists.
                     const canForward =
                       ready &&
                       !!NEXT_STATUS[o.status] &&
@@ -615,13 +715,6 @@ export default function KdsPage() {
                           canDrag && "cursor-grab active:cursor-grabbing",
                           dragId === o.id && "opacity-50",
                         )}
-                        title={
-                          canDrag
-                            ? canForward
-                              ? "Drag to an adjacent lane to change status"
-                              : "Drag back to the previous lane"
-                            : undefined
-                        }
                       >
                         <KdsOrderCard
                           order={o}
@@ -644,31 +737,6 @@ export default function KdsPage() {
         })}
       </main>
 
-      {/* ---------- Footer ---------- */}
-      <footer className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-white px-5 py-3">
-        <div className="flex gap-2">
-          {[
-            { label: "Recall", icon: "↺" },
-            { label: "Search", icon: "⌕" },
-            { label: "Flag", icon: "⚑" },
-            { label: "Transfer", icon: "⇄" },
-          ].map((b) => (
-            <button
-              key={b.label}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-ink-soft hover:bg-sand"
-            >
-              <span aria-hidden>{b.icon}</span>
-              {b.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-4 text-xs text-ink-muted">
-          <Legend dot="bg-green-500" label="fresh < 7 m" />
-          <Legend dot="bg-amber-500" label="warn < 12 m" />
-          <Legend dot="bg-red-500" label="urgent ≥ 12 m" />
-        </div>
-      </footer>
-
       <CancelOrderDialog
         order={cancelTarget}
         cancelling={cancelling}
@@ -681,49 +749,276 @@ export default function KdsPage() {
   );
 }
 
-function Stat({
-  value,
-  label,
-  tone,
-}: {
-  value: string;
-  label: string;
-  tone?: "red";
-}) {
+function laneEmpty(status: OrderStatus): string {
+  if (status === "pending") return "No new orders.";
+  if (status === "preparing") return "Idle station.";
+  return "Nothing waiting.";
+}
+
+// ============== Marrow header pieces ==============
+
+function BrandMark() {
   return (
-    <div className="text-center leading-none">
-      <p
-        className={cn(
-          "text-lg font-bold tabular-nums",
-          tone === "red" ? "text-red-600" : "text-ink",
-        )}
+    <div className="inline-flex items-center gap-2.5">
+      <span
+        style={{
+          width: 22,
+          height: 22,
+          borderRadius: "50%",
+          background: "var(--ink)",
+          position: "relative",
+          display: "inline-block",
+        }}
       >
-        {value}
-      </p>
-      <p className="mt-1 text-[10px] uppercase tracking-wide text-ink-muted">
-        {label}
-      </p>
+        <span
+          style={{
+            position: "absolute",
+            inset: "20%",
+            background: "var(--accent)",
+            borderRadius: "50%",
+          }}
+        />
+      </span>
+      <span
+        style={{
+          fontSize: 17,
+          fontWeight: 600,
+          letterSpacing: "-0.02em",
+          color: "var(--ink)",
+        }}
+      >
+        Marrow
+      </span>
     </div>
   );
 }
 
+function KdsCounter({
+  label,
+  value,
+  tone = "ink",
+  pulse,
+  mono,
+}: {
+  label: string;
+  value: string;
+  tone?: "ink" | "accent" | "rose" | "amber" | "olive";
+  pulse?: boolean;
+  mono?: boolean;
+}) {
+  const palette: Record<string, { fg: string; bg: string }> = {
+    ink: { fg: "var(--ink)", bg: "transparent" },
+    accent: { fg: "var(--accent)", bg: "var(--accent-soft)" },
+    rose: { fg: "var(--rose)", bg: "var(--rose-soft)" },
+    amber: { fg: "var(--amber)", bg: "var(--amber-soft)" },
+    olive: { fg: "var(--olive)", bg: "var(--olive-soft)" },
+  };
+  const p = palette[tone] ?? palette.ink;
+  return (
+    <div
+      style={{
+        padding: "6px 12px",
+        borderRadius: 8,
+        background: p.bg,
+        display: "flex",
+        flexDirection: "column",
+        minWidth: 76,
+        animation: pulse ? "pulseRing 1.4s ease" : "none",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 9,
+          color: "var(--ink-3)",
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+          fontWeight: 600,
+        }}
+      >
+        {label}
+      </div>
+      <div
+        className={mono ? "mono" : "tnum"}
+        style={{
+          fontSize: 18,
+          fontWeight: 600,
+          color: p.fg,
+          letterSpacing: "-0.01em",
+          lineHeight: 1.1,
+        }}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function Pill({
+  connected,
+  count,
+  max,
+  latency,
+}: {
+  connected: boolean;
+  count?: number;
+  max?: number;
+  latency: number | null;
+}) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "5px 10px",
+        borderRadius: 999,
+        border: "1px solid",
+        borderColor: connected ? "var(--olive)" : "var(--line-strong)",
+        background: connected ? "var(--olive-soft)" : "var(--bg-sunken)",
+        color: connected ? "var(--olive)" : "var(--ink-3)",
+        fontSize: 11,
+        fontWeight: 600,
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+      }}
+      title={count != null && max != null ? `Screen ${count} of ${max}` : undefined}
+    >
+      <span
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: "50%",
+          background: connected ? "var(--olive)" : "var(--ink-3)",
+          animation: connected ? "blink 1.6s infinite" : "none",
+        }}
+      />
+      {connected ? "Live" : "Offline"}
+      {connected && latency != null && (
+        <span
+          className="mono"
+          style={{ color: "var(--olive)", opacity: 0.7, letterSpacing: 0 }}
+        >
+          {latency}ms
+        </span>
+      )}
+    </span>
+  );
+}
+
+function StationPill({
+  name,
+  count,
+  colorClass,
+  active,
+  onClick,
+}: {
+  name: string;
+  count: number | null;
+  colorClass?: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "6px 12px",
+        background: active ? "var(--bg-elev)" : "transparent",
+        border: "1px solid",
+        borderColor: active ? "var(--line-strong)" : "transparent",
+        borderRadius: 999,
+        cursor: "pointer",
+        color: "var(--ink-2)",
+        fontSize: 12,
+        fontWeight: 500,
+        transition: "all 0.15s ease",
+      }}
+    >
+      {colorClass && (
+        <span
+          className={colorClass}
+          style={{ width: 8, height: 8, borderRadius: 999 }}
+        />
+      )}
+      {name}
+      {count != null && (
+        <span
+          className="tnum"
+          style={{
+            fontSize: 11,
+            color: count > 0 ? "var(--ink)" : "var(--ink-4)",
+            fontWeight: 600,
+            width: 20,
+            height: 20,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: count > 0 ? "var(--bg-sunken)" : "transparent",
+            borderRadius: "50%",
+            lineHeight: 1,
+          }}
+        >
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function UrgencyLegend() {
+  const swatches = [
+    { color: "#7AA56F", label: "<5m" },
+    { color: "#C98A14", label: "5–10m" },
+    { color: "#D9542B", label: "10m+" },
+    { color: "#B83A3A", label: "15m+", blink: true },
+  ];
+  return (
+    <div
+      className="flex items-center gap-3"
+      style={{
+        fontSize: 10,
+        color: "var(--ink-4)",
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+        fontWeight: 600,
+      }}
+    >
+      {swatches.map((s) => (
+        <span key={s.label} className="inline-flex items-center gap-1.5">
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: 2,
+              background: s.color,
+              animation: s.blink ? "blink 1s infinite" : "none",
+            }}
+          />
+          {s.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// ============== FLIP animation list (unchanged) ==============
+
 const useIsoLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
-// Animates its keyed children: new cards drop in from the top, and cards that
-// change position (e.g. an order sliding down as it ages or gets bumped) glide
-// to their new spot via the FLIP technique. Children must carry data-flip-key.
 function FlipList({
   children,
   className,
+  style,
 }: {
   children: React.ReactNode;
   className?: string;
+  style?: React.CSSProperties;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  // Resting offsetTop per key. offsetTop ignores CSS transforms, so an
-  // in-flight animation won't poison the next measurement (avoids jitter on
-  // the 1s clock tick).
   const prev = useRef<Map<string, number>>(new Map());
 
   useIsoLayoutEffect(() => {
@@ -763,17 +1058,8 @@ function FlipList({
   });
 
   return (
-    <div ref={ref} className={className}>
+    <div ref={ref} className={className} style={style}>
       {children}
     </div>
-  );
-}
-
-function Legend({ dot, label }: { dot: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className={cn("h-2 w-2 rounded-full", dot)} />
-      {label}
-    </span>
   );
 }

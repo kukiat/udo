@@ -2,15 +2,133 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   Marrow design tokens — modern bistro / cafe.
+   Clean & minimal, lots of whitespace, neutral tones with a
+   terracotta accent. Mirrors the prototype's :root scale.
+   ============================================================ */
 :root {
-  --background: #faf9f5;
-  --foreground: #1f1e1c;
+  --bg: #fafaf7;
+  --bg-elev: #ffffff;
+  --bg-sunken: #f2f0ea;
+  --line: #e7e3d9;
+  --line-strong: #d6d1c4;
+  --ink: #161512;
+  --ink-2: #3a3833;
+  --ink-3: #6b675e;
+  --ink-4: #9a958a;
+  --accent: #d9542b; /* terracotta */
+  --accent-ink: #ffffff;
+  --accent-soft: #f6e2d8;
+  --olive: #2a6f4e;
+  --olive-soft: #dee9d9;
+  --amber: #c98a14;
+  --amber-soft: #f7e9c9;
+  --rose: #b83a3a;
+  --rose-soft: #f7d9d9;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --radius-lg: 16px;
+  --pad: 16px;
+  --pad-sm: 10px;
+  --pad-lg: 24px;
+
+  --shadow-1: 0 1px 0 rgba(22, 21, 18, 0.04),
+    0 1px 2px rgba(22, 21, 18, 0.04);
+  --shadow-2: 0 8px 24px -8px rgba(22, 21, 18, 0.12),
+    0 2px 6px rgba(22, 21, 18, 0.04);
+  --shadow-pop: 0 20px 48px -16px rgba(22, 21, 18, 0.24),
+    0 4px 12px rgba(22, 21, 18, 0.06);
+
+  /* Legacy aliases — kept so older rules still resolve. */
+  --background: var(--bg);
+  --foreground: var(--ink);
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  color: var(--ink);
+  background: var(--bg);
+  font-size: 14px;
+  line-height: 1.45;
+  font-feature-settings: "ss01", "cv11";
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+/* ============================================================
+   KDS dark theme — scoped to .kds-theme.
+   Overrides the Marrow tokens with a kitchen-friendly dark
+   palette without affecting the rest of the app.
+   ============================================================ */
+.kds-theme {
+  --bg: #0e0f0d;
+  --bg-elev: #181a17;
+  --bg-sunken: #0a0b09;
+  --line: #2a2c28;
+  --line-strong: #3a3d38;
+  --ink: #f4f2eb;
+  --ink-2: #d9d6ce;
+  --ink-3: #9c9990;
+  --ink-4: #6c6a62;
+  --accent-soft: #3a2218;
+  --olive-soft: #1a2a1f;
+  --amber-soft: #2e2614;
+  --rose-soft: #2e1818;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+/* ============================================================
+   Marrow keyframes (CSS-only; Tailwind has matching names too)
+   ============================================================ */
+@keyframes pulseRing {
+  0% {
+    box-shadow: 0 0 0 0 rgba(217, 84, 43, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgba(217, 84, 43, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(217, 84, 43, 0);
+  }
+}
+@keyframes blink {
+  50% {
+    opacity: 0.35;
+  }
+}
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Tabular numerals helper used across KDS counters / order tickets. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+.mono {
+  font-family: var(--font-mono, "JetBrains Mono", ui-monospace, monospace);
+  font-feature-settings: "tnum";
 }
 
 /* Hide spinner buttons on number inputs */
@@ -25,45 +143,49 @@ input[type="number"] {
 }
 
 /* ============================================================
-   Neon Diner (Direction A) — dark theme scoped to the dashboard.
-   Deep ink background, hot-coral + electric-lime accents, chunky
-   rounded cards, bilingual TH/EN. Applied via the .dir-a wrapper.
+   Dashboard scope (.dir-a) — retuned to the Marrow palette.
+   Inherits the structural classes from the original Neon Diner
+   theme (.card, .btn, .pill, .stat, .sidebar, .topbar) but the
+   tokens now produce the warm, terracotta-accented Marrow look.
    ============================================================ */
 .dir-a {
-  /* Match the rest of the app (KDS / order pages use Tailwind's font-sans). */
-  --font-display: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    sans-serif;
-  --font-mono: "SF Mono", "Menlo", "Monaco", "IBM Plex Mono", monospace;
+  --font-display: var(--font-sans, "Inter", ui-sans-serif, system-ui,
+    -apple-system, "Segoe UI", Roboto, sans-serif);
+  --font-mono: var(--font-mono, "JetBrains Mono", ui-monospace, "SF Mono",
+    Menlo, monospace);
 
-  --bg: oklch(0.16 0.018 270);
-  --bg-elev: oklch(0.21 0.02 270);
-  --surface: oklch(0.24 0.02 270);
-  --surface-2: oklch(0.28 0.022 270);
-  --border: oklch(0.34 0.025 270);
-  --border-strong: oklch(0.45 0.03 270);
-  --text: oklch(0.97 0.005 90);
-  --text-2: oklch(0.78 0.01 270);
-  --text-3: oklch(0.6 0.01 270);
+  /* Surfaces (Marrow light) */
+  --bg: #fafaf7;
+  --bg-elev: #f2f0ea;
+  --surface: #ffffff;
+  --surface-2: #fafaf7;
+  --border: #e7e3d9;
+  --border-strong: #d6d1c4;
+  --text: #161512;
+  --text-2: #3a3833;
+  --text-3: #6b675e;
 
-  --coral: oklch(0.72 0.21 28);
-  --coral-soft: oklch(0.45 0.12 28);
-  --lime: oklch(0.88 0.22 130);
-  --lime-soft: oklch(0.4 0.1 130);
-  --butter: oklch(0.86 0.16 85);
-  --butter-soft: oklch(0.4 0.08 85);
-  --berry: oklch(0.68 0.2 350);
-  --sky: oklch(0.78 0.16 230);
+  /* Accents → Marrow palette mappings */
+  --coral: #d9542b; /* primary accent (terracotta) */
+  --coral-soft: #f6e2d8;
+  --lime: #2a6f4e; /* olive substitute for "success" */
+  --lime-soft: #dee9d9;
+  --butter: #c98a14; /* amber */
+  --butter-soft: #f7e9c9;
+  --berry: #b83a3a; /* rose */
+  --sky: #6b675e; /* neutral 3 */
 
   --status-new: var(--butter);
   --status-prep: var(--coral);
   --status-ready: var(--lime);
-  --status-urgent: oklch(0.7 0.22 18);
+  --status-urgent: var(--berry);
 
-  --radius-xs: 8px;
-  --radius-sm: 12px;
-  --radius-md: 16px;
-  --radius-lg: 22px;
-  --radius-xl: 28px;
+  /* Tighter Marrow radii */
+  --radius-xs: 6px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 10px;
+  --radius-xl: 16px;
   --radius-pill: 999px;
 
   background: var(--bg);
@@ -105,9 +227,10 @@ input[type="number"] {
 .dir-a .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .dir-a .btn-primary {
   background: var(--coral);
-  color: oklch(0.18 0.05 28);
-  font-weight: 700;
-  box-shadow: 0 1px 0 0 oklch(0.55 0.18 28) inset, 0 8px 24px -10px var(--coral);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 1px 0 0 rgba(0, 0, 0, 0.06) inset,
+    0 6px 18px -10px rgba(217, 84, 43, 0.5);
 }
 .dir-a .btn-ghost {
   background: transparent;
@@ -116,21 +239,21 @@ input[type="number"] {
 }
 .dir-a .btn-danger {
   background: transparent;
-  border-color: oklch(0.45 0.16 18);
-  color: oklch(0.85 0.15 18);
+  border-color: var(--border-strong);
+  color: var(--berry);
 }
 .dir-a .btn-lime {
   background: var(--lime);
-  color: oklch(0.22 0.1 130);
-  font-weight: 700;
+  color: #ffffff;
+  font-weight: 600;
 }
 
 /* Inputs */
 .dir-a .input {
-  background: oklch(0.12 0.012 270);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
   color: var(--text);
   font: inherit;
   font-size: 14px;
@@ -140,7 +263,7 @@ input[type="number"] {
 .dir-a .input::placeholder { color: var(--text-3); }
 .dir-a .input:focus {
   border-color: var(--coral);
-  box-shadow: 0 0 0 3px oklch(0.45 0.12 28 / 0.3);
+  box-shadow: 0 0 0 3px rgba(217, 84, 43, 0.15);
 }
 .dir-a .label {
   font-size: 11px;
@@ -170,24 +293,21 @@ input[type="number"] {
 .dir-a .pill-coral { background: var(--coral-soft); border-color: var(--coral); color: var(--coral); }
 .dir-a .pill-lime { background: var(--lime-soft); border-color: var(--lime); color: var(--lime); }
 .dir-a .pill-butter { background: var(--butter-soft); border-color: var(--butter); color: var(--butter); }
-.dir-a .pill-danger { background: oklch(0.3 0.12 18); border-color: oklch(0.6 0.18 18); color: var(--text); }
+.dir-a .pill-danger { background: #f7d9d9; border-color: var(--berry); color: var(--berry); }
 .dir-a .pill-muted { background: var(--bg-elev); border-color: var(--border); color: var(--text-3); }
 
-/* Status dot */
+/* Status dot (no glow on light surfaces) */
 .dir-a .dot { width: 8px; height: 8px; border-radius: 99px; flex-shrink: 0; }
-.dir-a .dot-new { background: var(--status-new); box-shadow: 0 0 12px var(--status-new); }
-.dir-a .dot-prep { background: var(--status-prep); box-shadow: 0 0 12px var(--status-prep); }
-.dir-a .dot-ready { background: var(--status-ready); box-shadow: 0 0 12px var(--status-ready); }
-.dir-a .dot-urgent { background: var(--status-urgent); box-shadow: 0 0 12px var(--status-urgent); }
+.dir-a .dot-new { background: var(--status-new); }
+.dir-a .dot-prep { background: var(--status-prep); }
+.dir-a .dot-ready { background: var(--status-ready); }
+.dir-a .dot-urgent { background: var(--status-urgent); }
 
-/* Type scale */
-.dir-a .h-display { font-size: 44px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
-/* NOTE: h-1/h-2/h-3 also exist as Tailwind height utilities (0.25/0.5/0.75rem).
-   Force height:auto so our typography classes win over the height utility and
-   the text isn't clipped to a few pixels. */
-.dir-a .h-1 { height: auto; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
-.dir-a .h-2 { height: auto; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; }
-.dir-a .h-3 { height: auto; font-size: 16px; font-weight: 700; line-height: 1.25; }
+/* Type scale — Marrow-tuned (slimmer weights, tighter letter-spacing) */
+.dir-a .h-display { font-size: 44px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; }
+.dir-a .h-1 { height: auto; font-size: 28px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.05; }
+.dir-a .h-2 { height: auto; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; }
+.dir-a .h-3 { height: auto; font-size: 16px; font-weight: 600; line-height: 1.25; }
 .dir-a .mono { font-family: var(--font-mono); letter-spacing: 0; }
 .dir-a .eyebrow {
   font-size: 11px;
@@ -202,33 +322,42 @@ input[type="number"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 24px;
-  background: var(--bg-elev);
+  padding: 12px 24px;
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
-  height: 60px;
+  height: 56px;
   box-sizing: border-box;
 }
 .dir-a .topbar-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-weight: 800;
-  font-size: 15px;
-  letter-spacing: -0.01em;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: -0.02em;
 }
+/* Marrow brand mark: ink ring + accent dot. The mark's inner text (initials)
+   becomes the accent dot via the ::after pseudo-element. */
 .dir-a .brand-mark {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--coral), var(--berry));
-  display: flex;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--text);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: oklch(0.98 0 0);
-  font-weight: 900;
-  font-size: 13px;
-  letter-spacing: -0.04em;
-  box-shadow: 0 0 0 1px oklch(0.55 0.18 28) inset;
+  position: relative;
+  color: transparent; /* hide initials */
+  font-size: 0;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.dir-a .brand-mark::after {
+  content: "";
+  position: absolute;
+  inset: 20%;
+  background: var(--coral);
+  border-radius: 999px;
 }
 .dir-a .avatar {
   width: 32px;

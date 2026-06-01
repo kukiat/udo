@@ -89,25 +89,30 @@ export default function CartPage() {
   const empty = cart.lines.length === 0;
 
   return (
-    <div className="lg:mx-auto lg:max-w-2xl">
-      <header className="sticky top-0 z-10 border-b border-line bg-white px-4 pb-3 pt-4">
-        <div className="flex items-center justify-between">
-          <Link
-            href={orderLink(`/order/${branchId}/${tableNo}`)}
-            className="text-[12.5px] font-semibold text-ink-muted hover:text-ink"
-          >
-            ← Back to menu
-          </Link>
-        </div>
-        <h1 className="mt-2 text-[26px] font-semibold tracking-tight text-ink">
+    <div className="lg:mx-auto lg:max-w-3xl">
+      <header className="border-b border-line bg-cream px-4 pb-5 pt-5 lg:px-8 lg:pt-10">
+        <Link
+          href={orderLink(`/order/${branchId}/${tableNo}`)}
+          className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-muted transition-colors hover:text-ink"
+        >
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden>
+            <path d="M13 8H3M7 4 3 8l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Back to menu
+        </Link>
+        <div className="mt-3 text-[10px] font-medium uppercase tracking-[0.12em] text-ink-muted">
           Your order
+        </div>
+        <h1 className="mt-1.5 text-[32px] font-semibold leading-[1.1] tracking-[-0.02em] text-ink lg:text-[40px]">
+          Review &amp; send
         </h1>
-        <p className="mt-0.5 text-[12.5px] text-ink-muted">
-          Table {tableNo} · {itemCount} item{itemCount === 1 ? "" : "s"}
+        <p className="mt-2 text-[13px] text-ink-muted">
+          Table {tableNo} · {itemCount} item{itemCount === 1 ? "" : "s"} · Edit
+          quantities or add a note for the kitchen.
         </p>
       </header>
 
-      <main className="px-4 py-4 pb-32">
+      <main className="px-4 py-5 pb-32 lg:px-8 lg:py-8">
         {empty ? (
           <EmptyState
             title="Nothing in your order yet"
@@ -120,7 +125,7 @@ export default function CartPage() {
           />
         ) : (
           <>
-            <ul>
+            <ul className="overflow-hidden rounded-card border border-line bg-white shadow-card">
               {cart.lines.map((l) => {
                 const lineTotal =
                   l.quantity *
@@ -130,7 +135,7 @@ export default function CartPage() {
                 return (
                   <li
                     key={l.lineId}
-                    className="grid grid-cols-[1fr_auto] gap-2.5 border-b border-line py-3"
+                    className="grid grid-cols-[1fr_auto] gap-2.5 border-b border-line p-4 last:border-b-0"
                   >
                     <div className="flex min-w-0 gap-2.5">
                       <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl">
@@ -192,7 +197,7 @@ export default function CartPage() {
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1">
-                      <span className="text-[14px] font-semibold tabular-nums text-ink">
+                      <span className="mono text-[14px] font-semibold tabular-nums text-ink">
                         {formatPrice(lineTotal)}
                       </span>
                       <button
@@ -210,43 +215,67 @@ export default function CartPage() {
               })}
             </ul>
 
-            <div className="mt-4 rounded-xl border border-line bg-white p-4">
+            <div className="mt-4 rounded-card border border-line bg-white p-5 shadow-card">
               {!totals ? (
                 <Loading label="Calculating…" />
               ) : (
-                <dl className="flex flex-col gap-1 text-[13px] tabular-nums text-ink-muted">
+                <dl className="flex flex-col gap-2 text-[13px] tabular-nums">
                   <Row label="Subtotal" value={formatPrice(totals.subtotal)} />
                   {totals.serviceCharge > 0 && (
                     <Row
                       label="Service charge"
                       value={formatPrice(totals.serviceCharge)}
+                      muted
                     />
                   )}
-                  <Row label="VAT" value={formatPrice(totals.vat)} />
-                  <div className="mt-1.5 flex justify-between border-t border-line pt-2 text-[15.5px] font-bold text-ink">
-                    <dt>Total</dt>
-                    <dd>{formatPrice(totals.total)}</dd>
+                  <Row label="VAT" value={formatPrice(totals.vat)} muted />
+                  <div className="mt-2 flex items-baseline justify-between border-t border-line pt-3">
+                    <dt className="text-[14px] font-semibold text-ink">Total</dt>
+                    <dd className="mono text-[22px] font-semibold tabular-nums text-ink">
+                      {formatPrice(totals.total)}
+                    </dd>
                   </div>
                 </dl>
               )}
             </div>
+
+            <p className="mt-4 text-center text-[11px] text-ink-dim">
+              By sending this order you agree to your table's service terms.
+              Anything kept on file stays at this table.
+            </p>
 
           </>
         )}
       </main>
 
       {!empty && (
-        <div className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-2xl bg-gradient-to-t from-cream via-cream to-transparent px-4 pb-5 pt-3">
-          <button
-            type="button"
-            disabled={submitting || !tableId}
-            onClick={placeOrder}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-clay-500 px-4 py-3.5 text-sm font-semibold text-white hover:bg-clay-600 disabled:cursor-not-allowed disabled:bg-sand disabled:text-ink-muted"
-          >
-            {submitting
-              ? "Sending to kitchen…"
-              : `Send to kitchen${totals ? ` · ${formatPrice(totals.total)}` : ""}`}
-          </button>
+        <div className="fixed inset-x-0 bottom-0 z-20 bg-gradient-to-t from-cream via-cream/95 to-transparent px-4 pb-5 pt-6 lg:px-8">
+          <div className="mx-auto flex max-w-3xl gap-3">
+            <Link
+              href={orderLink(`/order/${branchId}/${tableNo}`)}
+              className="hidden flex-1 items-center justify-center gap-2 rounded-sm border border-line-strong bg-white px-4 py-3.5 text-sm font-medium text-ink transition-colors hover:bg-sand sm:inline-flex"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+                <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+              Add more
+            </Link>
+            <button
+              type="button"
+              disabled={submitting || !tableId}
+              onClick={placeOrder}
+              className="inline-flex flex-[2] items-center justify-center gap-2 rounded-sm bg-clay-500 px-4 py-3.5 text-sm font-semibold text-white shadow-card transition-colors hover:bg-clay-600 disabled:cursor-not-allowed disabled:bg-sand disabled:text-ink-muted"
+            >
+              {submitting
+                ? "Sending to kitchen…"
+                : `Send to kitchen${totals ? ` · ${formatPrice(totals.total)}` : ""}`}
+              {!submitting && (
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+                  <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
       )}
 
@@ -324,11 +353,19 @@ export default function CartPage() {
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({
+  label,
+  value,
+  muted,
+}: {
+  label: string;
+  value: string;
+  muted?: boolean;
+}) {
   return (
-    <div className="flex justify-between">
-      <dt>{label}</dt>
-      <dd>{value}</dd>
+    <div className="flex items-baseline justify-between">
+      <dt className={muted ? "text-ink-muted" : "text-ink-soft"}>{label}</dt>
+      <dd className={muted ? "text-ink-muted" : "text-ink"}>{value}</dd>
     </div>
   );
 }

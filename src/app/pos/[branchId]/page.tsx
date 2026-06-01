@@ -142,11 +142,17 @@ function PosPageInner() {
   if (loading) return <Loading />;
 
   return (
-    <div className="mx-auto max-w-6xl p-4 md:p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+    <div className="mx-auto max-w-6xl p-5 md:p-7">
+      <div className="mb-5 flex items-center justify-between border-b border-line pb-4">
+        <div className="flex items-center gap-4">
           <HomeLink />
-          <h1 className="text-2xl font-bold text-ink">Point of Sale</h1>
+          <span aria-hidden className="h-6 w-px bg-line-strong/60" />
+          <div className="flex items-baseline gap-3">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
+              Point of Sale
+            </span>
+            <span className="mono text-[11px] text-ink-dim">Cashier · register</span>
+          </div>
         </div>
         <AccountMenu />
       </div>
@@ -165,9 +171,14 @@ function PosPageInner() {
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_1.2fr]">
         <div>
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-ink-muted">
-            Open tables ({sessions.length})
-          </h2>
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
+              Open tables
+            </h2>
+            <span className="mono text-[11px] tabular-nums text-ink-dim">
+              {sessions.length}
+            </span>
+          </div>
           {sessions.length === 0 ? (
             <EmptyState title="No open tables" description="Active dine-in sessions appear here." />
           ) : (
@@ -177,24 +188,24 @@ function PosPageInner() {
                   key={s.sessionId}
                   onClick={() => selectSession(s)}
                   className={
-                    "rounded-card border p-3 text-left transition-colors " +
+                    "group rounded-card border p-3.5 text-left shadow-card transition-all " +
                     (selected?.sessionId === s.sessionId
-                      ? "border-clay-300 bg-clay-50"
-                      : "border-line bg-white hover:bg-sand")
+                      ? "border-clay-500 bg-white"
+                      : "border-line bg-white hover:-translate-y-px hover:border-line-strong hover:shadow-elev")
                   }
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-ink">
+                    <span className="font-semibold tracking-tight text-ink">
                       Table {s.tableNumber}
                     </span>
                     <Badge tone={billStatusTone(s.billStatus)}>
                       {s.billStatus}
                     </Badge>
                   </div>
-                  <p className="mt-1 text-sm text-ink-soft">
+                  <p className="mt-1.5 text-[12px] text-ink-muted">
                     {s.orderCount} order{s.orderCount === 1 ? "" : "s"}
                   </p>
-                  <p className="text-sm font-medium text-ink">
+                  <p className="mono mt-1 text-[15px] font-semibold tabular-nums text-ink">
                     {formatPrice(s.subtotal)}
                   </p>
                 </button>
@@ -249,9 +260,11 @@ function PosPageInner() {
                   {totals.discount > 0 && (
                     <Row label="Discount" value={-totals.discount} />
                   )}
-                  <div className="mt-1 flex justify-between border-t border-line pt-1 text-base font-bold text-ink">
-                    <span>Total</span>
-                    <span>{formatPrice(totals.total)}</span>
+                  <div className="mt-2 flex items-baseline justify-between border-t border-line pt-3">
+                    <span className="text-[14px] font-semibold text-ink">Total</span>
+                    <span className="mono text-[22px] font-semibold tabular-nums text-ink">
+                      {formatPrice(totals.total)}
+                    </span>
                   </div>
                 </div>
               )}

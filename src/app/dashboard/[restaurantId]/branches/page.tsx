@@ -22,6 +22,7 @@ export default function BranchesPage() {
   const [maxKds, setMaxKds] = useState("3");
   const [vat, setVat] = useState("7");
   const [service, setService] = useState("0");
+  const [tables, setTables] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,7 +33,19 @@ export default function BranchesPage() {
     setMaxKds("3");
     setVat("7");
     setService("0");
+    setTables("");
   };
+
+  // Parse a free-form table list ("1, 2, 3 4") into unique trimmed numbers.
+  const parseTables = (raw: string) =>
+    Array.from(
+      new Set(
+        raw
+          .split(/[\s,]+/)
+          .map((t) => t.trim())
+          .filter(Boolean),
+      ),
+    );
 
   const openCreate = () => {
     resetForm();
@@ -67,6 +80,7 @@ export default function BranchesPage() {
             name,
             address: address.trim() || null,
             settings,
+            tables: parseTables(tables),
           }),
         });
       }
@@ -191,6 +205,35 @@ export default function BranchesPage() {
               />
             </div>
           </div>
+          {!editingId && (
+            <div style={{ marginTop: 12 }}>
+              <span className="label">
+                โต๊ะ · TABLES{" "}
+                <span style={{ color: "var(--text-3)", fontWeight: 400 }}>
+                  (คั่นด้วยจุลภาคหรือเว้นวรรค · comma or space separated)
+                </span>
+              </span>
+              <textarea
+                className="input mono"
+                rows={2}
+                value={tables}
+                onChange={(e) => setTables(e.target.value)}
+                placeholder="1, 2, 3, A1, A2"
+              />
+              {tables.trim() && (
+                <span
+                  style={{
+                    display: "block",
+                    marginTop: 4,
+                    fontSize: 11,
+                    color: "var(--text-3)",
+                  }}
+                >
+                  {parseTables(tables).length} โต๊ะ · tables
+                </span>
+              )}
+            </div>
+          )}
           <div className="row" style={{ gap: 8, marginTop: 24 }}>
             <button
               className="btn btn-ghost grow"

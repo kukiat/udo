@@ -115,25 +115,11 @@ export default function DashboardHome() {
 
   const topBar = (
     <TopBar
+      role="Owner Admin"
       left={
-        <div>
-          <div>
-            ร้านอาหารทั้งหมด{" "}
-            <span style={{ color: "var(--text-3)", fontWeight: 500 }}>
-              · RESTAURANTS
-            </span>
-          </div>
-          <div
-            style={{
-              fontSize: 10,
-              color: "var(--text-3)",
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-            }}
-          >
-            Owner Admin View
-          </div>
-        </div>
+        <span className="text-[13px] font-medium tracking-[-0.005em] text-ink-soft">
+          All restaurants
+        </span>
       }
     />
   );
@@ -161,16 +147,33 @@ export default function DashboardHome() {
   return (
     <>
       {topBar}
-      <div className="mx-auto max-w-5xl px-6 py-8 md:px-12">
-        <div className="row" style={{ justifyContent: "space-between", gap: 16, marginBottom: 28 }}>
-          <div>
-            <div className="h-display" style={{ fontSize: 48 }}>
-              ร้านอาหาร
+      <div className="dir-a mx-auto max-w-5xl px-6 py-8 md:px-12">
+        <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <div className="eyebrow" style={{ marginBottom: 8 }}>
+              Owner Admin · Restaurants
             </div>
-            <div style={{ fontSize: 14, color: "var(--text-2)", marginTop: 6 }}>
-              สร้างร้าน แล้วเปิดเพื่อจัดการสาขา หมวดหมู่ และเมนู
-              <br />
-              <span style={{ color: "var(--text-3)", fontSize: 12 }}>
+            <div
+              style={{
+                fontSize: 28,
+                fontWeight: 600,
+                letterSpacing: "-0.02em",
+                lineHeight: 1.05,
+                color: "var(--text)",
+              }}
+            >
+              ร้านอาหาร · Restaurants
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                color: "var(--text-3)",
+                marginTop: 6,
+                maxWidth: 540,
+              }}
+            >
+              สร้างร้าน แล้วเปิดเพื่อจัดการสาขา หมวดหมู่ และเมนู ·{" "}
+              <span style={{ color: "var(--text-3)" }}>
                 Create a restaurant, then open it to manage branches,
                 categories, and menu
               </span>
@@ -202,23 +205,40 @@ export default function DashboardHome() {
           {stats.map((s) => (
             <div
               key={s.en}
-              className="stat"
               style={{
-                background: s.accent
-                  ? "linear-gradient(135deg, oklch(0.3 0.1 130) 0%, var(--surface) 100%)"
-                  : "var(--surface)",
-                borderColor: s.accent ? "var(--lime)" : "var(--border)",
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-lg)",
+                padding: 20,
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
               }}
             >
-              <div className="eyebrow">
-                {s.th} <span style={{ opacity: 0.6 }}>· {s.en}</span>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: "var(--text-3)",
+                }}
+              >
+                {s.en}
               </div>
               <div
-                className="num"
-                style={{ color: s.accent ? "var(--lime)" : "var(--text)" }}
+                className="mono tnum"
+                style={{
+                  fontSize: 30,
+                  fontWeight: 600,
+                  letterSpacing: "-0.025em",
+                  lineHeight: 1,
+                  color: s.accent ? "var(--lime)" : "var(--text)",
+                }}
               >
                 {s.val}
               </div>
+              <div style={{ fontSize: 12, color: "var(--text-3)" }}>{s.th}</div>
             </div>
           ))}
         </div>
@@ -324,7 +344,7 @@ export default function DashboardHome() {
           className="grid gap-3.5"
           style={{ gridTemplateColumns: "repeat(2, 1fr)" }}
         >
-          {restaurants.map((r, i) => (
+          {restaurants.map((r) => (
             <div
               key={r.id}
               role="link"
@@ -337,7 +357,20 @@ export default function DashboardHome() {
                 }
               }}
               className="card"
-              style={{ padding: 0, overflow: "hidden", cursor: "pointer" }}
+              style={{
+                padding: 0,
+                overflow: "hidden",
+                cursor: "pointer",
+                transition: "border-color 0.15s ease, transform 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "var(--border-strong)";
+                e.currentTarget.style.transform = "translateY(-1px)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "var(--border)";
+                e.currentTarget.style.transform = "translateY(0)";
+              }}
             >
               <div className="row" style={{ padding: 20, gap: 16 }}>
                 {r.logo ? (
@@ -346,48 +379,118 @@ export default function DashboardHome() {
                     src={r.logo}
                     alt=""
                     style={{
-                      width: 60,
-                      height: 60,
-                      borderRadius: 16,
+                      width: 56,
+                      height: 56,
+                      borderRadius: 12,
                       objectFit: "cover",
                       flexShrink: 0,
+                      border: "1px solid var(--border)",
                     }}
                   />
                 ) : (
+                  // Marrow brand mark: ink ring + terracotta dot. Initials sit
+                  // inside as a tiny tnum overlay for context.
                   <div
-                    className="brand-mark"
                     style={{
-                      width: 60,
-                      height: 60,
-                      fontSize: 18,
-                      borderRadius: 16,
-                      background: `linear-gradient(135deg, oklch(0.5 0.2 ${30 + i * 80}), oklch(0.35 0.15 ${50 + i * 80}))`,
+                      width: 56,
+                      height: 56,
+                      borderRadius: 12,
+                      background: "var(--bg-elev)",
+                      border: "1px solid var(--border)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                      position: "relative",
                     }}
                   >
-                    {markOf(r.name)}
+                    <span
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: "50%",
+                        background: "var(--text)",
+                        position: "relative",
+                        display: "inline-block",
+                      }}
+                    >
+                      <span
+                        style={{
+                          position: "absolute",
+                          inset: "20%",
+                          background: "var(--coral)",
+                          borderRadius: "50%",
+                        }}
+                      />
+                    </span>
+                    <span
+                      className="mono"
+                      style={{
+                        position: "absolute",
+                        bottom: 4,
+                        right: 6,
+                        fontSize: 9,
+                        fontWeight: 700,
+                        color: "var(--text-3)",
+                        letterSpacing: "0.06em",
+                      }}
+                    >
+                      {markOf(r.name)}
+                    </span>
                   </div>
                 )}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="h-2 truncate" style={{ lineHeight: 1.4 }}>
+                  <div
+                    className="truncate"
+                    style={{
+                      fontSize: 18,
+                      fontWeight: 600,
+                      letterSpacing: "-0.01em",
+                      lineHeight: 1.25,
+                      color: "var(--text)",
+                    }}
+                  >
                     {r.name}
                   </div>
                   <div
                     className="row"
                     style={{
-                      gap: 12,
-                      marginTop: 10,
+                      gap: 10,
+                      marginTop: 8,
                       fontSize: 12,
-                      color: "var(--text-2)",
+                      color: "var(--text-3)",
                     }}
                   >
                     <span>
-                      <span className="mono" style={{ fontWeight: 700 }}>
+                      <span
+                        className="mono tnum"
+                        style={{ fontWeight: 600, color: "var(--text)" }}
+                      >
                         {r.branches.length}
                       </span>{" "}
-                      สาขา
+                      สาขา · branches
                     </span>
-                    <span style={{ color: "var(--text-3)" }}>·</span>
-                    <span style={{ color: "var(--lime)" }}>● Active</span>
+                    <span aria-hidden style={{ color: "var(--border-strong)" }}>
+                      ·
+                    </span>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        color: "var(--lime)",
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: 99,
+                          background: "var(--lime)",
+                        }}
+                      />
+                      Active
+                    </span>
                   </div>
                 </div>
               </div>
@@ -395,14 +498,15 @@ export default function DashboardHome() {
                 className="row"
                 style={{
                   borderTop: "1px solid var(--border)",
-                  padding: "12px 20px",
-                  gap: 8,
+                  padding: "10px 16px",
+                  gap: 6,
                   justifyContent: "flex-end",
+                  background: "var(--bg-elev)",
                 }}
               >
                 <button
                   className="btn btn-ghost"
-                  style={{ padding: "8px 14px", fontSize: 12 }}
+                  style={{ padding: "6px 12px", fontSize: 12, height: 30 }}
                   onClick={(e) => {
                     e.stopPropagation();
                     startEdit(r);
@@ -412,7 +516,7 @@ export default function DashboardHome() {
                 </button>
                 <button
                   className="btn btn-danger"
-                  style={{ padding: "8px 14px", fontSize: 12 }}
+                  style={{ padding: "6px 12px", fontSize: 12, height: 30 }}
                   onClick={(e) => {
                     e.stopPropagation();
                     setDeleting(r);

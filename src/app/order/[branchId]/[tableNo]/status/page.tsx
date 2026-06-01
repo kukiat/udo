@@ -30,25 +30,36 @@ export default function OrderStatusPage() {
 
   return (
     <div className="lg:mx-auto lg:max-w-2xl">
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-cream/90 px-4 py-4 backdrop-blur">
-        <Link
-          href={orderLink(`/order/${branchId}/${tableNo}`)}
-          className="text-ink-muted hover:text-ink"
-        >
-          ←
-        </Link>
-        <div className="flex-1 ml-4">
-          <p className="text-xs text-ink-muted">Table {tableNo}</p>
-          <h1 className="text-xl font-semibold text-ink">Your Orders</h1>
+      <header className="border-b border-line bg-cream px-4 pb-5 pt-5 lg:px-8 lg:pt-10">
+        <div className="flex items-center justify-between">
+          <Link
+            href={orderLink(`/order/${branchId}/${tableNo}`)}
+            className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-muted transition-colors hover:text-ink"
+          >
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <path d="M13 8H3M7 4 3 8l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Back to menu
+          </Link>
+          <Link href={orderLink(`/order/${branchId}/${tableNo}/bill`)}>
+            <Button variant="secondary" size="sm">
+              Bill
+            </Button>
+          </Link>
         </div>
-        <Link href={orderLink(`/order/${branchId}/${tableNo}/bill`)}>
-          <Button variant="secondary" size="sm">
-            Bill
-          </Button>
-        </Link>
+        <div className="mt-3 text-[10px] font-medium uppercase tracking-[0.12em] text-ink-muted">
+          Table {tableNo} · live status
+        </div>
+        <h1 className="mt-1.5 text-[32px] font-semibold leading-[1.1] tracking-[-0.02em] text-ink lg:text-[40px]">
+          Your orders
+        </h1>
+        <p className="mt-2 text-[13px] text-ink-muted">
+          Updates arrive in real time — the kitchen sees changes the moment
+          they happen.
+        </p>
       </header>
 
-      <main className="space-y-3 px-4 py-4">
+      <main className="space-y-4 px-4 py-5 lg:px-8">
         {loading ? (
           <Loading label="Loading orders…" />
         ) : error ? (
@@ -72,9 +83,12 @@ export default function OrderStatusPage() {
         {orders.length > 0 && (
           <Link
             href={orderLink(`/order/${branchId}/${tableNo}`)}
-            className="block pt-2 text-center text-sm text-clay-700 hover:underline"
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-sm border border-line-strong bg-white py-3 text-sm font-medium text-ink transition-colors hover:bg-sand"
           >
-            + Order more
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+            Order more
           </Link>
         )}
       </main>

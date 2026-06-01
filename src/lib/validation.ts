@@ -36,10 +36,16 @@ export const branchSettingsSchema = z.object({
 });
 
 // A branch as supplied inline when creating a restaurant (no restaurantId yet).
+// `tables` lets the operator seed the floor layout at setup time so the
+// waitstaff page no longer needs an add-table affordance.
 const branchInputSchema = z.object({
   name: z.string().min(1).max(160),
   address: z.string().max(500).nullable().optional(),
   settings: branchSettingsSchema.optional(),
+  tables: z
+    .array(z.string().trim().min(1).max(20))
+    .max(500)
+    .optional(),
 });
 
 export const branchCreateSchema = branchInputSchema.extend({

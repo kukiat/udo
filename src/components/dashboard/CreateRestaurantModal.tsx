@@ -13,6 +13,7 @@ type BranchInput = {
   maxKds: string;
   vat: string;
   service: string;
+  tables: string;
 };
 
 const emptyBranch = (): BranchInput => ({
@@ -21,7 +22,20 @@ const emptyBranch = (): BranchInput => ({
   maxKds: "3",
   vat: "7",
   service: "0",
+  tables: "",
 });
+
+// Parse a free-form table list ("1, 2, 3 4") into unique trimmed numbers.
+function parseTables(raw: string): string[] {
+  return Array.from(
+    new Set(
+      raw
+        .split(/[\s,]+/)
+        .map((t) => t.trim())
+        .filter(Boolean),
+    ),
+  );
+}
 
 export function CreateRestaurantModal({
   isOpen,
@@ -81,6 +95,7 @@ export function CreateRestaurantModal({
                 vatRate: Number(b.vat) / 100,
                 serviceChargeRate: Number(b.service) / 100,
               },
+              tables: parseTables(b.tables),
             })),
           }),
         },
@@ -224,6 +239,33 @@ export function CreateRestaurantModal({
                     />
                   </label>
                 </div>
+                <label style={{ display: "block", marginTop: 12 }}>
+                  <span className="label">
+                    โต๊ะ · TABLES{" "}
+                    <span style={{ color: "var(--text-3)", fontWeight: 400 }}>
+                      (คั่นด้วยจุลภาคหรือเว้นวรรค · comma or space separated)
+                    </span>
+                  </span>
+                  <textarea
+                    className="input mono"
+                    rows={2}
+                    value={b.tables}
+                    onChange={(e) => updateBranch(i, { tables: e.target.value })}
+                    placeholder="1, 2, 3, A1, A2"
+                  />
+                  {b.tables.trim() && (
+                    <span
+                      style={{
+                        display: "block",
+                        marginTop: 4,
+                        fontSize: 11,
+                        color: "var(--text-3)",
+                      }}
+                    >
+                      {parseTables(b.tables).length} โต๊ะ · tables
+                    </span>
+                  )}
+                </label>
               </div>
             ))}
           </div>

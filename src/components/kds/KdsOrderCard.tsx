@@ -11,57 +11,98 @@ const NEXT: Partial<Record<OrderStatus, OrderStatus>> = {
   ready: "served",
 };
 
-// Time tiers (minutes): fresh < 7, warn < 12, urgent >= 12.
-const WARN_MS = 7 * 60 * 1000;
-const URGENT_MS = 12 * 60 * 1000;
+// Marrow urgency tiers (minutes): ok <5, warn 5-10, alert 10-15, critical 15+.
+const WARN_MS = 5 * 60 * 1000;
+const ALERT_MS = 10 * 60 * 1000;
+const CRITICAL_MS = 15 * 60 * 1000;
 
-type Tier = "fresh" | "warn" | "urgent";
+type Tier = "ok" | "warn" | "alert" | "critical";
 
 const TIER: Record<
   Tier,
-  { bar: string; head: string; timer: string; ring: string }
+  {
+    bar: string; // top urgency stripe (Marrow color)
+    border: string;
+    bg: string;
+    timerFg: string;
+    timerBg: string;
+    pulseBar?: boolean;
+  }
 > = {
-  fresh: {
-    bar: "bg-green-500",
-    head: "bg-green-50/70",
-    timer: "text-green-700",
-    ring: "border-green-200",
+  ok: {
+    bar: "#7AA56F",
+    border: "var(--line-strong)",
+    bg: "var(--bg-elev)",
+    timerFg: "#7AA56F",
+    timerBg: "rgba(122,165,111,0.10)",
   },
   warn: {
-    bar: "bg-amber-500",
-    head: "bg-amber-50/70",
-    timer: "text-amber-700",
-    ring: "border-amber-300",
+    bar: "#C98A14",
+    border: "#5E4B22",
+    bg: "#1E1B12",
+    timerFg: "#C98A14",
+    timerBg: "rgba(201,138,20,0.10)",
   },
-  urgent: {
-    bar: "bg-red-500",
-    head: "bg-red-50",
-    timer: "text-red-600",
-    ring: "border-red-300",
+  alert: {
+    bar: "#D9542B",
+    border: "#5C2A18",
+    bg: "#231410",
+    timerFg: "#D9542B",
+    timerBg: "rgba(217,84,43,0.14)",
+  },
+  critical: {
+    bar: "#B83A3A",
+    border: "#5B1F1F",
+    bg: "#241010",
+    timerFg: "#E66",
+    timerBg: "rgba(184,58,58,0.18)",
+    pulseBar: true,
   },
 };
 
-// Map a station name to its accent colors (dot + tag pill).
+const READY_TONE = {
+  border: "#234A2B",
+  bg: "#10221A",
+  bar: "#7AA56F",
+};
+
+// Marrow station accents — keyed by name fragment.
+function stationAccent(name: string | undefined): string {
+  const n = (name ?? "").toUpperCase();
+  if (n.includes("GRILL") || n.includes("HOT")) return "#D9542B";
+  if (n.includes("FRY")) return "#C98A14";
+  if (n.includes("COLD")) return "#2A6F4E";
+  if (n.includes("PASS")) return "#9A6BB5";
+  if (n.includes("DRINK") || n.includes("BAR")) return "#3B82C4";
+  return "#9C9990";
+}
+
+// Back-compat export — still used by station tabs in the page header.
 export function stationStyle(name: string | undefined): {
   dot: string;
   tag: string;
 } {
   const n = (name ?? "").toUpperCase();
-  if (n.includes("GRILL")) return { dot: "bg-red-500", tag: "bg-red-50 text-red-700" };
-  if (n.includes("FRY")) return { dot: "bg-amber-500", tag: "bg-amber-50 text-amber-700" };
-  if (n.includes("COLD")) return { dot: "bg-teal-500", tag: "bg-teal-50 text-teal-700" };
-  if (n.includes("PASS")) return { dot: "bg-purple-500", tag: "bg-purple-50 text-purple-700" };
-  if (n.includes("HOT")) return { dot: "bg-orange-500", tag: "bg-orange-50 text-orange-700" };
+  if (n.includes("GRILL") || n.includes("HOT"))
+    return { dot: "bg-clay-500", tag: "bg-clay-100 text-clay-700" };
+  if (n.includes("FRY"))
+    return { dot: "bg-amber", tag: "bg-amber-soft text-amber" };
+  if (n.includes("COLD"))
+    return { dot: "bg-olive", tag: "bg-olive-soft text-olive" };
+  if (n.includes("PASS"))
+    return { dot: "bg-purple-500", tag: "bg-purple-50 text-purple-700" };
   if (n.includes("DRINK") || n.includes("BAR"))
     return { dot: "bg-blue-500", tag: "bg-blue-50 text-blue-700" };
-  return { dot: "bg-clay-500", tag: "bg-clay-50 text-clay-700" };
+  return { dot: "bg-ink-muted", tag: "bg-sand text-ink-soft" };
 }
 
-function tierOf(createdAt: string, now: number): Tier {
+function tierOf(createdAt: string, now: number, isReady: boolean): Tier {
   const ms = now - new Date(createdAt).getTime();
-  if (ms >= URGENT_MS) return "urgent";
+  if (isReady) return "ok"; // ready tickets stay calm
+  if (ms >= CRITICAL_MS) return "critical";
+  if (ms >= ALERT_MS) return "alert";
   if (ms >= WARN_MS) return "warn";
-  return "fresh";
+  return "ok";
 }
 
 function elapsed(createdAt: string, now: number): string {
@@ -70,8 +111,6 @@ function elapsed(createdAt: string, now: number): string {
   const secs = Math.floor((ms % 60000) / 1000);
   return `${mins}:${String(secs).padStart(2, "0")}`;
 }
-
-type Section = { name: string; items: OrderItemDTO[]; qty: number };
 
 export function KdsOrderCard({
   order,
@@ -86,198 +125,326 @@ export function KdsOrderCard({
 }: {
   order: OrderDTO;
   now: number;
-  stationId: string | null; // null = all
+  stationId: string | null;
   stationsById: Map<string, string>;
   onBump: (order: OrderDTO, next: OrderStatus) => void;
   onCancel: (order: OrderDTO) => void;
   bumping: boolean;
-  // "Checked off" line items (prep tracking), lifted to the board so it can
-  // gate drag-and-drop / bumping.
   done: Set<string>;
   onToggleItem: (itemId: string) => void;
 }) {
-  const toggle = onToggleItem;
-
   const items = stationId
     ? order.items.filter((i) => i.kdsStationId === stationId)
     : order.items;
 
-  // Group items into course sections (by menu category), preserving order.
-  const sections = useMemo<Section[]>(() => {
-    const map = new Map<string, Section>();
-    for (const it of items) {
-      const key = it.category ?? "Other";
-      const sec = map.get(key) ?? { name: key, items: [], qty: 0 };
-      sec.items.push(it);
-      sec.qty += it.quantity;
-      map.set(key, sec);
-    }
-    return [...map.values()];
-  }, [items]);
+  const hiddenItems = order.items.length - items.length;
 
-  const tier = tierOf(order.createdAt, now);
-  const t = TIER[tier];
+  const totalQty = useMemo(
+    () => items.reduce((s, i) => s + i.quantity, 0),
+    [items],
+  );
+
+  const isReadyLane = order.status === "ready";
+  const tier = tierOf(order.createdAt, now, isReadyLane);
+  const t = isReadyLane
+    ? { ...TIER.ok, ...READY_TONE }
+    : TIER[tier];
   const next = NEXT[order.status];
-  const totalQty = items.reduce((s, i) => s + i.quantity, 0);
 
   if (items.length === 0) return null;
 
+  // Primary action label/icon per lane
+  let primaryLabel = "Bump · served";
+  if (order.status === "pending") primaryLabel = "Start order";
+  else if (order.status === "preparing") primaryLabel = "Mark ready";
+  else if (order.status === "ready") primaryLabel = "Bump · served";
+
+  const canCancel = order.status === "pending" || order.status === "preparing";
+
   return (
     <div
-      className={cn(
-        "group relative flex flex-col overflow-hidden rounded-card border bg-white shadow-card",
-        t.ring,
-      )}
+      className="group relative flex flex-col overflow-hidden animate-slide-up"
+      style={{
+        background: t.bg,
+        border: `1px solid ${t.border}`,
+        borderRadius: "var(--radius)",
+      }}
     >
-      {/* Left time-accent stripe */}
-      <span className={cn("absolute inset-y-0 left-0 w-1.5", t.bar)} />
+      {/* Top urgency stripe */}
+      <div
+        style={{
+          height: 3,
+          background: t.bar,
+          opacity: tier === "critical" ? 1 : 0.85,
+          animation: tier === "critical" ? "blink 1s infinite" : "none",
+        }}
+      />
 
       {/* Header */}
-      <div className={cn("px-4 pb-3 pt-3 pl-5", t.head)}>
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-lg font-extrabold tracking-tight text-ink">
-              {order.orderNumber}
-            </p>
-            <p className="mt-0.5 flex flex-nowrap items-center gap-1.5 whitespace-nowrap text-xs text-ink-soft">
-              <span className="font-semibold">T{order.tableNumber}</span>
-              <span className="text-ink-muted">·</span>
-              <span>{totalQty} cvr</span>
-              <span className="text-ink-muted">·</span>
-              <span className="font-medium uppercase tracking-wide text-ink-muted">
-                {order.type === "take_away" ? "Take-away" : "Dine-in"}
+      <div className="px-3.5 pt-3 pb-1.5 flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span
+              className="mono"
+              style={{ fontSize: 12, color: "var(--ink-3)" }}
+            >
+              #{order.orderNumber}
+            </span>
+            <span
+              style={{
+                fontSize: 15,
+                fontWeight: 700,
+                letterSpacing: "-0.01em",
+                color: "var(--ink)",
+              }}
+            >
+              Table {order.tableNumber}
+            </span>
+            {order.type === "take_away" && (
+              <span
+                style={{
+                  fontSize: 10,
+                  padding: "2px 6px",
+                  border: "1px solid var(--line-strong)",
+                  borderRadius: 999,
+                  color: "var(--ink-3)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                  fontWeight: 600,
+                }}
+              >
+                To-go
               </span>
-            </p>
+            )}
           </div>
           <div
-            className={cn("font-mono text-2xl font-bold tabular-nums", t.timer)}
+            className="flex gap-2 mt-1 flex-wrap"
+            style={{ fontSize: 11, color: "var(--ink-3)" }}
           >
-            {elapsed(order.createdAt, now)}
+            <span>
+              {items.length} {items.length === 1 ? "item" : "items"}
+            </span>
+            <span>·</span>
+            <span>{totalQty} cvr</span>
           </div>
+        </div>
+        <div
+          className="mono"
+          style={{
+            padding: "4px 10px",
+            borderRadius: 6,
+            background: t.timerBg,
+            color: t.timerFg,
+            fontWeight: 600,
+            fontSize: 14,
+            letterSpacing: "0.02em",
+            animation: tier === "critical" ? "blink 1.2s infinite" : "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {elapsed(order.createdAt, now)}
         </div>
       </div>
 
-      {/* Course sections */}
-      <div className="flex-1 px-4 pl-5">
-        {sections.map((sec, si) => {
-          const doneCount = sec.items.filter((i) => done.has(i.id)).length;
-          const allDone = doneCount === sec.items.length;
-          const noneDone = doneCount === 0;
-          const status = allDone ? "READY" : noneDone ? "FIRE" : "IN PREP";
-          const statusCls = allDone
-            ? "bg-green-100 text-green-700"
-            : noneDone
-              ? "border border-red-300 text-red-600"
-              : "bg-blue-50 text-blue-700";
-
+      {/* Items */}
+      <div className="px-3.5 pb-3 pt-1 flex-1">
+        {items.map((it, idx) => {
+          const isDone = done.has(it.id);
+          const stationName = it.kdsStationId
+            ? stationsById.get(it.kdsStationId)
+            : undefined;
+          const accent = stationAccent(stationName);
+          const mods = [
+            ...it.options.map((o) => o.name),
+            ...(it.note ? [it.note] : []),
+          ];
           return (
-            <div
-              key={sec.name}
-              className={cn(
-                "py-3",
-                si > 0 && "border-t border-dashed border-line",
-              )}
+            <button
+              key={it.id}
+              onClick={() => onToggleItem(it.id)}
+              className="w-full text-left transition-colors"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "auto 1fr auto",
+                gap: 10,
+                padding: "8px 10px",
+                marginTop: idx === 0 ? 4 : 4,
+                background: isDone
+                  ? "rgba(122,165,111,0.08)"
+                  : "rgba(255,255,255,0.02)",
+                border: "1px solid var(--line)",
+                borderRadius: "var(--radius-sm)",
+                color: "inherit",
+                cursor: "pointer",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = isDone
+                  ? "rgba(122,165,111,0.14)"
+                  : "rgba(255,255,255,0.06)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = isDone
+                  ? "rgba(122,165,111,0.08)"
+                  : "rgba(255,255,255,0.02)";
+              }}
             >
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
-                  {sec.name}{" "}
-                  <span className="ml-0.5 text-ink-soft">{sec.qty}</span>
-                </p>
-                <span
-                  className={cn(
-                    "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
-                    statusCls,
-                  )}
+              <span
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 6,
+                  background: isDone
+                    ? "#284B33"
+                    : order.status === "preparing"
+                      ? "rgba(217,84,43,0.15)"
+                      : "var(--bg-sunken)",
+                  color: isDone
+                    ? "#7AA56F"
+                    : order.status === "preparing"
+                      ? "var(--accent)"
+                      : "var(--ink-3)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 11,
+                  fontWeight: 700,
+                }}
+              >
+                {isDone ? "✓" : it.quantity}
+              </span>
+              <div className="min-w-0">
+                <div
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 600,
+                    letterSpacing: "-0.005em",
+                    color: isDone ? "var(--ink-3)" : "var(--ink)",
+                    textDecoration: isDone ? "line-through" : "none",
+                  }}
                 >
-                  {status}
-                </span>
+                  <span
+                    className="tnum"
+                    style={{ marginRight: 6, color: "var(--ink-3)" }}
+                  >
+                    {it.quantity}×
+                  </span>
+                  {it.name}
+                </div>
+                {mods.length > 0 && (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      marginTop: 3,
+                      color: "var(--accent)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <span>⚠</span>
+                    <span>{mods.join(" · ")}</span>
+                  </div>
+                )}
               </div>
-
-              <ul className="space-y-1.5">
-                {sec.items.map((it) => {
-                  const isDone = done.has(it.id);
-                  const stationName = it.kdsStationId
-                    ? stationsById.get(it.kdsStationId)
-                    : undefined;
-                  const st = stationStyle(stationName);
-                  const mods = [
-                    ...it.options.map((o) => o.name),
-                    ...(it.note ? [it.note] : []),
-                  ];
-                  return (
-                    <li key={it.id} className="flex items-start gap-2.5">
-                      <button
-                        onClick={() => toggle(it.id)}
-                        aria-label={isDone ? "Mark not done" : "Mark done"}
-                        className={cn(
-                          "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-[11px] font-bold transition-colors",
-                          isDone
-                            ? "border-green-500 bg-green-500 text-white"
-                            : "border-line bg-white text-ink-muted hover:border-ink-muted",
-                        )}
-                      >
-                        {isDone ? "✓" : it.quantity}
-                      </button>
-                      <div className="min-w-0 flex-1">
-                        <p
-                          className={cn(
-                            "text-sm font-medium leading-tight",
-                            isDone
-                              ? "text-ink-muted line-through"
-                              : noneDone
-                                ? "text-ink-soft"
-                                : "text-ink",
-                          )}
-                        >
-                          {it.name}
-                        </p>
-                        {mods.length > 0 && (
-                          <p className="text-xs italic text-ink-muted">
-                            {mods.join(" · ")}
-                          </p>
-                        )}
-                      </div>
-                      {stationName && (
-                        <span
-                          className={cn(
-                            "shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide",
-                            st.tag,
-                          )}
-                        >
-                          {stationName}
-                        </span>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
+              {stationName && (
+                <span
+                  style={{
+                    fontSize: 9,
+                    padding: "2px 6px",
+                    borderRadius: 999,
+                    background: "rgba(255,255,255,0.04)",
+                    color: accent,
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    alignSelf: "flex-start",
+                  }}
+                >
+                  {stationName}
+                </span>
+              )}
+            </button>
           );
         })}
+        {hiddenItems > 0 && (
+          <div
+            style={{
+              marginTop: 6,
+              fontSize: 11,
+              color: "var(--ink-4)",
+              textAlign: "center",
+              padding: 6,
+              border: "1px dashed var(--line)",
+              borderRadius: "var(--radius-sm)",
+            }}
+          >
+            +{hiddenItems} more on other station
+            {hiddenItems === 1 ? "" : "s"}
+          </div>
+        )}
       </div>
 
-      {/* Cancel — revealed on hover, keeps the clean look */}
-      {(order.status === "pending" || order.status === "preparing") && (
-        <button
-          onClick={() => onCancel(order)}
-          className="absolute right-2 top-2 hidden h-6 w-6 items-center justify-center rounded-full text-ink-muted opacity-0 transition hover:bg-white hover:text-red-600 group-hover:flex group-hover:opacity-100"
-          aria-label="Cancel order"
-          title="Cancel order"
-        >
-          ✕
-        </button>
-      )}
-
-      {/* Bump — advances the order's status (pending → preparing → ready → served) */}
-      {next && (
-        <button
-          onClick={() => onBump(order, next)}
-          disabled={bumping}
-          className="m-2 ml-5 flex items-center justify-center gap-1.5 rounded-lg bg-ink py-1.5 text-xs font-bold uppercase tracking-wide text-white transition hover:bg-ink-soft disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {next}
-        </button>
-      )}
+      {/* Footer actions */}
+      <div
+        style={{
+          borderTop: "1px solid var(--line)",
+          padding: 8,
+          display: "flex",
+          gap: 6,
+          background: "rgba(0,0,0,0.15)",
+        }}
+      >
+        {canCancel && (
+          <button
+            onClick={() => onCancel(order)}
+            style={{
+              padding: "8px 10px",
+              border: "none",
+              background: "transparent",
+              color: "var(--ink-3)",
+              cursor: "pointer",
+              borderRadius: "var(--radius-sm)",
+              fontSize: 12,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+            title="Cancel order"
+            aria-label="Cancel order"
+          >
+            ✕
+          </button>
+        )}
+        {next && (
+          <button
+            onClick={() => onBump(order, next)}
+            disabled={bumping}
+            style={{
+              flex: 1,
+              padding: "8px 12px",
+              background:
+                order.status === "ready" ? "#7AA56F" : "var(--accent)",
+              color: "var(--accent-ink)",
+              border: "none",
+              borderRadius: "var(--radius-sm)",
+              cursor: bumping ? "not-allowed" : "pointer",
+              opacity: bumping ? 0.55 : 1,
+              fontSize: 13,
+              fontWeight: 600,
+              letterSpacing: "-0.005em",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+            }}
+          >
+            {primaryLabel}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
+
+// Re-export item type for callers that imported alongside.
+export type { OrderItemDTO };

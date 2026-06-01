@@ -157,23 +157,27 @@ export default function MenuPage() {
   const catList = [{ id: "all", name: "All" }, ...categories];
 
   return (
-    <div className="lg:-mb-28 lg:grid lg:min-h-screen lg:grid-cols-[240px_1fr]">
+    <div className="lg:-mb-28 lg:grid lg:min-h-screen lg:grid-cols-[220px_1fr]">
       {/* Left category rail — tablet / web only */}
-      <aside className="sticky top-0 hidden h-screen flex-col gap-1 border-r border-line bg-white p-4 lg:flex">
-        <div className="border-b border-line pb-3">
-          <h1 className="truncate text-[20px] font-semibold leading-tight text-ink">
+      <aside className="sticky top-0 hidden h-screen flex-col gap-1 border-r border-line bg-cream p-5 lg:flex">
+        {/* Marrow brand mark + role */}
+        <div className="mb-5 flex items-center gap-2.5">
+          <span className="relative inline-block h-5 w-5 rounded-full bg-ink">
+            <span className="absolute inset-[20%] rounded-full bg-clay-500" />
+          </span>
+          <span className="text-[15px] font-semibold tracking-tight text-ink">
             {brand?.name ?? "Menu"}
-          </h1>
-          <p className="mt-1 text-[11px] text-ink-muted">
-            {brand?.branch ? `${brand.branch} · ` : ""}Table {tableNo}
-          </p>
+          </span>
+        </div>
+        <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
+          {brand?.branch ? `${brand.branch} · ` : ""}Table {tableNo}
         </div>
         {categories.length > 0 && (
           <>
-            <div className="mt-2 px-1 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
-              Categories
+            <div className="mt-2 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-dim">
+              Menu
             </div>
-            <nav className="flex flex-col gap-0.5">
+            <nav className="mt-1 flex flex-col gap-0.5">
               {catList.map((c) => {
                 const on = !q && c.id === active;
                 return (
@@ -181,13 +185,16 @@ export default function MenuPage() {
                     key={c.id}
                     type="button"
                     onClick={() => pickCategory(c.id)}
-                    className={`rounded-lg px-3 py-2 text-left text-sm font-semibold transition-colors ${
+                    className={`flex items-center justify-between rounded-sm px-2.5 py-2 text-left text-[13px] transition-colors ${
                       on
-                        ? "bg-clay-50 text-clay-700"
-                        : "text-ink-muted hover:bg-sand"
+                        ? "bg-white font-semibold text-ink shadow-card"
+                        : "font-medium text-ink-soft hover:bg-white/60"
                     }`}
                   >
-                    {c.name}
+                    <span>{c.name}</span>
+                    {on && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-clay-500" />
+                    )}
                   </button>
                 );
               })}
@@ -198,14 +205,14 @@ export default function MenuPage() {
           <button
             type="button"
             onClick={() => setStatusOpen(true)}
-            className="flex items-center justify-center gap-1.5 rounded-lg border border-line bg-white px-3 py-2 text-[12.5px] font-semibold text-ink-soft hover:bg-sand"
+            className="flex items-center justify-center gap-1.5 rounded-sm border border-line-strong bg-white px-3 py-2 text-[12.5px] font-medium text-ink hover:bg-sand"
           >
             <StatusIcon />
             Order Status
           </button>
           <Link
             href={orderLink(`/order/${branchId}/${tableNo}/bill`)}
-            className="flex items-center justify-center gap-1.5 rounded-lg border border-line bg-white px-3 py-2 text-[12.5px] font-semibold text-ink-soft hover:bg-sand"
+            className="flex items-center justify-center gap-1.5 rounded-sm border border-line-strong bg-white px-3 py-2 text-[12.5px] font-medium text-ink hover:bg-sand"
           >
             <BillIcon />
             Bill
@@ -297,7 +304,23 @@ export default function MenuPage() {
           )}
         </header>
 
-        <main className="px-4 pb-4 pt-4 lg:pb-28">
+        <main className="px-4 pb-4 pt-4 lg:px-10 lg:pb-28">
+          {/* Marrow hero — tablet+ only */}
+          {!q && sections.length > 0 && (
+            <div className="hidden pt-6 lg:block">
+              <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-ink-muted">
+                Today's menu · Table {tableNo}
+              </div>
+              <h1 className="mt-2 text-[40px] font-semibold leading-[1.05] tracking-[-0.03em] text-ink">
+                What sounds good?
+              </h1>
+              <p className="mt-2 max-w-md text-sm leading-relaxed text-ink-muted">
+                Tap a dish to customize options and add it to your order. Your
+                kitchen will see it the moment you send.
+              </p>
+            </div>
+          )}
+
           {loading ? (
             <Loading label="Loading menu…" />
           ) : error ? (
@@ -319,12 +342,17 @@ export default function MenuPage() {
                 ref={(el) => {
                   sectionRefs.current[c.id] = el;
                 }}
-                className="mb-6 scroll-mt-44 lg:scroll-mt-20"
+                className="mb-8 scroll-mt-44 lg:mt-8 lg:scroll-mt-20"
               >
-                <h2 className="mb-1 text-2xl font-semibold tracking-tight text-ink">
-                  {c.name}
-                </h2>
-                <div className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-2 lg:gap-3">
+                <div className="mb-4 flex items-baseline justify-between gap-3 border-b border-line pb-3 lg:mb-5">
+                  <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-ink lg:text-[24px]">
+                    {c.name}
+                  </h2>
+                  <span className="mono text-[10px] uppercase tracking-[0.04em] text-ink-dim">
+                    {c.items.length} items
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 gap-2 lg:grid-cols-[repeat(auto-fill,minmax(260px,1fr))] lg:gap-4">
                   {c.items.map((item) => (
                     <MenuCard key={item.id} item={item} onSelect={setSelected} />
                   ))}
@@ -369,18 +397,22 @@ export default function MenuPage() {
       )}
 
       {cart.itemCount > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-2xl px-4 pb-5">
+        <div className="fixed inset-x-0 bottom-5 z-20 flex justify-center px-4 lg:left-[220px] lg:right-0">
           <Link
             href={orderLink(`/order/${branchId}/${tableNo}/cart`)}
-            className="grid grid-cols-[auto_1fr_auto] items-center gap-2.5 rounded-2xl bg-clay-500 px-4 py-3 text-white shadow-[0_8px_24px_rgba(0,0,0,0.18)] hover:bg-clay-600"
+            className="inline-flex animate-slide-up items-center gap-3.5 rounded-full bg-ink px-4 py-3 pl-3 text-white shadow-pop transition-colors hover:bg-ink-soft"
           >
-            <span className="grid h-6 min-w-6 place-items-center rounded-full bg-white/20 text-xs font-bold">
+            <span className="grid h-7 min-w-7 place-items-center rounded-full bg-clay-500 px-2 text-xs font-semibold text-white">
               {cart.itemCount}
             </span>
-            <span className="text-sm font-semibold">View order</span>
-            <span className="text-sm font-semibold opacity-85">
+            <span className="text-sm font-medium">View order</span>
+            <span className="h-4 w-px bg-white/20" />
+            <span className="mono text-sm font-medium tabular-nums">
               {formatPrice(cart.subtotal)}
             </span>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </Link>
         </div>
       )}

@@ -44,14 +44,28 @@ export async function POST(req: Request) {
         .values({ name: data.name, logo: data.logo ?? null })
         .returning();
 
-      await tx.insert(schema.branches).values(
-        data.branches.map((b) => ({
-          restaurantId: restaurant.id,
-          name: b.name,
-          address: b.address ?? null,
-          settings: b.settings ?? DEFAULT_SETTINGS,
-        })),
-      );
+      const insertedBranches = await tx
+        .insert(schema.branches)
+        .values(
+          data.branches.map((b) => ({
+            restaurantId: restaurant.id,
+            name: b.name,
+            address: b.address ?? null,
+            settings: b.settings ?? DEFAULT_SETTINGS,
+          })),
+        )
+        .returning({ id: schema.branches.id });
+
+      const tableRows = data.branches.flatMap((b, idx) => {
+        const branchId = insertedBranches[idx].id;
+        const numbers = Array.from(
+          new Set((b.tables ?? []).map((n) => n.trim()).filter(Boolean)),
+        );
+        return numbers.map((tableNumber) => ({ branchId, tableNumber }));
+      });
+      if (tableRows.length > 0) {
+        await tx.insert(schema.tables).values(tableRows);
+      }
 
       return restaurant;
     });

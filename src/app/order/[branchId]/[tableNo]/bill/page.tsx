@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
@@ -35,17 +34,6 @@ type BillResponse = {
     status: BillStatus;
   };
   lineItems: LineItem[];
-};
-
-const statusTone: Record<BillStatus, "neutral" | "amber" | "green"> = {
-  open: "neutral",
-  requested: "amber",
-  paid: "green",
-};
-const statusLabel: Record<BillStatus, string> = {
-  open: "Open",
-  requested: "Check requested",
-  paid: "Paid",
 };
 
 export default function BillPage() {
@@ -155,17 +143,29 @@ export default function BillPage() {
 
   return (
     <div className="lg:mx-auto lg:max-w-2xl">
-      <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-line bg-cream/90 px-4 py-4 backdrop-blur">
+      <header className="border-b border-line bg-cream px-4 pb-5 pt-5 lg:px-8 lg:pt-10">
         <Link
           href={orderLink(`/order/${branchId}/${tableNo}`)}
-          className="text-ink-muted hover:text-ink"
+          className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-muted transition-colors hover:text-ink"
         >
-          ←
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden>
+            <path d="M13 8H3M7 4 3 8l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Back to menu
         </Link>
-        <h1 className="text-xl font-semibold text-ink">Bill · Table {tableNo}</h1>
+        <div className="mt-3 text-[10px] font-medium uppercase tracking-[0.12em] text-ink-muted">
+          Bill · Table {tableNo}
+        </div>
+        <h1 className="mt-1.5 text-[32px] font-semibold leading-[1.1] tracking-[-0.02em] text-ink lg:text-[40px]">
+          Check, please
+        </h1>
+        <p className="mt-2 text-[13px] text-ink-muted">
+          Review all orders from this table. A server will come over once you
+          request the check.
+        </p>
       </header>
 
-      <main className="px-4 py-4">
+      <main className="px-4 py-5 lg:px-8">
         {loading ? (
           <Loading label="Loading bill…" />
         ) : error ? (
@@ -182,67 +182,75 @@ export default function BillPage() {
           />
         ) : (
           <>
-            <div className="mb-3 flex justify-end">
-              <Badge tone={statusTone[data.bill.status]}>
-                {statusLabel[data.bill.status]}
-              </Badge>
+            <div className="mb-4 flex justify-end">
+              <BillStatusPill status={data.bill.status} />
             </div>
 
-            <div className="rounded-card border border-line bg-white shadow-card">
-              <ul className="divide-y divide-line">
+            <div className="overflow-hidden rounded-card border border-line bg-white shadow-card">
+              <ul>
                 {data.lineItems.map((it, i) => (
-                  <li key={i} className="flex justify-between gap-3 px-4 py-3">
+                  <li
+                    key={i}
+                    className="flex items-baseline justify-between gap-3 border-b border-line p-4 last:border-b-0"
+                  >
                     <div className="min-w-0">
                       <p className="text-sm text-ink">
-                        {it.quantity}× {it.name}
+                        <span className="mono mr-1.5 tabular-nums text-ink-muted">
+                          {it.quantity}×
+                        </span>
+                        {it.name}
                       </p>
                       {it.options.length > 0 && (
-                        <p className="text-xs text-ink-muted">
+                        <p className="mt-0.5 text-xs text-ink-muted">
                           {it.options.map((o) => o.name).join(", ")}
                         </p>
                       )}
                     </div>
-                    <span className="text-sm text-ink-muted">
+                    <span className="mono shrink-0 text-sm tabular-nums text-ink-muted">
                       {formatPrice(parseFloat(it.unitPrice) * it.quantity)}
                     </span>
                   </li>
                 ))}
               </ul>
 
-              <dl className="space-y-1.5 border-t border-line p-4 text-sm">
+              <dl className="space-y-2 border-t border-line bg-sand/40 p-5 text-sm tabular-nums">
                 <Row label="Subtotal" value={formatPrice(data.bill.subtotal)} />
                 {parseFloat(data.bill.serviceCharge) > 0 && (
                   <Row
                     label="Service charge"
                     value={formatPrice(data.bill.serviceCharge)}
+                    muted
                   />
                 )}
-                <Row label="VAT" value={formatPrice(data.bill.vat)} />
+                <Row label="VAT" value={formatPrice(data.bill.vat)} muted />
                 {parseFloat(data.bill.discount) > 0 && (
                   <Row
                     label="Discount"
                     value={`−${formatPrice(data.bill.discount)}`}
+                    muted
                   />
                 )}
-                <div className="mt-2 flex justify-between border-t border-line pt-2 text-base font-semibold text-ink">
-                  <dt>Total</dt>
-                  <dd>{formatPrice(data.bill.totalAmount)}</dd>
+                <div className="mt-2 flex items-baseline justify-between border-t border-line pt-3">
+                  <dt className="text-[14px] font-semibold text-ink">Total</dt>
+                  <dd className="mono text-[22px] font-semibold tabular-nums text-ink">
+                    {formatPrice(data.bill.totalAmount)}
+                  </dd>
                 </div>
               </dl>
             </div>
 
-            <Button
-              size="lg"
-              className="mt-4 w-full"
-              isDisabled={requesting || data.bill.status !== "open"}
-              onPress={requestCheck}
+            <button
+              type="button"
+              disabled={requesting || data.bill.status !== "open"}
+              onClick={requestCheck}
+              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-sm bg-clay-500 px-4 py-3.5 text-sm font-semibold text-white shadow-card transition-colors hover:bg-clay-600 disabled:cursor-not-allowed disabled:bg-sand disabled:text-ink-muted"
             >
               {data.bill.status === "open"
                 ? requesting
                   ? "Requesting…"
                   : "Request check"
                 : "Check requested"}
-            </Button>
+            </button>
           </>
         )}
       </main>
@@ -305,11 +313,51 @@ export default function BillPage() {
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({
+  label,
+  value,
+  muted,
+}: {
+  label: string;
+  value: string;
+  muted?: boolean;
+}) {
   return (
-    <div className="flex justify-between text-ink-soft">
-      <dt>{label}</dt>
-      <dd>{value}</dd>
+    <div className="flex items-baseline justify-between">
+      <dt className={muted ? "text-ink-muted" : "text-ink-soft"}>{label}</dt>
+      <dd className={muted ? "text-ink-muted" : "text-ink"}>{value}</dd>
     </div>
+  );
+}
+
+function BillStatusPill({ status }: { status: BillStatus }) {
+  const tone: Record<
+    BillStatus,
+    { bg: string; fg: string; label: string; dot: boolean }
+  > = {
+    open: { bg: "bg-sand", fg: "text-ink-soft", label: "Open", dot: false },
+    requested: {
+      bg: "bg-amber-soft",
+      fg: "text-amber",
+      label: "Check requested",
+      dot: true,
+    },
+    paid: {
+      bg: "bg-olive-soft",
+      fg: "text-olive",
+      label: "Paid",
+      dot: false,
+    },
+  };
+  const t = tone[status];
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.04em] ${t.bg} ${t.fg}`}
+    >
+      <span
+        className={`h-1.5 w-1.5 rounded-full bg-current ${t.dot ? "animate-marrow-blink" : ""}`}
+      />
+      {t.label}
+    </span>
   );
 }

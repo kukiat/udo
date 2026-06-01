@@ -55,15 +55,28 @@ export async function POST(req: Request) {
     const { data, error } = await parseBody(req, branchCreateSchema);
     if (error) return error;
 
-    const [created] = await db
-      .insert(schema.branches)
-      .values({
-        restaurantId: data.restaurantId,
-        name: data.name,
-        address: data.address ?? null,
-        settings: data.settings ?? DEFAULT_SETTINGS,
-      })
-      .returning();
+    const created = await db.transaction(async (tx) => {
+      const [branch] = await tx
+        .insert(schema.branches)
+        .values({
+          restaurantId: data.restaurantId,
+          name: data.name,
+          address: data.address ?? null,
+          settings: data.settings ?? DEFAULT_SETTINGS,
+        })
+        .returning();
+
+      const numbers = Array.from(
+        new Set((data.tables ?? []).map((n) => n.trim()).filter(Boolean)),
+      );
+      if (numbers.length > 0) {
+        await tx
+          .insert(schema.tables)
+          .values(numbers.map((tableNumber) => ({ branchId: branch.id, tableNumber })));
+      }
+
+      return branch;
+    });
     return Response.json({ branch: created }, { status: 201 });
   } catch (err) {
     console.error("POST /api/branches", err);
