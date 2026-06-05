@@ -141,15 +141,24 @@ export default function KdsPage() {
   const [latency, setLatency] = useState<number | null>(null);
   const [connected, setConnected] = useState(false);
   const [pulse, setPulse] = useState(false);
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    if (typeof window === "undefined") return "light";
+    try {
+      const stored = localStorage.getItem("rms.kds.theme");
+      return stored === "dark" ? "dark" : "light";
+    } catch {
+      return "light";
+    }
+  });
 
   useEffect(() => {
-    const stored =
-      typeof window !== "undefined"
-        ? (localStorage.getItem("rms.kds.theme") as "light" | "dark" | null)
-        : null;
-    if (stored === "light" || stored === "dark") setTheme(stored);
-  }, []);
+    const root = document.documentElement;
+    if (theme === "dark") root.classList.add("kds-theme", "kds-dark");
+    else root.classList.remove("kds-theme", "kds-dark");
+    return () => {
+      root.classList.remove("kds-theme", "kds-dark");
+    };
+  }, [theme]);
 
   const toggleTheme = useCallback(() => {
     setTheme((prev) => {
@@ -397,6 +406,7 @@ export default function KdsPage() {
   if (rejected) {
     return (
       <div
+        suppressHydrationWarning
         className={cn(
           "kds-theme flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center",
           theme === "dark" && "kds-dark",
@@ -451,10 +461,24 @@ export default function KdsPage() {
     );
   }
 
-  if (loading) return <Loading label="Loading orders…" />;
+  if (loading) {
+    return (
+      <div
+        suppressHydrationWarning
+        className={cn(
+          "kds-theme flex min-h-screen items-center justify-center",
+          theme === "dark" && "kds-dark",
+        )}
+        style={{ background: "var(--bg)", color: "var(--ink)" }}
+      >
+        <Loading label="Loading orders…" />
+      </div>
+    );
+  }
 
   return (
     <div
+      suppressHydrationWarning
       className={cn(
         "kds-theme flex min-h-screen flex-col",
         theme === "dark" && "kds-dark",
@@ -466,14 +490,12 @@ export default function KdsPage() {
         style={{
           height: 64,
           paddingInline: 20,
-          background: "var(--bg-elev)",
+          background: "#15171C",
           borderBottom: "1px solid var(--line)",
         }}
       >
         <div className="flex items-center gap-4">
-          <Link href="/" aria-label="Back to home">
-            <BrandMark />
-          </Link>
+          <BrandMark />
           <div style={{ width: 1, height: 24, background: "var(--line)" }} />
           <div className="flex items-baseline gap-3">
             <span
@@ -772,6 +794,7 @@ export default function KdsPage() {
         onDismiss={() => {
           if (!cancelling) setCancelTarget(null);
         }}
+        theme={theme}
       />
     </div>
   );
@@ -787,7 +810,11 @@ function laneEmpty(status: OrderStatus): string {
 
 function BrandMark() {
   return (
-    <div className="inline-flex items-center gap-2.5">
+    <Link
+      href="/"
+      aria-label="Go to home"
+      className="inline-flex items-center gap-2.5 transition-opacity hover:opacity-80"
+    >
       <span
         style={{
           width: 22,
@@ -817,7 +844,7 @@ function BrandMark() {
       >
         Marrow
       </span>
-    </div>
+    </Link>
   );
 }
 

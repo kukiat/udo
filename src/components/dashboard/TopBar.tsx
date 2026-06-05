@@ -1,99 +1,240 @@
 "use client";
 
-import {
-  Button as AriaButton,
-  ListBox,
-  ListBoxItem,
-  Popover,
-  Select as AriaSelect,
-} from "react-aria-components";
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 
 import { AccountMenu } from "@/components/ui/AccountMenu";
 import { Select } from "@/components/ui/Select";
 import { useRestaurant } from "@/contexts/RestaurantContext";
 
-function initials(name?: string | null): string {
-  if (!name) return "R";
-  return (
-    name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((p) => p[0]?.toUpperCase() ?? "")
-      .join("") || "R"
-  );
-}
-
 // Marrow brand mark: ink ring with a coral inner dot, followed by the
-// "Marrow" wordmark. Matches the design's BrandMark primitive.
+// "Marrow" wordmark. Sized to match the KDS header brand mark.
 function MarrowBrand() {
   return (
-    <div className="flex items-center gap-2.5">
-      <span className="relative inline-block h-5 w-5 rounded-full bg-ink">
-        <span className="absolute inset-[20%] rounded-full bg-clay-500" />
+    <Link
+      href="/"
+      aria-label="Go to home"
+      className="flex items-center gap-2.5 rounded-md transition-opacity hover:opacity-80"
+    >
+      <span
+        className="relative inline-block h-[22px] w-[22px] rounded-full bg-[var(--ink)]"
+      >
+        <span
+          className="absolute inset-[20%] rounded-full bg-[var(--accent)]"
+        />
       </span>
-      <span className="text-[15px] font-semibold tracking-[-0.02em] text-ink">
+      <span
+        className="text-[17px] font-semibold tracking-[-0.02em] text-[var(--ink)]"
+      >
         Marrow
       </span>
-    </div>
+    </Link>
   );
 }
 
 const VDivider = () => (
-  <span aria-hidden className="h-[18px] w-px bg-line-strong/70" />
+  <span aria-hidden className="h-6 w-px bg-line" />
 );
 
-// Marrow topbar — used across modules. Layout mirrors the design's TopBar:
-// brand · divider · role · (divider · left slot) — — right slot · (divider) · account.
 export function TopBar({
   role,
   left,
   right,
   showLive = true,
   liveLabel = "Live",
+  liveTone = "olive",
 }: {
   role?: string;
   left?: React.ReactNode;
   right?: React.ReactNode;
   showLive?: boolean;
   liveLabel?: string;
+  liveTone?: "olive" | "neutral";
 }) {
+  const isOn = liveTone === "olive";
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-3 border-b border-line bg-white px-5 sm:px-7">
-      <div className="flex min-w-0 items-center gap-3">
+    <header
+      className="sticky top-0 z-20 flex items-center justify-between h-[64px] px-[20px] bg-[var(--bg-elev)] border-b border-[var(--line,var(--border))]"
+    >
+      <div className="flex min-w-0 items-center gap-4">
         <MarrowBrand />
-        {role && (
+        {(role || left) && (
           <>
-            <VDivider />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
-              {role}
-            </span>
-          </>
-        )}
-        {left && (
-          <>
-            <VDivider />
-            <div className="min-w-0">{left}</div>
+            <span
+              aria-hidden
+              className="w-[1px] h-6 bg-[var(--line)]"
+            />
+            <div className="flex min-w-0 items-baseline gap-3">
+              {role && (
+                <span
+                  className="text-[11px] text-ink-soft tracking-[0.12em] uppercase font-semibold"
+                >
+                  {role}
+                </span>
+              )}
+              {left && <div className="min-w-0">{left}</div>}
+            </div>
           </>
         )}
       </div>
       <div className="flex items-center gap-2">
         {right}
+        {(right || showLive) && (
+          <span
+            aria-hidden
+            className="w-px h-7 bg-[var(--line)] mx-1.5"
+          />
+        )}
         {showLive && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-olive-soft px-2.5 py-[3px] text-[11px] font-medium text-olive">
-            <span className="h-1.5 w-1.5 animate-marrow-blink rounded-full bg-olive" />
+          <span
+            className={`inline-flex items-center gap-2 px-[10px] py-[5px] rounded-full border text-[11px] font-semibold tracking-[0.06em] uppercase
+              ${isOn
+                ? "border-olive bg-olive-soft text-olive"
+                : "border-[var(--line-strong)] bg-[var(--bg-sunken)] text-[var(--ink-3)]"
+              }`}
+          >
+            <span
+              className={
+                `${isOn ? "bg-[var(--olive)] animate-[blink_1.6s_infinite]" : "bg-[var(--ink-3)]"} ` +
+                "w-[6px] h-[6px] rounded-full inline-block"
+              }
+            />
             {liveLabel}
           </span>
         )}
-        <VDivider />
         <AccountMenu />
       </div>
     </header>
   );
 }
 
-// Green-bordered pill that doubles as a branch picker. Avatar bubble + name +
-// caret; clicking opens a dropdown with the rest of the branches.
+// Top-left branch switcher — KDS-style inline mono text "Restaurant · Branch"
+// that opens a popover with all branches. Mirrors the KDS header subtext.
+function BranchSwitcher() {
+  const { restaurantName, branches, branchId, setBranch } = useRestaurant();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  if (!branches.length) return null;
+  const active = branches.find((b) => b.id === branchId) ?? branches[0];
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="true"
+        aria-expanded={open}
+        className={`mono inline-flex items-center gap-1.5 rounded-md border px-1.5 py-0.5 transition-colors text-[11px] ${
+          open
+            ? "text-[var(--ink-2)] bg-[var(--bg-sunken)]"
+            : "text-[var(--ink-4)] bg-transparent"
+        } border-transparent`}
+        onMouseEnter={(e) => {
+          if (!open) {
+            e.currentTarget.classList.add("bg-[var(--bg-sunken)]");
+            e.currentTarget.classList.add("text-[var(--ink-2)]");
+            e.currentTarget.classList.remove("text-[var(--ink-4)]");
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!open) {
+            e.currentTarget.classList.remove("bg-[var(--bg-sunken)]");
+            e.currentTarget.classList.remove("text-[var(--ink-2)]");
+            e.currentTarget.classList.add("text-[var(--ink-4)]");
+          }
+        }}
+      >
+        <span className="max-w-[280px] truncate">
+          {restaurantName ?? "—"} · {active?.name ?? ""}
+        </span>
+        <span
+          aria-hidden
+          className={`transition-transform text-[9px] opacity-70 ${open ? "rotate-180" : ""}`}
+        >
+          ▾
+        </span>
+      </button>
+
+      {open && (
+        <div
+          className="absolute left-0 z-[95] mt-2 w-[288px] animate-slide-up rounded-[16px] border border-line bg-white p-2 shadow-pop"
+        >
+          <div className="px-2.5 pb-2 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-muted">
+            Switch branch
+          </div>
+          <div className="flex flex-col gap-0.5">
+            {branches.map((b) => {
+              const isActive = b.id === branchId;
+              return (
+                <button
+                  key={b.id}
+                  onClick={() => {
+                    setBranch(b.id);
+                    setOpen(false);
+                  }}
+                  className={`flex w-full items-center gap-2.5 rounded-md border-0 px-2.5 py-2 text-left transition-colors ${
+                    isActive ? "bg-[var(--bg-sunken)]" : "bg-transparent"
+                  }`}
+                  onMouseEnter={(e) => {
+                    if (!isActive)
+                      e.currentTarget.classList.add("bg-[var(--bg-sunken)]");
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive)
+                      e.currentTarget.classList.remove("bg-[var(--bg-sunken)]");
+                  }}
+                >
+                  <span
+                    className={`flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-md text-[14px] ${
+                      isActive
+                        ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                        : "bg-[var(--bg-sunken)] text-[var(--ink-3)]"
+                    }`}
+                    aria-hidden
+                  >
+                    ⌂
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span
+                      className="block truncate text-[13px] font-semibold tracking-[-0.01em]"
+                    >
+                      {b.name}
+                    </span>
+                    <span className="block truncate text-[11px] text-ink-muted">
+                      {b.address ?? "—"}
+                    </span>
+                  </span>
+                  {isActive && (
+                    <span
+                      aria-hidden
+                      className="flex-shrink-0 text-clay-500 text-[14px]"
+                    >
+                      ✓
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Standalone branch pill — used outside the dashboard scope (e.g. waitstaff)
+// where the RestaurantContext isn't available. Mirrors the Marrow
+// BranchSwitcher in the dashboard but takes branches/branchId/onChange props.
 export function BranchPill({
   branches,
   branchId,
@@ -103,39 +244,127 @@ export function BranchPill({
   branchId: string | null;
   onChange: (id: string) => void;
 }) {
-  const current = branches.find((b) => b.id === branchId) ?? branches[0];
-  if (!current) return null;
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  if (!branches.length) return null;
+  const active = branches.find((b) => b.id === branchId) ?? branches[0];
+
   return (
-    <AriaSelect
-      selectedKey={current.id}
-      onSelectionChange={(k) => k && onChange(String(k))}
-    >
-      <AriaButton
-        aria-label="Switch branch"
-        className="inline-flex items-center gap-2 rounded-full border border-olive/40 bg-olive-soft/60 py-1 pl-1 pr-3 text-sm text-olive outline-none hover:bg-olive-soft focus-visible:ring-2 focus-visible:ring-olive/30"
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="true"
+        aria-expanded={open}
+        className={`inline-flex h-[34px] items-center gap-2 rounded-full border bg-transparent py-1 pl-2.5 pr-2 transition-colors ${
+          open
+            ? "border-[var(--line-strong)] bg-[var(--bg-sunken)]"
+            : "border-[var(--line)] bg-transparent"
+        }`}
+        onMouseEnter={(e) => {
+          if (!open)
+            e.currentTarget.classList.add("bg-[var(--bg-sunken)]");
+        }}
+        onMouseLeave={(e) => {
+          if (!open)
+            e.currentTarget.classList.remove("bg-[var(--bg-sunken)]");
+        }}
       >
-        <span className="mono flex h-6 w-6 items-center justify-center rounded-full border border-olive/40 bg-white text-[10px] font-semibold text-olive">
-          {initials(current.name)}
+        <span
+          aria-hidden
+          className="text-ink-muted text-[14px] leading-none"
+        >
+          ⌂
         </span>
-        <span className="font-medium text-ink">{current.name}</span>
-        <span aria-hidden className="opacity-60">
+        <span className="flex flex-col items-start leading-[1.1]">
+          <span className="text-[9.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
+            Branch
+          </span>
+          <span
+            className="max-w-[160px] truncate text-[12.5px] font-semibold text-ink tracking-[-0.01em]"
+          >
+            {active.name}
+          </span>
+        </span>
+        <span
+          aria-hidden
+          className={`text-ink-muted transition-transform text-[10px] ${open ? "rotate-180" : ""}`}
+        >
           ▾
         </span>
-      </AriaButton>
-      <Popover className="w-[--trigger-width] min-w-[12rem] overflow-auto rounded-xl border border-line bg-white shadow-card entering:animate-in entering:fade-in">
-        <ListBox className="p-1 outline-none">
-          {branches.map((b) => (
-            <ListBoxItem
-              key={b.id}
-              id={b.id}
-              className="cursor-pointer rounded-lg px-3 py-2 text-sm text-ink outline-none selected:bg-olive-soft selected:font-semibold selected:text-olive focus:bg-sand"
-            >
-              {b.name}
-            </ListBoxItem>
-          ))}
-        </ListBox>
-      </Popover>
-    </AriaSelect>
+      </button>
+
+      {open && (
+        <div
+          className="absolute left-0 z-[95] mt-2 w-[288px] animate-slide-up rounded-[16px] border border-line bg-white p-2 shadow-pop"
+        >
+          <div className="px-2.5 pb-2 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-muted">
+            Switch branch
+          </div>
+          <div className="flex flex-col gap-0.5">
+            {branches.map((b) => {
+              const isActive = b.id === branchId;
+              return (
+                <button
+                  key={b.id}
+                  onClick={() => {
+                    onChange(b.id);
+                    setOpen(false);
+                  }}
+                  className={`flex w-full items-center gap-2.5 rounded-md border-0 px-2.5 py-2 text-left transition-colors ${
+                    isActive ? "bg-[var(--bg-sunken)]" : "bg-transparent"
+                  }`}
+                  onMouseEnter={(e) => {
+                    if (!isActive)
+                      e.currentTarget.classList.add("bg-[var(--bg-sunken)]");
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive)
+                      e.currentTarget.classList.remove("bg-[var(--bg-sunken)]");
+                  }}
+                >
+                  <span
+                    className={`flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-md text-[14px] ${
+                      isActive
+                        ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                        : "bg-[var(--bg-sunken)] text-[var(--ink-3)]"
+                    }`}
+                    aria-hidden
+                  >
+                    ⌂
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span
+                      className="block truncate text-[13px] font-semibold tracking-[-0.01em]"
+                    >
+                      {b.name}
+                    </span>
+                  </span>
+                  {isActive && (
+                    <span
+                      aria-hidden
+                      className="flex-shrink-0 text-clay-500 text-[14px]"
+                    >
+                      ✓
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -151,25 +380,56 @@ export function MarrowTopBar({
   return <TopBar role={label} right={right} showLive={false} />;
 }
 
-// Per-restaurant topbar — Marrow design. Role label shows the restaurant +
-// "MANAGEMENT"; the branch pill lives on the right as in the design.
-export function RestaurantTopBar() {
-  const { restaurantName, branches, branchId, setBranch } = useRestaurant();
+function ThemeToggle({
+  theme,
+  onToggle,
+}: {
+  theme: "light" | "dark";
+  onToggle: () => void;
+}) {
+  const nextLabel = theme === "light" ? "Dark" : "Light";
+  return (
+    <button
+      onClick={onToggle}
+      aria-label={`Switch to ${nextLabel} theme`}
+      title={`Switch to ${nextLabel} theme`}
+      className="btn-quiet flex items-center gap-[6px] rounded-[8px] px-[10px] py-[6px] text-[12px] text-[var(--ink-2)] tracking-[0.02em]"
+    >
+      <span aria-hidden className="text-[13px] leading-none">
+        {theme === "light" ? "◐" : "○"}
+      </span>
+      {nextLabel}
+    </button>
+  );
+}
+
+// Per-restaurant topbar — Marrow design, KDS-aligned. Brand + divider +
+// "Management" section label with mono "Restaurant · Branch" subtext (the
+// subtext is the branch switcher trigger). Mirrors the KDS header layout.
+export function RestaurantTopBar({
+  theme,
+  onToggleTheme,
+}: {
+  theme?: "light" | "dark";
+  onToggleTheme?: () => void;
+} = {}) {
+  const { branches, branchName } = useRestaurant();
+  const liveLabel =
+    branches.length > 0 && branchName ? `Live · ${branchName}` : "Live";
   return (
     <TopBar
-      role={restaurantName ? `${restaurantName} · MANAGEMENT` : "MANAGEMENT"}
+      role="Admin"
+      left={branches.length > 0 ? <BranchSwitcher /> : null}
       right={
-        branches.length > 0 ? (
-          <BranchPill
-            branches={branches}
-            branchId={branchId}
-            onChange={setBranch}
-          />
-        ) : null
+        theme && onToggleTheme ? (
+          <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+        ) : undefined
       }
+      liveLabel={liveLabel}
+      showLive
     />
   );
 }
 
-// Re-exported so older imports that pull `Select` via TopBar keep working.
+// Kept exported for any older imports.
 export { Select };

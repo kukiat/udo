@@ -26,6 +26,7 @@ const TIER: Record<
     bg: string;
     timerFg: string;
     timerBg: string;
+    itemBorder: string;
     pulseBar?: boolean;
   }
 > = {
@@ -35,6 +36,7 @@ const TIER: Record<
     bg: "var(--bg-elev)",
     timerFg: "#7AA56F",
     timerBg: "rgba(122,165,111,0.10)",
+    itemBorder: "var(--kds-item-border-ok)",
   },
   warn: {
     bar: "#C98A14",
@@ -42,6 +44,7 @@ const TIER: Record<
     bg: "var(--tier-warn-bg)",
     timerFg: "#C98A14",
     timerBg: "rgba(201,138,20,0.14)",
+    itemBorder: "var(--kds-item-border-warn)",
   },
   alert: {
     bar: "#D9542B",
@@ -49,6 +52,7 @@ const TIER: Record<
     bg: "var(--tier-alert-bg)",
     timerFg: "#D9542B",
     timerBg: "rgba(217,84,43,0.16)",
+    itemBorder: "var(--kds-item-border-alert)",
   },
   critical: {
     bar: "#B83A3A",
@@ -56,6 +60,7 @@ const TIER: Record<
     bg: "var(--tier-critical-bg)",
     timerFg: "#B83A3A",
     timerBg: "rgba(184,58,58,0.18)",
+    itemBorder: "var(--kds-item-border-critical)",
     pulseBar: true,
   },
 };
@@ -64,6 +69,7 @@ const READY_TONE = {
   border: "var(--tier-ready-border)",
   bg: "var(--tier-ready-bg)",
   bar: "#7AA56F",
+  itemBorder: "var(--kds-item-border-ready)",
 };
 
 // Marrow station accents — keyed by name fragment.
@@ -272,7 +278,7 @@ export function KdsOrderCard({
                 background: isDone
                   ? "var(--kds-item-bg-done)"
                   : "var(--kds-item-bg)",
-                border: "1px solid var(--line)",
+                border: `1px solid ${t.itemBorder}`,
                 borderRadius: "var(--radius-sm)",
                 color: "inherit",
                 cursor: "pointer",
@@ -387,7 +393,7 @@ export function KdsOrderCard({
       {/* Footer actions */}
       <div
         style={{
-          borderTop: "1px solid var(--line)",
+          borderTop: `1px solid ${t.border}`,
           padding: 8,
           display: "flex",
           gap: 6,

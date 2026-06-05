@@ -79,6 +79,10 @@ app.prepare().then(() => {
       socket.join(tableRoom(tableId));
     });
 
+    socket.on("ping", (ack) => {
+      ack?.();
+    });
+
     socket.on("disconnect", async () => {
       if (joinedKdsBranch) {
         // Socket has already left the room by the time this fires; recount.

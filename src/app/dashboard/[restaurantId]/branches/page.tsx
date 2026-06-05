@@ -2,6 +2,15 @@
 
 import { useState } from "react";
 
+import {
+  BranchFields,
+  type BranchFieldsValue,
+  branchFieldsFromSettings,
+  emptyBranchFields,
+  settingsFromBranchFields,
+  tablesFromCount,
+} from "@/components/dashboard/BranchFields";
+import { useDashboardTheme } from "@/components/dashboard/DashboardShell";
 import { Modal } from "@/components/ui/Modal";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import {
@@ -10,42 +19,30 @@ import {
 } from "@/contexts/RestaurantContext";
 import { api } from "@/lib/fetcher";
 
-const MODAL_DARK = "!border-[oklch(0.34_0.025_270)] !bg-[oklch(0.24_0.02_270)]";
-
 export default function BranchesPage() {
   const { restaurantId, branches, loading, refresh } = useRestaurant();
+  const theme = useDashboardTheme();
+  const isDark = theme === "dark";
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [name, setName] = useState("");
-  const [address, setAddress] = useState("");
-  const [maxKds, setMaxKds] = useState("3");
-  const [vat, setVat] = useState("7");
-  const [service, setService] = useState("0");
-  const [tables, setTables] = useState("");
+  const [fields, setFields] = useState<BranchFieldsValue>(emptyBranchFields());
+  // Existing table count for the branch being edited; the stepper can only add
+  // tables (never delete) so its lower bound is clamped to this.
+  const [existingTables, setExistingTables] = useState(0);
+  const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const patchFields = (patch: Partial<BranchFieldsValue>) =>
+    setFields((f) => ({ ...f, ...patch }));
+
   const resetForm = () => {
     setEditingId(null);
-    setName("");
-    setAddress("");
-    setMaxKds("3");
-    setVat("7");
-    setService("0");
-    setTables("");
+    setFields(emptyBranchFields());
+    setExistingTables(0);
+    setIsActive(true);
   };
-
-  // Parse a free-form table list ("1, 2, 3 4") into unique trimmed numbers.
-  const parseTables = (raw: string) =>
-    Array.from(
-      new Set(
-        raw
-          .split(/[\s,]+/)
-          .map((t) => t.trim())
-          .filter(Boolean),
-      ),
-    );
 
   const openCreate = () => {
     resetForm();
@@ -54,22 +51,23 @@ export default function BranchesPage() {
   };
 
   const submit = async () => {
-    if (!name.trim()) return;
+    if (!fields.name.trim()) return;
     setSaving(true);
     setError(null);
-    const settings = {
-      maxKdsScreens: Number(maxKds),
-      vatRate: Number(vat) / 100,
-      serviceChargeRate: Number(service) / 100,
-    };
+    const settings = settingsFromBranchFields(fields);
+    const address = fields.address.trim() || null;
     try {
       if (editingId) {
         await api(`/api/branches/${editingId}`, {
           method: "PUT",
           body: JSON.stringify({
-            name,
-            address: address.trim() || null,
+            name: fields.name,
+            address,
             settings,
+            isActive,
+            // Add-only reconciliation: any new numbers are created, existing
+            // tables are left untouched.
+            tables: tablesFromCount(fields.tables),
           }),
         });
       } else {
@@ -77,10 +75,10 @@ export default function BranchesPage() {
           method: "POST",
           body: JSON.stringify({
             restaurantId,
-            name,
-            address: address.trim() || null,
+            name: fields.name,
+            address,
             settings,
-            tables: parseTables(tables),
+            tables: tablesFromCount(fields.tables),
           }),
         });
       }
@@ -96,24 +94,22 @@ export default function BranchesPage() {
 
   const startEdit = (b: BranchSummary) => {
     setEditingId(b.id);
-    setName(b.name);
-    setAddress(b.address ?? "");
-    setMaxKds(String(b.settings.maxKdsScreens));
-    setVat(String(Math.round(b.settings.vatRate * 100)));
-    setService(String(Math.round(b.settings.serviceChargeRate * 100)));
+    setFields(branchFieldsFromSettings(b));
+    setExistingTables(0);
+    setIsActive(b.isActive);
     setError(null);
     setFormOpen(true);
-  };
-
-  const remove = async (id: string) => {
-    if (!confirm("Delete this branch?")) return;
-    setError(null);
-    try {
-      await api(`/api/branches/${id}`, { method: "DELETE" });
-      await refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to delete branch");
-    }
+    // Hydrate the table count from the saved floor so the stepper starts at the
+    // real value and can only grow from there.
+    api<{ tables: unknown[] }>(`/api/tables?branchId=${b.id}`)
+      .then(({ tables }) => {
+        const count = tables.length;
+        setExistingTables(count);
+        setFields((f) => ({ ...f, tables: Math.max(f.tables, count) }));
+      })
+      .catch(() => {
+        /* leave the stepper at its default if the count can't be loaded */
+      });
   };
 
   if (loading) return <Loading />;
@@ -142,9 +138,15 @@ export default function BranchesPage() {
             setFormOpen(false);
           }
         }}
-        className={`sm:max-w-2xl ${MODAL_DARK}`}
+        className={
+          "sm:max-w-2xl" +
+          (isDark ? " !border-[#23262E] !bg-[#15171C]" : "")
+        }
       >
-        <div className="dir-a" style={{ padding: 24, background: "var(--surface)" }}>
+        <div
+          className={`dir-a kds-theme${isDark ? " kds-dark" : ""}`}
+          style={{ padding: 24, background: "var(--surface)" }}
+        >
           <div className="eyebrow" style={{ marginBottom: 16, fontSize: 13, color: "var(--text)" }}>
             {editingId ? "แก้ไขสาขา · EDIT BRANCH" : "เพิ่มสาขา · NEW BRANCH"}
           </div>
@@ -153,87 +155,31 @@ export default function BranchesPage() {
               <ErrorState message={error} />
             </div>
           )}
-          <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
-            <div>
-              <span className="label">ชื่อสาขา · NAME</span>
-              <input
-                className="input"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder='เช่น "สาขาทองหล่อ"'
-              />
-            </div>
-            <div>
-              <span className="label">ที่อยู่ · ADDRESS</span>
-              <input
-                className="input"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="ไม่บังคับ"
-              />
-            </div>
-          </div>
-          <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(3, 1fr)", marginTop: 12 }}>
-            <div>
-              <span className="label">KDS สูงสุด</span>
-              <input
-                className="input mono"
-                type="number"
-                min={1}
-                value={maxKds}
-                onChange={(e) => setMaxKds(e.target.value)}
-              />
-            </div>
-            <div>
-              <span className="label">VAT %</span>
-              <input
-                className="input mono"
-                type="number"
-                min={0}
-                value={vat}
-                onChange={(e) => setVat(e.target.value)}
-              />
-            </div>
-            <div>
-              <span className="label">บริการ %</span>
-              <input
-                className="input mono"
-                type="number"
-                min={0}
-                value={service}
-                onChange={(e) => setService(e.target.value)}
-              />
-            </div>
-          </div>
-          {!editingId && (
-            <div style={{ marginTop: 12 }}>
-              <span className="label">
-                โต๊ะ · TABLES{" "}
-                <span style={{ color: "var(--text-3)", fontWeight: 400 }}>
-                  (คั่นด้วยจุลภาคหรือเว้นวรรค · comma or space separated)
-                </span>
-              </span>
-              <textarea
-                className="input mono"
-                rows={2}
-                value={tables}
-                onChange={(e) => setTables(e.target.value)}
-                placeholder="1, 2, 3, A1, A2"
-              />
-              {tables.trim() && (
-                <span
-                  style={{
-                    display: "block",
-                    marginTop: 4,
-                    fontSize: 11,
-                    color: "var(--text-3)",
-                  }}
-                >
-                  {parseTables(tables).length} โต๊ะ · tables
-                </span>
-              )}
-            </div>
-          )}
+          <BranchFields
+            value={fields}
+            onChange={patchFields}
+            tablesMin={editingId ? existingTables : undefined}
+          >
+            {editingId && (
+              <div style={{ marginTop: 12 }}>
+                <span className="label">สถานะ · STATUS</span>
+                <div className="row" style={{ gap: 8 }}>
+                  <StatusRadio
+                    label="Active"
+                    selected={isActive}
+                    onSelect={() => setIsActive(true)}
+                    accent="var(--olive)"
+                  />
+                  <StatusRadio
+                    label="Inactive"
+                    selected={!isActive}
+                    onSelect={() => setIsActive(false)}
+                    accent="var(--rose)"
+                  />
+                </div>
+              </div>
+            )}
+          </BranchFields>
           <div className="row" style={{ gap: 8, marginTop: 24 }}>
             <button
               className="btn btn-ghost grow"
@@ -247,7 +193,7 @@ export default function BranchesPage() {
             <button
               className="btn btn-primary grow"
               onClick={submit}
-              disabled={saving || !name.trim()}
+              disabled={saving || !fields.name.trim()}
             >
               {saving ? "กำลังบันทึก…" : editingId ? "บันทึก · UPDATE" : "＋ เพิ่ม · ADD"}
             </button>
@@ -267,54 +213,277 @@ export default function BranchesPage() {
           description="Add the first branch for this restaurant above."
         />
       ) : (
-        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>ชื่อ · NAME</th>
-                <th>ที่อยู่ · ADDRESS</th>
-                <th style={{ textAlign: "right" }}>KDS</th>
-                <th style={{ textAlign: "right" }}>VAT</th>
-                <th style={{ textAlign: "right" }}>บริการ</th>
-                <th style={{ textAlign: "right" }} />
-              </tr>
-            </thead>
-            <tbody>
-              {branches.map((b) => (
-                <tr key={b.id}>
-                  <td style={{ fontWeight: 700 }}>{b.name}</td>
-                  <td style={{ color: "var(--text-2)" }}>{b.address ?? "—"}</td>
-                  <td className="mono" style={{ textAlign: "right", fontWeight: 700 }}>
-                    {b.settings.maxKdsScreens}
-                  </td>
-                  <td className="mono" style={{ textAlign: "right" }}>
-                    {Math.round(b.settings.vatRate * 100)}%
-                  </td>
-                  <td className="mono" style={{ textAlign: "right" }}>
-                    {Math.round(b.settings.serviceChargeRate * 100)}%
-                  </td>
-                  <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                    <button
-                      className="pill"
-                      style={{ marginRight: 6, cursor: "pointer" }}
-                      onClick={() => startEdit(b)}
-                    >
-                      แก้ไข
-                    </button>
-                    <button
-                      className="pill pill-danger"
-                      style={{ cursor: "pointer" }}
-                      onClick={() => remove(b.id)}
-                    >
-                      ลบ
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <BranchesTable branches={branches} onEdit={startEdit} />
       )}
     </div>
   );
 }
+
+function StatusRadio({
+  label,
+  selected,
+  onSelect,
+  accent,
+}: {
+  label: string;
+  selected: boolean;
+  onSelect: () => void;
+  accent: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onClick={onSelect}
+      className={`
+        flex items-center gap-2 pr-0 pl-0 py-2
+        border-none bg-transparent 
+        font-semibold text-[13px] font-sans
+        cursor-pointer
+        outline-none
+      `}
+      style={{
+        color: "var(--ink-2)",
+        paddingLeft: 0,
+        paddingRight: 0,
+        paddingTop: 10,
+        paddingBottom: 10,
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          width: 16,
+          height: 16,
+          borderRadius: 999,
+          flexShrink: 0,
+          border: `2px solid ${selected ? accent : "var(--line-strong)"}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {selected && (
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: 999,
+              background: accent,
+            }}
+          />
+        )}
+      </span>
+      {label}
+    </button>
+  );
+}
+
+function BranchesTable({
+  branches,
+  onEdit,
+}: {
+  branches: BranchSummary[];
+  onEdit: (b: BranchSummary) => void;
+}) {
+  const cols = "minmax(200px, 1.6fr) minmax(200px, 1.8fr) 90px 90px 110px 150px";
+  return (
+    <div
+      style={{
+        background: "var(--bg-elev)",
+        border: "1px solid var(--line)",
+        borderRadius: 8,
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: cols,
+          gap: 12,
+          padding: "11px 18px",
+          background: "var(--line)",
+          borderBottom: "1px solid var(--line)",
+          alignItems: "center",
+        }}
+      >
+        <HeaderLabel label="ชื่อ · NAME" />
+        <HeaderLabel label="ที่อยู่ · ADDRESS" />
+        <HeaderLabel label="KDS" align="right" />
+        <HeaderLabel label="VAT" align="right" />
+        <HeaderLabel label="บริการ" align="right" />
+        <HeaderLabel label="" align="right" />
+      </div>
+
+      {branches.map((b, i) => (
+        <div
+          key={b.id}
+          style={{
+            display: "grid",
+            gridTemplateColumns: cols,
+            gap: 12,
+            padding: "14px 18px",
+            borderTop: i > 0 ? "1px solid var(--line)" : "none",
+            alignItems: "center",
+            opacity: b.isActive ? 1 : 0.55,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              minWidth: 0,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 14,
+                fontWeight: 600,
+                letterSpacing: "-0.01em",
+                color: "var(--ink)",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {b.name}
+            </span>
+            {!b.isActive && (
+              <span
+                style={{
+                  flexShrink: 0,
+                  fontSize: 9,
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  padding: "2px 7px",
+                  borderRadius: 999,
+                  color: "var(--ink-3)",
+                  background: "var(--line)",
+                }}
+              >
+                ปิดใช้งาน · Inactive
+              </span>
+            )}
+          </div>
+          <div
+            style={{
+              fontSize: 13,
+              color: "var(--ink-3)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {b.address ?? "—"}
+          </div>
+          <div
+            className="tnum mono"
+            style={{
+              fontSize: 14,
+              fontWeight: 600,
+              textAlign: "right",
+              color: "var(--ink)",
+            }}
+          >
+            {b.settings.maxKdsScreens}
+          </div>
+          <div
+            className="tnum mono"
+            style={{
+              fontSize: 14,
+              fontWeight: 500,
+              textAlign: "right",
+              color: "var(--ink-2)",
+            }}
+          >
+            {Math.round(b.settings.vatRate * 100)}%
+          </div>
+          <div
+            className="tnum mono"
+            style={{
+              fontSize: 14,
+              fontWeight: 500,
+              textAlign: "right",
+              color: "var(--ink-2)",
+            }}
+          >
+            {Math.round(b.settings.serviceChargeRate * 100)}%
+          </div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <button
+              onClick={() => onEdit(b)}
+              aria-label="แก้ไข · Edit"
+              title="แก้ไข · Edit"
+              style={{ ...btnRowStyle, width: 28, padding: 0, justifyContent: "center" }}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function HeaderLabel({
+  label,
+  align = "left",
+}: {
+  label: string;
+  align?: "left" | "right" | "center";
+}) {
+  return (
+    <span
+      style={{
+        display: "block",
+        textAlign: align,
+        fontSize: 10,
+        letterSpacing: "0.12em",
+        textTransform: "uppercase",
+        fontWeight: 600,
+        color: "var(--ink-3)",
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+const btnRowStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  height: 28,
+  padding: "0 12px",
+  borderRadius: 999,
+  border: "1px solid var(--line-strong)",
+  background: "transparent",
+  color: "var(--ink-2)",
+  fontSize: 12,
+  fontWeight: 600,
+  letterSpacing: "0.02em",
+  cursor: "pointer",
+  fontFamily: "inherit",
+};

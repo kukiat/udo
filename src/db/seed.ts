@@ -471,22 +471,99 @@ async function main() {
     logo: img("1513639776629-7b61b0ac49cb"),
     branchName: "Downtown Branch",
     address: "55 Sukhumvit Road, Bangkok",
-    categories: ["Fried Chicken", "Combos", "Sides", "Beverages"],
+    categories: [
+      "Fried Chicken",
+      "Burgers & Wraps",
+      "Combos",
+      "Sides",
+      "Beverages",
+      "Desserts",
+    ],
     items: [
+      // Fried Chicken
       {
-        name: "Original Recipe Bucket",
-        description: "8 pieces of signature pressure-fried chicken with 11 herbs and spices.",
+        name: "Original Recipe Bucket (8 pcs)",
+        description:
+          "8 pieces of signature pressure-fried chicken with 11 herbs and spices.",
         price: "399.00",
         image: img("1610057099431-d73a1c9d2f2f"),
         category: "Fried Chicken",
       },
       {
-        name: "Hot & Spicy Chicken",
+        name: "Original Recipe Bucket (15 pcs)",
+        description:
+          "Family-size bucket of 15 pieces of original recipe chicken — perfect for sharing.",
+        price: "699.00",
+        image: img("1626082927389-6cd097cdc6ec"),
+        category: "Fried Chicken",
+      },
+      {
+        name: "Hot & Spicy Chicken (2 pcs)",
         description: "Crispy fried chicken with a fiery spiced coating.",
         price: "89.00",
         image: img("1569058242253-92a9c755a0ec"),
         category: "Fried Chicken",
       },
+      {
+        name: "Original Recipe (2 pcs)",
+        description: "Two pieces of the classic original recipe chicken.",
+        price: "85.00",
+        image: img("1562967914-6a3a8aac8fbf"),
+        category: "Fried Chicken",
+      },
+      {
+        name: "Crispy Chicken Wings (6 pcs)",
+        description: "Crunchy hot wings seasoned with KFC's signature spice blend.",
+        price: "139.00",
+        image: img("1527477396000-e27163b481c2"),
+        category: "Fried Chicken",
+      },
+      {
+        name: "Chicken Tenders (5 pcs)",
+        description: "Hand-breaded white meat chicken tenders with dipping sauce.",
+        price: "129.00",
+        image: img("1606755456206-b25cf4e10ee2"),
+        category: "Fried Chicken",
+      },
+      {
+        name: "Chicken Popcorn",
+        description: "Bite-size pieces of crispy fried chicken — great for snacking.",
+        price: "99.00",
+        image: img("1626645738196-c2a7c87a8f3a"),
+        category: "Fried Chicken",
+      },
+      // Burgers & Wraps
+      {
+        name: "Zinger Burger",
+        description:
+          "Crispy zinger fillet burger with lettuce and creamy mayo in a sesame bun.",
+        price: "99.00",
+        image: img("1606755962773-d324e0a13086"),
+        category: "Burgers & Wraps",
+      },
+      {
+        name: "Cheese Zinger Burger",
+        description: "The classic zinger with an extra slice of melted cheese.",
+        price: "115.00",
+        image: img("1571091718767-18b5b1457add"),
+        category: "Burgers & Wraps",
+      },
+      {
+        name: "Chicken Twister Wrap",
+        description:
+          "Crispy chicken strip, lettuce, tomato and salsa rolled in a soft tortilla.",
+        price: "109.00",
+        image: img("1565299585323-38d6b0865b47"),
+        category: "Burgers & Wraps",
+      },
+      {
+        name: "Spicy Chicken Wrap",
+        description: "Crispy chicken with jalapeño mayo and slaw in a warm tortilla.",
+        price: "115.00",
+        image: img("1592415486689-125cbbfcbee2"),
+        category: "Burgers & Wraps",
+      },
+      // Combos
       {
         name: "Zinger Burger Combo",
         description: "Crispy zinger fillet burger with fries and a drink.",
@@ -495,12 +572,43 @@ async function main() {
         category: "Combos",
       },
       {
+        name: "2-Piece Chicken Combo",
+        description:
+          "Two pieces of chicken, fries, coleslaw and a soft drink.",
+        price: "179.00",
+        image: img("1562967914-528a8385e1d2"),
+        category: "Combos",
+      },
+      {
+        name: "Family Feast",
+        description:
+          "8 pieces of chicken, 2 large fries, 2 coleslaws and 4 soft drinks — feeds 4.",
+        price: "599.00",
+        image: img("1626082927389-6cd097cdc6ec"),
+        category: "Combos",
+      },
+      {
+        name: "Hot Wings Combo",
+        description: "6 hot wings with fries and a drink.",
+        price: "169.00",
+        image: img("1527477396000-e27163b481c2"),
+        category: "Combos",
+      },
+      // Sides
+      {
         name: "Crispy Fries",
         description: "Golden seasoned french fries.",
         price: "49.00",
         image: img("1573080496219-bb080dd4f877"),
         category: "Sides",
         station: "cold",
+      },
+      {
+        name: "Cheesy Wedges",
+        description: "Crispy potato wedges loaded with melted cheese sauce.",
+        price: "79.00",
+        image: img("1639024471283-03518883512d"),
+        category: "Sides",
       },
       {
         name: "Coleslaw",
@@ -511,12 +619,84 @@ async function main() {
         station: "cold",
       },
       {
+        name: "Mashed Potato with Gravy",
+        description: "Smooth mashed potatoes topped with savory house gravy.",
+        price: "55.00",
+        image: img("1585032226651-759b368d7246"),
+        category: "Sides",
+      },
+      {
+        name: "Corn on the Cob",
+        description: "Steamed sweet corn brushed with butter.",
+        price: "45.00",
+        image: img("1551754655-cd27e38d2076"),
+        category: "Sides",
+      },
+      // Beverages
+      {
         name: "Pepsi",
         description: "Chilled Pepsi over ice.",
         price: "35.00",
         image: img("1554866585-cd94860890b7"),
         category: "Beverages",
         station: "drinks",
+      },
+      {
+        name: "Pepsi (Large)",
+        description: "Large cup of chilled Pepsi.",
+        price: "45.00",
+        image: img("1554866585-cd94860890b7"),
+        category: "Beverages",
+        station: "drinks",
+      },
+      {
+        name: "7-Up",
+        description: "Crisp, lemon-lime soda over ice.",
+        price: "35.00",
+        image: img("1625772299848-391b6a87d7b3"),
+        category: "Beverages",
+        station: "drinks",
+      },
+      {
+        name: "Mirinda Orange",
+        description: "Sweet orange soda, served chilled.",
+        price: "35.00",
+        image: img("1624552184280-9e9631bbeee9"),
+        category: "Beverages",
+        station: "drinks",
+      },
+      {
+        name: "Bottled Water",
+        description: "500ml chilled mineral water.",
+        price: "20.00",
+        image: img("1560847468-5eef74e9aab1"),
+        category: "Beverages",
+        station: "drinks",
+      },
+      // Desserts
+      {
+        name: "Chocolate Sundae",
+        description: "Soft-serve vanilla ice cream topped with chocolate sauce.",
+        price: "39.00",
+        image: img("1488900128323-21503983a07e"),
+        category: "Desserts",
+        station: "cold",
+      },
+      {
+        name: "Strawberry Sundae",
+        description: "Soft-serve vanilla ice cream with sweet strawberry topping.",
+        price: "39.00",
+        image: img("1497034825429-c343d7c6a68f"),
+        category: "Desserts",
+        station: "cold",
+      },
+      {
+        name: "Egg Tart",
+        description: "Flaky pastry filled with smooth, baked egg custard.",
+        price: "29.00",
+        image: img("1551024506-0bccd828d307"),
+        category: "Desserts",
+        status: "sold_out",
       },
     ],
   });

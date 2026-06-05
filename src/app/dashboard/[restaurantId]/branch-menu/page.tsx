@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { ItemSwatch } from "@/components/menu/ItemSwatch";
+import { TextInput } from "@/components/ui/TextInput";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useRestaurant } from "@/contexts/RestaurantContext";
 import { api } from "@/lib/fetcher";
@@ -218,23 +219,29 @@ export default function BranchMenuPage() {
                     <div style={{ fontSize: 10, color: "var(--text-3)" }} className="truncate">
                       {r.categoryName ?? "—"}
                     </div>
-                    <input
-                      value={r.overridePrice ?? ""}
-                      onChange={(e) =>
-                        update(r.menuItemId, {
-                          overridePrice: e.target.value || null,
-                        })
-                      }
-                      placeholder={formatPrice(r.basePrice)}
-                      inputMode="decimal"
-                      className="input mono"
-                      style={{
-                        marginTop: 4,
-                        padding: "4px 8px",
-                        fontSize: 12,
-                        color: "var(--lime)",
-                      }}
-                    />
+                    <div style={{ marginTop: 4 }}>
+                      <TextInput
+                        value={r.overridePrice ?? ""}
+                        onChange={(v) =>
+                          update(r.menuItemId, {
+                            overridePrice: v || null,
+                          })
+                        }
+                        placeholder={formatPrice(r.basePrice)}
+                        inputMode="decimal"
+                        type="text"
+                        mono
+                        icon={null}
+                        width="100%"
+                        height={30}
+                        ariaLabel={`ราคาเฉพาะสาขา · ${r.name}`}
+                        inputStyle={{
+                          padding: "0 8px",
+                          fontSize: 12,
+                          color: "var(--lime)",
+                        }}
+                      />
+                    </div>
                   </div>
                   <button
                     aria-label="Toggle availability"

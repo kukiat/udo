@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { index, jsonb, pgTable, text, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, jsonb, pgTable, text, uuid } from "drizzle-orm/pg-core";
 
 import { branchMenuItems } from "./menu";
 import { kdsStations } from "./kds";
@@ -17,6 +17,9 @@ export const branches = pgTable(
       .references(() => restaurants.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     address: text("address"),
+    // Soft-deactivation: inactive branches are hidden from operations but kept
+    // (with their orders/history) instead of being hard-deleted.
+    isActive: boolean("is_active").notNull().default(true),
     settings: jsonb("settings")
       .notNull()
       .$type<{

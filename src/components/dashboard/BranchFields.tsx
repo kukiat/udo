@@ -1,0 +1,304 @@
+"use client";
+
+import { TextInput } from "@/components/ui/TextInput";
+
+/** Editable shape of a single branch's form fields. */
+export type BranchFieldsValue = {
+  name: string;
+  address: string;
+  maxKds: string;
+  vat: string;
+  service: string;
+  tables: number;
+};
+
+export const TABLES_MIN = 1;
+export const TABLES_MAX = 50;
+
+export const emptyBranchFields = (): BranchFieldsValue => ({
+  name: "",
+  address: "",
+  maxKds: "3",
+  vat: "7",
+  service: "0",
+  tables: TABLES_MIN,
+});
+
+/** A floor of `count` tables, numbered "1".."count" (matches the API seed). */
+export const tablesFromCount = (count: number): string[] =>
+  Array.from({ length: count }, (_, i) => String(i + 1));
+
+/** Map a saved branch into form fields (settings rates are stored 0–1). */
+export function branchFieldsFromSettings(b: {
+  name: string;
+  address: string | null;
+  settings: { maxKdsScreens: number; vatRate: number; serviceChargeRate: number };
+  tables?: number;
+}): BranchFieldsValue {
+  return {
+    name: b.name,
+    address: b.address ?? "",
+    maxKds: String(b.settings.maxKdsScreens),
+    vat: String(Math.round(b.settings.vatRate * 100)),
+    service: String(Math.round(b.settings.serviceChargeRate * 100)),
+    tables: b.tables ?? TABLES_MIN,
+  };
+}
+
+/** Build the API settings payload (rates back to 0–1) from form fields. */
+export function settingsFromBranchFields(v: BranchFieldsValue) {
+  return {
+    maxKdsScreens: Number(v.maxKds),
+    vatRate: Number(v.vat) / 100,
+    serviceChargeRate: Number(v.service) / 100,
+  };
+}
+
+type Props = {
+  value: BranchFieldsValue;
+  onChange: (patch: Partial<BranchFieldsValue>) => void;
+  /** Disambiguates aria labels when several cards render at once. */
+  idSuffix?: string | number;
+  /** Optional row rendered at the top of the card (e.g. "BRANCH 1" + remove). */
+  header?: React.ReactNode;
+  /** Lower bound for the tables stepper (edit clamps to existing count). */
+  tablesMin?: number;
+  /** Extra rows rendered below the stepper (e.g. an Active/Inactive toggle). */
+  children?: React.ReactNode;
+};
+
+/**
+ * The branch detail card (name, address, KDS/VAT/service, table count) shared
+ * by the restaurant-creation modal and the branches page so create and edit
+ * stay visually identical.
+ */
+export function BranchFields({
+  value,
+  onChange,
+  idSuffix = "",
+  header,
+  tablesMin = TABLES_MIN,
+  children,
+}: Props) {
+  const min = Math.max(TABLES_MIN, tablesMin);
+  const suffix = idSuffix === "" ? "" : ` ${idSuffix}`;
+
+  return (
+    <div style={cardStyle}>
+      {header && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 12,
+          }}
+        >
+          {header}
+        </div>
+      )}
+
+      <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr" }}>
+        <label style={{ display: "block" }}>
+          <span style={labelStyle}>ชื่อสาขา · NAME</span>
+          <TextInput
+            value={value.name}
+            onChange={(v) => onChange({ name: v })}
+            placeholder="ชื่อสาขา"
+            width="100%"
+            icon={null}
+            type="text"
+            ariaLabel={`ชื่อสาขา${suffix}`}
+          />
+        </label>
+        <label style={{ display: "block" }}>
+          <span style={labelStyle}>ที่อยู่ · ADDRESS</span>
+          <TextInput
+            value={value.address}
+            onChange={(v) => onChange({ address: v })}
+            placeholder="ไม่บังคับ"
+            width="100%"
+            icon={null}
+            type="text"
+            ariaLabel={`ที่อยู่สาขา${suffix}`}
+          />
+        </label>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gap: 12,
+          gridTemplateColumns: "repeat(3, 1fr)",
+          marginTop: 12,
+        }}
+      >
+        <label style={{ display: "block" }}>
+          <span style={labelStyle}>KDS สูงสุด</span>
+          <TextInput
+            value={value.maxKds}
+            onChange={(v) => onChange({ maxKds: v })}
+            type="number"
+            min={1}
+            mono
+            icon={null}
+            width="100%"
+            ariaLabel={`KDS สูงสุดสาขา${suffix}`}
+          />
+        </label>
+        <label style={{ display: "block" }}>
+          <span style={labelStyle}>VAT %</span>
+          <TextInput
+            value={value.vat}
+            onChange={(v) => onChange({ vat: v })}
+            type="number"
+            min={0}
+            mono
+            icon={null}
+            width="100%"
+            ariaLabel={`VAT % สาขา${suffix}`}
+          />
+        </label>
+        <label style={{ display: "block" }}>
+          <span style={labelStyle}>บริการ %</span>
+          <TextInput
+            value={value.service}
+            onChange={(v) => onChange({ service: v })}
+            type="number"
+            min={0}
+            mono
+            icon={null}
+            width="100%"
+            ariaLabel={`บริการ % สาขา${suffix}`}
+          />
+        </label>
+      </div>
+
+      <div style={{ marginTop: 12 }}>
+        <span style={labelStyle}>
+          โต๊ะ · TABLES{" "}
+          <span style={{ color: "var(--ink-4)", fontWeight: 400 }}>
+            ({min}–{TABLES_MAX})
+          </span>
+        </span>
+        <div style={stepperStyle}>
+          <button
+            type="button"
+            onClick={() => onChange({ tables: Math.max(min, value.tables - 1) })}
+            disabled={value.tables <= min}
+            aria-label={`ลดจำนวนโต๊ะสาขา${suffix}`}
+            style={{
+              ...stepperBtnStyle,
+              opacity: value.tables <= min ? 0.4 : 1,
+              cursor: value.tables <= min ? "not-allowed" : "pointer",
+            }}
+          >
+            −
+          </button>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={min}
+            max={TABLES_MAX}
+            step={1}
+            value={value.tables}
+            onChange={(e) => {
+              const raw = e.target.value;
+              if (raw === "") {
+                onChange({ tables: min });
+                return;
+              }
+              const n = Math.floor(Number(raw));
+              if (!Number.isFinite(n)) return;
+              onChange({ tables: Math.max(min, Math.min(TABLES_MAX, n)) });
+            }}
+            onBlur={(e) => {
+              const n = Math.floor(Number(e.target.value));
+              const clamped = Number.isFinite(n)
+                ? Math.max(min, Math.min(TABLES_MAX, n))
+                : min;
+              if (clamped !== value.tables) onChange({ tables: clamped });
+            }}
+            aria-label={`จำนวนโต๊ะสาขา${suffix}`}
+            style={stepperInputStyle}
+          />
+          <button
+            type="button"
+            onClick={() =>
+              onChange({ tables: Math.min(TABLES_MAX, value.tables + 1) })
+            }
+            disabled={value.tables >= TABLES_MAX}
+            aria-label={`เพิ่มจำนวนโต๊ะสาขา${suffix}`}
+            style={{
+              ...stepperBtnStyle,
+              opacity: value.tables >= TABLES_MAX ? 0.4 : 1,
+              cursor: value.tables >= TABLES_MAX ? "not-allowed" : "pointer",
+            }}
+          >
+            ＋
+          </button>
+        </div>
+      </div>
+
+      {children}
+    </div>
+  );
+}
+
+const cardStyle: React.CSSProperties = {
+  background: "var(--bg-sunken)",
+  border: "1px solid var(--line)",
+  borderRadius: 10,
+  padding: 18,
+};
+
+const labelStyle: React.CSSProperties = {
+  display: "block",
+  fontSize: 11,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  color: "var(--ink-3)",
+  fontWeight: 600,
+  marginBottom: 6,
+};
+
+const stepperStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 0,
+  border: "1px solid var(--line-strong)",
+  borderRadius: 6,
+  background: "var(--bg-elev)",
+  overflow: "hidden",
+};
+
+const stepperBtnStyle: React.CSSProperties = {
+  width: 36,
+  height: 36,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "transparent",
+  border: "none",
+  color: "var(--ink)",
+  fontSize: 16,
+  fontWeight: 600,
+  padding: 0,
+};
+
+const stepperInputStyle: React.CSSProperties = {
+  width: 56,
+  height: 36,
+  textAlign: "center",
+  fontVariantNumeric: "tabular-nums",
+  fontSize: 14,
+  fontWeight: 600,
+  color: "var(--ink)",
+  background: "transparent",
+  border: "none",
+  borderLeft: "1px solid var(--line-strong)",
+  borderRight: "1px solid var(--line-strong)",
+  outline: "none",
+  padding: 0,
+  MozAppearance: "textfield",
+};

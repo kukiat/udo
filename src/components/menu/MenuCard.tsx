@@ -25,15 +25,15 @@ export function MenuCard({
       className="group relative flex w-full overflow-hidden rounded-card border border-line bg-white text-left transition-all hover:-translate-y-px hover:border-line-strong hover:shadow-elev disabled:opacity-60 lg:flex-col"
     >
       {/* Image: horizontal thumb on mobile, top-banner on tablet+ */}
-      <div className="relative h-[88px] w-[88px] flex-shrink-0 lg:h-[140px] lg:w-full">
+      <div className="relative h-[88px] w-[88px] flex-shrink-0 overflow-hidden lg:h-[180px] lg:w-full">
         <ItemSwatch
           id={item.id}
           name={item.name}
           image={item.image}
-          className="lg:rounded-none"
+          size="lg"
         />
         {count > 0 && (
-          <span className="absolute right-1.5 top-1.5 grid h-6 min-w-6 place-items-center rounded-full bg-clay-500 px-1.5 text-xs font-bold text-white shadow-card">
+          <span className="absolute right-2 top-2 grid h-6 min-w-6 place-items-center rounded-full bg-clay-500 px-1.5 text-xs font-bold text-white shadow-card">
             {count}
           </span>
         )}
@@ -58,9 +58,7 @@ export function MenuCard({
               Sold out
             </span>
           ) : (
-            <span className="text-[11px] uppercase tracking-wider text-ink-dim">
-              Tap to customize
-            </span>
+            <span />
           )}
           {!soldOut && (
             <span

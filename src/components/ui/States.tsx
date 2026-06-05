@@ -32,8 +32,8 @@ export function EmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-card border border-dashed border-line bg-white/50 py-16 text-center">
-      <p className="font-medium text-ink">{title}</p>
+    <div className="flex flex-col items-center justify-center gap-2 rounded-card border border-dashed border-line bg-[var(--bg-elev)] px-8 py-12 text-center">
+      <p className="font-medium text-ink text-lg">{title}</p>
       {description && (
         <p className="max-w-sm text-sm text-ink-muted">{description}</p>
       )}

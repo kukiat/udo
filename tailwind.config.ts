@@ -38,8 +38,8 @@ export default {
           soft: "#DEE9D9",
         },
         amber: {
-          DEFAULT: "#C98A14",
-          soft: "#F7E9C9",
+          DEFAULT: "var(--amber)",
+          soft: "var(--amber-soft)",
         },
         rose: {
           DEFAULT: "#B83A3A",

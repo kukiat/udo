@@ -22,8 +22,8 @@
   --accent-soft: #f6e2d8;
   --olive: #2a6f4e;
   --olive-soft: #dee9d9;
-  --amber: #c98a14;
-  --amber-soft: #f7e9c9;
+  --amber: #C98A14;
+  --amber-soft: #F7E9C9;
   --rose: #b83a3a;
   --rose-soft: #f7d9d9;
 
@@ -80,7 +80,7 @@ body {
   --ink-4: #9a958a;
   --accent-soft: #f6e2d8;
   --olive-soft: #dee9d9;
-  --amber-soft: #f7e9c9;
+  --amber-soft: #F7E9C9;
   --rose-soft: #f7d9d9;
 
   /* Order-card urgency tiers — light variants */
@@ -101,25 +101,149 @@ body {
   --kds-item-done-icon-bg: #cfe1c4;
   --kds-station-bg: rgba(22, 21, 18, 0.04);
   --kds-footer-bg: rgba(22, 21, 18, 0.025);
+  --kds-item-border-ok: var(--line);
+  --kds-item-border-warn: #ecdba8;
+  --kds-item-border-alert: #f0c8ac;
+  --kds-item-border-critical: #eebdbd;
+  --kds-item-border-ready: #c8d8a9;
 
   background: var(--bg);
   color: var(--ink);
 }
 
+/* ============================================================
+   Admin dashboard dark theme — warm-neutral dark, brand-aligned.
+   Scoping it to .admin-dark lets us flip the whole dashboard
+   surface (including any descendants reading the same tokens)
+   by toggling a single class on the page root.
+   ============================================================ */
+.admin-dark {
+  --bg: #14120D;
+  --bg-elev: #1D1B16;
+  --bg-sunken: #0D0C09;
+  --line: #2C2A23;
+  --line-strong: #3D3A30;
+  --ink: #F5F2EA;
+  --ink-2: #CFC9BB;
+  --ink-3: #948E7F;
+  --ink-4: #635E52;
+  --accent: #E8633A;
+  --accent-ink: #14130F;
+  --accent-soft: #34190F;
+  --olive: #5FB97E;
+  --olive-soft: #16271C;
+  --amber: #E0A52A;
+  --amber-soft: #2C2410;
+  --rose: #EE6060;
+  --rose-soft: #2E1515;
+  --shadow-1: 0 1px 0 rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 8px 24px -8px rgba(0, 0, 0, 0.6),
+    0 2px 6px rgba(0, 0, 0, 0.4);
+  --shadow-pop: 0 20px 48px -16px rgba(0, 0, 0, 0.8),
+    0 4px 12px rgba(0, 0, 0, 0.5);
+
+  /* Aliases for components that read the .dir-a token names
+     (TopBar, sidebar, dashboard tables). Without these, descendants
+     would inherit the light .dir-a values from the dashboard layout. */
+  --surface: var(--bg-elev);
+  --surface-2: var(--bg);
+  --border: var(--line);
+  --border-strong: var(--line-strong);
+  --text: var(--ink);
+  --text-2: var(--ink-2);
+  --text-3: var(--ink-3);
+
+  background: var(--bg);
+  color: var(--ink);
+}
+.admin-dark .dir-a .table tr,
+.admin-dark .dir-a .table th,
+.admin-dark .dir-a .table td {
+  background: #15171C;
+}
+.admin-dark .r-table-footer {
+  background: #15171C !important;
+}
+.admin-dark .r-table-header {
+  background: var(--line);
+}
+.admin-dark .r-stat-card {
+  background: #15171C !important;
+}
+.admin-dark .r-row {
+  background: #15171C;
+}
+.admin-dark input[type="text"],
+.admin-dark input[type="search"],
+.admin-dark input[type="email"],
+.admin-dark input[type="password"],
+.admin-dark input[type="number"],
+.admin-dark input[type="url"],
+.admin-dark input[type="tel"],
+.admin-dark input:not([type]),
+.admin-dark textarea {
+  background: #15171C !important;
+}
+.admin-dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: var(--bg);
+}
+.admin-dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+/* ------------------------------------------------------------
+   Admin-dark: remap the dashboard's hard-coded Tailwind color
+   classes onto the dark-theme CSS variables. Without this the
+   pages render with their original light surfaces inside the
+   admin-dark wrapper. Scoped tightly to .admin-dark.
+   ------------------------------------------------------------ */
+.admin-dark .bg-white { background-color: var(--bg-elev); }
+.admin-dark .bg-cream { background-color: var(--bg); }
+.admin-dark .bg-sand { background-color: var(--bg-sunken); }
+.admin-dark .bg-ink { background-color: var(--accent); }
+.admin-dark .bg-clay-100 { background-color: var(--accent-soft); }
+.admin-dark .bg-clay-500 { background-color: var(--accent); }
+.admin-dark .bg-olive-soft { background-color: var(--olive-soft); }
+.admin-dark .bg-rose-soft { background-color: var(--rose-soft); }
+.admin-dark .bg-amber-soft { background-color: var(--amber-soft); }
+
+.admin-dark .text-ink { color: var(--ink); }
+.admin-dark .text-ink-soft { color: var(--ink-2); }
+.admin-dark .text-ink-muted { color: var(--ink-3); }
+.admin-dark .text-ink-dim { color: var(--ink-4); }
+.admin-dark .text-clay-500 { color: var(--accent); }
+.admin-dark .text-olive { color: var(--olive); }
+.admin-dark .text-rose { color: var(--rose); }
+.admin-dark .text-amber { color: var(--amber); }
+
+.admin-dark .border-line { border-color: var(--line); }
+.admin-dark .border-line-strong { border-color: var(--line-strong); }
+.admin-dark .border-clay-500 { border-color: var(--accent); }
+
+/* Modal dialog content — many dashboard modals hard-code "!bg-white". */
+.admin-dark .\!bg-white { background-color: var(--bg-elev) !important; }
+.admin-dark .\!border-line { border-color: var(--line) !important; }
+
 .kds-theme.kds-dark {
-  --bg: #0e0f0d;
-  --bg-elev: #181a17;
-  --bg-sunken: #0a0b09;
-  --line: #2a2c28;
-  --line-strong: #3a3d38;
-  --ink: #f4f2eb;
-  --ink-2: #d9d6ce;
-  --ink-3: #9c9990;
-  --ink-4: #6c6a62;
-  --accent-soft: #3a2218;
-  --olive-soft: #1a2a1f;
-  --amber-soft: #2e2614;
-  --rose-soft: #2e1818;
+  --bg: #0C0D10;
+  --bg-elev: #15171C;
+  --bg-sunken: #070809;
+  --line: #23262E;
+  --line-strong: #343843;
+  --ink: #F4F6F8;
+  --ink-2: #C4C9D2;
+  --ink-3: #8B919C;
+  --ink-4: #5A606B;
+  --accent: #FF6A3D;
+  --accent-ink: #0C0D10;
+  --accent-soft: #2A1812;
+  --olive: #4ADE80;
+  --olive-soft: #16241B;
+  --amber: #FBBF24;
+  --amber-soft: #2A2110;
+  --rose: #FB5A5A;
+  --rose-soft: #2C1414;
 
   --tier-warn-bg: #1e1b12;
   --tier-warn-border: #5e4b22;
@@ -137,6 +261,102 @@ body {
   --kds-item-done-icon-bg: #284b33;
   --kds-station-bg: rgba(255, 255, 255, 0.04);
   --kds-footer-bg: rgba(0, 0, 0, 0.15);
+  --kds-item-border-ok: var(--line);
+  --kds-item-border-warn: #3a3120;
+  --kds-item-border-alert: #3d2218;
+  --kds-item-border-critical: #3d1818;
+  --kds-item-border-ready: #1d3528;
+}
+
+/* ------------------------------------------------------------
+   KDS-dark: remap Marrow Tailwind utility classes onto the KDS
+   dark-theme CSS variables. Mirrors the admin-dark mappings so
+   the waitstaff page (which uses bg-white, text-ink, border-line
+   etc.) renders with KDS dark surfaces.
+   ------------------------------------------------------------ */
+.kds-theme.kds-dark .bg-white { background-color: var(--bg-elev); }
+.kds-theme.kds-dark .bg-cream { background-color: var(--bg); }
+.kds-theme.kds-dark .bg-sand { background-color: var(--bg-sunken); }
+.kds-theme.kds-dark .bg-ink { background-color: var(--accent); }
+.kds-theme.kds-dark .bg-clay-50 { background-color: var(--accent-soft); }
+.kds-theme.kds-dark .bg-clay-100 { background-color: var(--accent-soft); }
+.kds-theme.kds-dark .bg-clay-300 { background-color: var(--accent-soft); }
+.kds-theme.kds-dark .bg-clay-500 { background-color: var(--accent); }
+.kds-theme.kds-dark .bg-clay-600 { background-color: var(--accent); }
+.kds-theme.kds-dark .bg-olive { background-color: var(--olive); }
+.kds-theme.kds-dark .bg-olive-soft { background-color: var(--olive-soft); }
+.kds-theme.kds-dark .bg-rose { background-color: var(--rose); }
+.kds-theme.kds-dark .bg-rose-soft { background-color: var(--rose-soft); }
+.kds-theme.kds-dark .bg-amber { background-color: var(--amber); }
+.kds-theme.kds-dark .bg-amber-soft { background-color: var(--amber-soft); }
+
+.kds-theme.kds-dark .text-ink { color: var(--ink); }
+.kds-theme.kds-dark .text-ink-soft { color: var(--ink-2); }
+.kds-theme.kds-dark .text-ink-muted { color: var(--ink-3); }
+.kds-theme.kds-dark .text-ink-dim { color: var(--ink-4); }
+.kds-theme.kds-dark .text-clay-500 { color: var(--accent); }
+.kds-theme.kds-dark .text-clay-600 { color: var(--accent); }
+.kds-theme.kds-dark .text-clay-700 { color: var(--accent); }
+.kds-theme.kds-dark .text-olive { color: var(--olive); }
+.kds-theme.kds-dark .text-rose { color: var(--rose); }
+.kds-theme.kds-dark .text-amber { color: var(--amber); }
+
+.kds-theme.kds-dark .border-line { border-color: var(--line); }
+.kds-theme.kds-dark .border-line-strong { border-color: var(--line-strong); }
+.kds-theme.kds-dark .border-clay-300 { border-color: var(--accent); }
+.kds-theme.kds-dark .border-clay-500 { border-color: var(--accent); }
+.kds-theme.kds-dark .border-ink { border-color: var(--ink); }
+.kds-theme.kds-dark .border-olive { border-color: var(--olive); }
+.kds-theme.kds-dark .border-rose { border-color: var(--rose); }
+
+.kds-theme.kds-dark .divide-line > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--line);
+}
+
+/* Important-prefixed overrides used in a few buttons / modals. */
+.kds-theme.kds-dark .\!bg-white { background-color: var(--bg-elev) !important; }
+.kds-theme.kds-dark .\!bg-olive { background-color: var(--olive) !important; }
+.kds-theme.kds-dark .\!bg-clay-500 { background-color: var(--accent) !important; }
+.kds-theme.kds-dark .\!bg-clay-600 { background-color: var(--accent) !important; }
+.kds-theme.kds-dark .\!border-line { border-color: var(--line) !important; }
+
+/* Dashboard pill variants (.dir-a) under KDS dark. Their soft fills are
+   hard-coded light hexes in the .dir-a scope, so remap them onto the
+   theme-aware tokens. Scoped to .dir-a so KDS-only surfaces are untouched. */
+.kds-theme.kds-dark .dir-a .pill-lime {
+  background: var(--olive-soft);
+  border-color: var(--olive);
+  color: var(--olive);
+}
+.kds-theme.kds-dark .dir-a .pill-danger {
+  background: var(--rose-soft);
+  border-color: var(--rose);
+  color: var(--rose);
+}
+.kds-theme.kds-dark .dir-a .pill-coral {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.kds-theme.kds-dark input[type="text"],
+.kds-theme.kds-dark input[type="search"],
+.kds-theme.kds-dark input[type="email"],
+.kds-theme.kds-dark input[type="password"],
+.kds-theme.kds-dark input[type="number"],
+.kds-theme.kds-dark input[type="url"],
+.kds-theme.kds-dark input[type="tel"],
+.kds-theme.kds-dark input:not([type]),
+.kds-theme.kds-dark textarea {
+  background: var(--bg-sunken);
+  color: var(--ink);
+}
+.kds-theme.kds-dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: var(--bg);
+}
+.kds-theme.kds-dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.26);
 }
 
 /* ============================================================
@@ -209,16 +429,34 @@ input[type="number"] {
   --font-mono: var(--font-mono, "JetBrains Mono", ui-monospace, "SF Mono",
     Menlo, monospace);
 
-  /* Surfaces (Marrow light) */
+  /* Surfaces (Marrow light) — mirror the root tokens so components that read
+     --bg-elev render on white (not sunken cream) inside the dashboard scope. */
   --bg: #fafaf7;
-  --bg-elev: #f2f0ea;
-  --surface: #ffffff;
-  --surface-2: #fafaf7;
-  --border: #e7e3d9;
-  --border-strong: #d6d1c4;
-  --text: #161512;
-  --text-2: #3a3833;
-  --text-3: #6b675e;
+  --bg-elev: #ffffff;
+  --bg-sunken: #f2f0ea;
+  --line: #e7e3d9;
+  --line-strong: #d6d1c4;
+  --ink: #161512;
+  --ink-2: #3a3833;
+  --ink-3: #6b675e;
+  --ink-4: #9a958a;
+  --accent: #d9542b;
+  --accent-soft: #f6e2d8;
+  --olive: #2a6f4e;
+  --olive-soft: #dee9d9;
+  --amber: #c98a14;
+  --amber-soft: #f7e9c9;
+  --rose: #b83a3a;
+  --rose-soft: #f7d9d9;
+
+  /* Legacy aliases — older .dir-a rules still reference these. */
+  --surface: var(--bg-elev);
+  --surface-2: var(--bg);
+  --border: var(--line);
+  --border-strong: var(--line-strong);
+  --text: var(--ink);
+  --text-2: var(--ink-2);
+  --text-3: var(--ink-3);
 
   /* Accents → Marrow palette mappings */
   --coral: #d9542b; /* primary accent (terracotta) */
@@ -341,7 +579,7 @@ input[type="number"] {
   font-weight: 600;
   letter-spacing: 0.02em;
   border: 1px solid var(--border);
-  background: var(--bg-elev);
+  background: var(--bg-sunken);
   color: var(--text-2);
 }
 .dir-a .pill-on { background: var(--text); color: var(--bg); border-color: var(--text); }
@@ -349,7 +587,7 @@ input[type="number"] {
 .dir-a .pill-lime { background: var(--lime-soft); border-color: var(--lime); color: var(--lime); }
 .dir-a .pill-butter { background: var(--butter-soft); border-color: var(--butter); color: var(--butter); }
 .dir-a .pill-danger { background: #f7d9d9; border-color: var(--berry); color: var(--berry); }
-.dir-a .pill-muted { background: var(--bg-elev); border-color: var(--border); color: var(--text-3); }
+.dir-a .pill-muted { background: var(--bg-sunken); border-color: var(--border); color: var(--text-3); }
 
 /* Status dot (no glow on light surfaces) */
 .dir-a .dot { width: 8px; height: 8px; border-radius: 99px; flex-shrink: 0; }
@@ -370,6 +608,33 @@ input[type="number"] {
   text-transform: uppercase;
   color: var(--text-3);
   font-weight: 600;
+}
+
+.dir-a .text-ink-soft {
+  transition: color 0.15s ease;
+}
+.dir-a .text-ink-soft:hover {
+  color: var(--ink);
+}
+
+/* Quiet button — transparent at rest, reveals a soft border + sunken surface
+   on hover. Appearance-only: callers add their own height / padding /
+   border-radius / font so a pill or rounded button can share the pattern. */
+.btn-quiet {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  font-weight: 500;
+  color: var(--ink);
+  background: transparent;
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    color 0.15s ease;
+  cursor: pointer;
+}
+.btn-quiet:hover {
+  border-color: var(--line-strong);
+  background: var(--bg-sunken);
 }
 
 /* Topbar */
@@ -449,7 +714,7 @@ input[type="number"] {
   align-items: center;
   gap: 10px;
 }
-.dir-a .nav-item:hover { background: var(--bg-elev); }
+.dir-a .nav-item:hover { background: var(--bg-sunken); }
 .dir-a .nav-item.on { background: var(--coral-soft); color: var(--text); font-weight: 700; }
 
 /* Table */

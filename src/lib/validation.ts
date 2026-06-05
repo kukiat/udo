@@ -68,7 +68,8 @@ export const restaurantUpdateSchema = z.object({
 
 export const branchUpdateSchema = branchCreateSchema
   .omit({ restaurantId: true })
-  .partial();
+  .partial()
+  .extend({ isActive: z.boolean().optional() });
 
 // --- Categories -------------------------------------------------------------
 

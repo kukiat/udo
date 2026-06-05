@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { badRequest, notFound, parseBody, serverError } from "@/lib/api";
@@ -27,15 +27,47 @@ export async function PUT(req: Request, { params }: Params) {
     const { data, error } = await parseBody(req, branchUpdateSchema);
     if (error) return error;
 
-    const [updated] = await db
-      .update(schema.branches)
-      .set({
-        ...(data.name !== undefined && { name: data.name }),
-        ...(data.address !== undefined && { address: data.address ?? null }),
-        ...(data.settings !== undefined && { settings: data.settings }),
-      })
-      .where(eq(schema.branches.id, id))
-      .returning();
+    const updated = await db.transaction(async (tx) => {
+      const [branch] = await tx
+        .update(schema.branches)
+        .set({
+          ...(data.name !== undefined && { name: data.name }),
+          ...(data.address !== undefined && { address: data.address ?? null }),
+          ...(data.isActive !== undefined && { isActive: data.isActive }),
+          ...(data.settings !== undefined && { settings: data.settings }),
+        })
+        .where(eq(schema.branches.id, id))
+        .returning();
+      if (!branch) return null;
+
+      // Add-only table reconciliation: create any supplied numbers that don't
+      // already exist on the branch. Existing tables are never deleted here so
+      // sessions/orders attached to them stay intact.
+      if (data.tables) {
+        const desired = Array.from(
+          new Set(data.tables.map((t) => t.trim()).filter(Boolean)),
+        );
+        if (desired.length > 0) {
+          const existing = await tx.query.tables.findMany({
+            where: and(
+              eq(schema.tables.branchId, id),
+              inArray(schema.tables.tableNumber, desired),
+            ),
+            columns: { tableNumber: true },
+          });
+          const have = new Set(existing.map((t) => t.tableNumber));
+          const toAdd = desired.filter((n) => !have.has(n));
+          if (toAdd.length > 0) {
+            await tx.insert(schema.tables).values(
+              toAdd.map((tableNumber) => ({ branchId: id, tableNumber })),
+            );
+          }
+        }
+      }
+
+      return branch;
+    });
+
     if (!updated) return notFound("Branch not found");
     return Response.json({ branch: updated });
   } catch (err) {

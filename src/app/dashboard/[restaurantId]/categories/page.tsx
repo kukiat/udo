@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 
+import { useDashboardTheme } from "@/components/dashboard/DashboardShell";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
+import { TextInput } from "@/components/ui/TextInput";
 import { ErrorState, Loading } from "@/components/ui/States";
 import { useRestaurant } from "@/contexts/RestaurantContext";
 import { api } from "@/lib/fetcher";
@@ -18,10 +20,11 @@ type Category = {
 };
 
 const HUES = [38, 110, 32, 18, 75, 50, 200, 300];
-const MODAL_DARK = "!border-[oklch(0.34_0.025_270)] !bg-[oklch(0.24_0.02_270)]";
 
 export default function CategoriesPage() {
   const { restaurantId, loading: ctxLoading } = useRestaurant();
+  const theme = useDashboardTheme();
+  const isDark = theme === "dark";
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -141,7 +144,7 @@ export default function CategoriesPage() {
   }
 
   return (
-    <div className="max-w-5xl">
+    <div className={`max-w-5xl dir-a kds-theme${isDark ? " kds-dark" : ""}`}>
       <div className="row" style={{ justifyContent: "space-between", marginBottom: 24 }}>
         <div>
           <div className="h-display" style={{ fontSize: 44 }}>
@@ -164,9 +167,12 @@ export default function CategoriesPage() {
             setFormOpen(false);
           }
         }}
-        className={`sm:max-w-xl ${MODAL_DARK}`}
+        className={"sm:max-w-xl" + (isDark ? " !border-[#23262E] !bg-[#15171C]" : "")}
       >
-        <div className="dir-a" style={{ padding: 24, background: "var(--surface)" }}>
+        <div
+          className={`dir-a kds-theme${isDark ? " kds-dark" : ""}`}
+          style={{ padding: 24, background: "var(--surface)" }}
+        >
           <div className="eyebrow" style={{ marginBottom: 16, fontSize: 13, color: "var(--text)" }}>
             {editingId ? "แก้ไขหมวด · EDIT CATEGORY" : "เพิ่มหมวด · NEW CATEGORY"}
           </div>
@@ -178,26 +184,32 @@ export default function CategoriesPage() {
           <div className="grid gap-3" style={{ gridTemplateColumns: "1.6fr 100px" }}>
             <div>
               <span className="label">ชื่อ · NAME</span>
-              <input
-                className="input"
+              <TextInput
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={setName}
                 placeholder="ชื่อหมวดหมู่"
+                icon={null}
+                type="text"
+                width="100%"
+                ariaLabel="ชื่อหมวดหมู่"
               />
             </div>
             <div>
               <span className="label">ลำดับ · SORT</span>
-              <input
-                className="input mono"
-                type="number"
+              <TextInput
                 value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value)}
+                onChange={setSortOrder}
+                type="number"
+                mono
+                icon={null}
+                width="100%"
+                ariaLabel="ลำดับ"
               />
             </div>
           </div>
           <div style={{ marginTop: 12 }}>
             <Select
-              dark
+              dark={isDark}
               label="หมวดแม่ · PARENT"
               options={[
                 { id: "", label: "— Top level —" },

@@ -1,15 +1,45 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { ImageUpload, type ImageUploadHandle } from "@/components/ui/ImageUpload";
-import { Modal } from "@/components/ui/Modal";
+import { useDashboardTheme } from "@/components/dashboard/DashboardShell";
+import { RestaurantFormModal } from "@/components/dashboard/RestaurantFormModal";
+import { PillButton } from "@/components/ui/PillButton";
 import { ErrorState, Loading } from "@/components/ui/States";
 import { useRestaurant } from "@/contexts/RestaurantContext";
 import { api } from "@/lib/fetcher";
+import { formatPrice } from "@/lib/utils";
 
-const MODAL_DARK = "!border-[oklch(0.34_0.025_270)] !bg-[oklch(0.24_0.02_270)]";
+type SalesResponse = {
+  summary: { totalSales: string; orderCount: number; avgTicket: string };
+  byDay: { date: string; total: string }[];
+  byCategory: { name: string; total: string; qty: number }[];
+  topItems: { name: string; qty: number; total: string }[];
+};
+
+function dayKey(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+function daysAgo(n: number) {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - n);
+  return d;
+}
+
+function shortDay(iso: string) {
+  // "Mon", "Tue" …
+  return new Date(iso).toLocaleDateString("en-US", { weekday: "short" });
+}
+function shortDate(iso: string) {
+  // "May 27"
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
 
 function markOf(name?: string | null): string {
   if (!name) return "R";
@@ -23,6 +53,180 @@ function markOf(name?: string | null): string {
   );
 }
 
+// 4-up KPI tile. Mirrors the Stat primitive from the Marrow design.
+function Stat({
+  label,
+  value,
+  delta,
+  deltaTone = "olive",
+  sub,
+}: {
+  label: string;
+  value: string;
+  delta?: string;
+  deltaTone?: "olive" | "rose" | "neutral";
+  sub?: string;
+}) {
+  const toneClass =
+    deltaTone === "olive"
+      ? "bg-olive-soft text-olive"
+      : deltaTone === "rose"
+        ? "bg-rose-soft text-rose"
+        : "bg-sand text-ink-muted";
+  const arrow = deltaTone === "rose" ? "▼" : "▲";
+  return (
+    <div className="rounded-card border border-line bg-white p-5">
+      <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
+        {label}
+      </div>
+      <div className="mt-2 flex items-baseline gap-2.5">
+        <div
+          className="tnum text-[30px] font-semibold text-ink"
+          style={{ letterSpacing: "-0.025em", lineHeight: 1 }}
+        >
+          {value}
+        </div>
+        {delta && (
+          <span
+            className={`inline-flex items-center gap-1 rounded-full px-2 py-[3px] text-[11px] font-medium ${toneClass}`}
+          >
+            <span aria-hidden style={{ fontSize: 9 }}>
+              {arrow}
+            </span>
+            {delta}
+          </span>
+        )}
+      </div>
+      {sub && (
+        <div className="mt-1.5 text-[12px] text-ink-muted">{sub}</div>
+      )}
+    </div>
+  );
+}
+
+// 7-day revenue bar chart. Today's bar is filled with the accent, prior days
+// dim to ink-muted.
+function RevenueChart({
+  days,
+}: {
+  days: { date: string; total: number }[];
+}) {
+  const max = Math.max(0.0001, ...days.map((d) => d.total)) * 1.1;
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-[120px] flex-1 items-end gap-2 pt-4 pb-2">
+        {days.map((d, i) => {
+          const pct = (d.total / max) * 100;
+          const isToday = i === days.length - 1;
+          return (
+            <div
+              key={d.date}
+              className="flex h-full flex-1 flex-col items-center justify-end gap-1.5"
+            >
+              <div
+                className="tnum text-[11px] font-semibold"
+                style={{
+                  color: isToday ? "var(--accent)" : "var(--ink-3)",
+                }}
+              >
+                {d.total >= 1000
+                  ? `฿${(d.total / 1000).toFixed(1)}k`
+                  : `฿${Math.round(d.total)}`}
+              </div>
+              <div
+                className="w-full transition-[height] duration-500"
+                style={{
+                  maxWidth: 56,
+                  height: `${Math.max(1, pct)}%`,
+                  minHeight: 2,
+                  borderRadius: "4px 4px 0 0",
+                  background: isToday
+                    ? "linear-gradient(180deg, var(--accent) 0%, #B8451F 100%)"
+                    : "linear-gradient(180deg, var(--ink-3) 0%, var(--ink-4) 100%)",
+                  opacity: isToday ? 1 : 0.55,
+                }}
+              />
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex gap-2 pt-1">
+        {days.map((d) => (
+          <div key={d.date} className="flex-1 text-center">
+            <div className="text-[11px] font-medium text-ink-muted">
+              {shortDay(d.date)}
+            </div>
+            <div className="mono text-[10px] text-ink-dim">
+              {shortDate(d.date)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SectionHead({
+  overline,
+  title,
+  subtitle,
+  action,
+}: {
+  overline?: string;
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="mb-4 flex items-end justify-between gap-4">
+      <div className="min-w-0 flex-1">
+        {overline && (
+          <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
+            {overline}
+          </div>
+        )}
+        <div
+          className="text-[24px] font-semibold text-ink"
+          style={{ letterSpacing: "-0.02em", lineHeight: 1.1 }}
+        >
+          {title}
+        </div>
+        {subtitle && (
+          <div className="mt-1 text-[13px] text-ink-muted">{subtitle}</div>
+        )}
+      </div>
+      {action && <div>{action}</div>}
+    </div>
+  );
+}
+
+function CardHead({
+  title,
+  subtitle,
+  action,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="mb-3 flex items-end justify-between gap-4">
+      <div className="min-w-0">
+        <div
+          className="text-[16px] font-semibold text-ink"
+          style={{ letterSpacing: "-0.005em", lineHeight: 1.2 }}
+        >
+          {title}
+        </div>
+        {subtitle && (
+          <div className="mt-0.5 text-[12px] text-ink-muted">{subtitle}</div>
+        )}
+      </div>
+      {action && <div>{action}</div>}
+    </div>
+  );
+}
+
 export default function RestaurantOverviewPage() {
   const {
     loading,
@@ -31,307 +235,427 @@ export default function RestaurantOverviewPage() {
     restaurantName,
     restaurantLogo,
     branches,
+    branchId,
     branchName,
     settings,
     refresh,
   } = useRestaurant();
+  const theme = useDashboardTheme();
 
   const [editOpen, setEditOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [logo, setLogo] = useState("");
-  const logoRef = useRef<ImageUploadHandle>(null);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const [todaySales, setTodaySales] = useState<SalesResponse | null>(null);
+  const [weekSales, setWeekSales] = useState<SalesResponse | null>(null);
+  const [yesterdayTotal, setYesterdayTotal] = useState<number | null>(null);
+  const [menuCount, setMenuCount] = useState<number | null>(null);
 
   useEffect(() => {
-    setName(restaurantName ?? "");
-    setLogo(restaurantLogo ?? "");
-  }, [restaurantName, restaurantLogo]);
-
-  const openEdit = () => {
-    setName(restaurantName ?? "");
-    setLogo(restaurantLogo ?? "");
-    setSaveError(null);
-    setEditOpen(true);
-  };
-
-  const save = async () => {
-    if (!name.trim()) return;
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const logoUrl = await logoRef.current!.flush();
-      await api(`/api/restaurants/${restaurantId}`, {
-        method: "PUT",
-        body: JSON.stringify({ name, logo: logoUrl }),
-      });
-      await refresh();
-      setEditOpen(false);
-    } catch (e) {
-      setSaveError(e instanceof Error ? e.message : "Failed to save");
-    } finally {
-      setSaving(false);
+    if (!branchId) {
+      setTodaySales(null);
+      setWeekSales(null);
+      setYesterdayTotal(null);
+      return;
     }
-  };
+    const today = dayKey(new Date());
+    const yest = dayKey(daysAgo(1));
+    const weekStart = dayKey(daysAgo(6));
+    let alive = true;
+    Promise.all([
+      api<SalesResponse>(
+        `/api/reports/sales?branchId=${branchId}&from=${today}&to=${today}`,
+      ),
+      api<SalesResponse>(
+        `/api/reports/sales?branchId=${branchId}&from=${weekStart}&to=${today}`,
+      ),
+      api<SalesResponse>(
+        `/api/reports/sales?branchId=${branchId}&from=${yest}&to=${yest}`,
+      ),
+    ])
+      .then(([t, w, y]) => {
+        if (!alive) return;
+        setTodaySales(t);
+        setWeekSales(w);
+        setYesterdayTotal(parseFloat(y.summary.totalSales));
+      })
+      .catch(() => {
+        if (alive) {
+          setTodaySales(null);
+          setWeekSales(null);
+          setYesterdayTotal(null);
+        }
+      });
+    return () => {
+      alive = false;
+    };
+  }, [branchId]);
+
+  useEffect(() => {
+    if (!restaurantId) return;
+    let alive = true;
+    api<{ items?: unknown[]; total?: number }>(
+      `/api/menu?restaurantId=${restaurantId}`,
+    )
+      .then((d) => alive && setMenuCount(d.total ?? d.items?.length ?? 0))
+      .catch(() => alive && setMenuCount(null));
+    return () => {
+      alive = false;
+    };
+  }, [restaurantId]);
+
+  const openEdit = () => setEditOpen(true);
+
+  // Today header — locale-formatted to mirror the design's "Today · Tue May 27 2026".
+  const todayHeader = useMemo(() => {
+    const fmt = new Intl.DateTimeFormat("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    return `Today · ${fmt.format(new Date())}`;
+  }, []);
+
+  // Build a 7-day series that always renders 7 columns, filling in zeros for
+  // days with no payments yet.
+  const weekDays = useMemo(() => {
+    const map = new Map<string, number>();
+    (weekSales?.byDay ?? []).forEach((d) =>
+      map.set(d.date, parseFloat(d.total)),
+    );
+    const out: { date: string; total: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const k = dayKey(daysAgo(i));
+      out.push({ date: k, total: map.get(k) ?? 0 });
+    }
+    return out;
+  }, [weekSales]);
 
   if (loading) return <Loading />;
   if (error) return <ErrorState message={error} />;
 
-  const stats = [
-    { th: "สาขา", en: "BRANCHES", val: String(branches.length) },
-    { th: "สาขาที่ใช้งาน", en: "ACTIVE", val: branchName ?? "—", small: true },
-    {
-      th: "VAT",
-      en: "TAX",
-      val: `${((settings?.vatRate ?? 0) * 100).toFixed(0)}%`,
-    },
-    { th: "รายการเมนู", en: "MENU ITEMS", val: "—" },
-  ];
-
-  const actions = [
-    {
-      href: `/dashboard/${restaurantId}/branches`,
-      th: "จัดการสาขา",
-      en: "Manage branches",
-      icon: "⌂",
-      desc: `${branches.length} สาขา · ${branches.length} branch`,
-    },
-    {
-      href: `/dashboard/${restaurantId}/categories`,
-      th: "จัดการหมวดหมู่",
-      en: "Manage categories",
-      icon: "◧",
-      desc: "หมวดหมู่ · categories",
-    },
-    {
-      href: `/dashboard/${restaurantId}/menu/create`,
-      th: "สร้างรายการเมนู",
-      en: "Create menu item",
-      icon: "＋",
-      desc: "เพิ่มเมนูใหม่",
-      primary: true,
-    },
-  ];
-
-  const activity = [
-    { th: 'ตั้งสถานะเมนู "หมด"', en: "Item marked sold out", time: "15m", dot: "new" },
-    { th: "เพิ่มเมนูใหม่", en: "Menu item created", time: "2h", dot: "ready" },
-    { th: "แก้ไขราคาเมนู", en: "Price updated", time: "5h", dot: "prep" },
-  ];
+  const todayRev = parseFloat(todaySales?.summary.totalSales ?? "0");
+  const todayOrders = todaySales?.summary.orderCount ?? 0;
+  const aov = parseFloat(todaySales?.summary.avgTicket ?? "0");
+  const revDelta =
+    yesterdayTotal && yesterdayTotal > 0
+      ? ((todayRev - yesterdayTotal) / yesterdayTotal) * 100
+      : null;
+  const topItems = (todaySales?.topItems ?? []).slice(0, 6);
+  const topMaxQty = topItems[0]?.qty ?? 1;
+  const activeBranches = branches.length;
+  const vatPct = ((settings?.vatRate ?? 0) * 100).toFixed(0);
 
   return (
-    <div className="max-w-5xl">
-      <div style={{ marginBottom: 24 }}>
-        <Link
-          href="/dashboard"
-          style={{ fontSize: 12, color: "var(--text-3)" }}
-        >
-          ← ทุกร้าน · ALL RESTAURANTS
-        </Link>
-        <div className="h-display" style={{ fontSize: 44, marginTop: 6 }}>
-          ตั้งค่าร้าน
-        </div>
-        <div style={{ fontSize: 14, color: "var(--text-2)", marginTop: 4 }}>
-          RESTAURANT SETTINGS · {restaurantName ?? "…"}
-        </div>
+    <div className="mx-auto flex h-full max-w-[1280px] flex-col">
+      <SectionHead
+        overline={todayHeader}
+        title="Overview"
+        subtitle={
+          branchName
+            ? `Real-time · ${branchName}`
+            : "Real-time across all branches"
+        }
+        action={
+          <div className="flex gap-2">
+            <Link
+              href={`/dashboard/${restaurantId}/reports`}
+              className="inline-flex h-[34px] items-center gap-2 rounded-md border border-[color:var(--line-strong)] bg-[color:var(--bg-elev)] px-3.5 text-[13px] font-medium text-[color:var(--ink)] transition-colors hover:bg-[color:var(--bg-sunken)]"
+            >
+              <span aria-hidden style={{ fontSize: 13 }}>
+                ⌗
+              </span>
+              Reports
+            </Link>
+            <PillButton onPress={openEdit}>
+              <span aria-hidden style={{ fontSize: 13 }}>
+                ✎
+              </span>
+              Edit restaurant
+            </PillButton>
+          </div>
+        }
+      />
+
+      {/* KPI tiles */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Stat
+          label="Revenue, today"
+          value={formatPrice(todayRev)}
+          delta={
+            revDelta == null
+              ? undefined
+              : `${revDelta >= 0 ? "+" : ""}${revDelta.toFixed(1)}%`
+          }
+          deltaTone={revDelta == null ? "neutral" : revDelta >= 0 ? "olive" : "rose"}
+          sub={
+            yesterdayTotal != null
+              ? `vs ${formatPrice(yesterdayTotal)} yesterday`
+              : "No payments yet today"
+          }
+        />
+        <Stat
+          label="Orders"
+          value={String(todayOrders)}
+          sub={`${todayOrders} paid bills today`}
+        />
+        <Stat
+          label="Avg order value"
+          value={formatPrice(aov)}
+          sub="Across paid orders"
+        />
+        <Stat
+          label="VAT rate"
+          value={`${vatPct}%`}
+          sub={`${activeBranches} branch${activeBranches === 1 ? "" : "es"}`}
+        />
       </div>
 
-      {/* Hero info */}
-      <div
-        className="card"
-        style={{
-          padding: 24,
-          marginBottom: 18,
-          display: "flex",
-          gap: 24,
-          flexWrap: "wrap",
-          alignItems: "center",
-        }}
-      >
-        {restaurantLogo ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={restaurantLogo}
-            alt=""
-            style={{ width: 120, height: 120, borderRadius: 24, objectFit: "cover" }}
+      {/* Revenue chart + Top sellers */}
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-3 lg:[grid-template-rows:minmax(0,1fr)]">
+        <div className="flex min-h-0 flex-col rounded-card border border-line bg-white p-4 lg:col-span-2">
+          <CardHead
+            title="Revenue, 7-day"
+            subtitle={formatPrice(
+              weekDays.reduce((s, d) => s + d.total, 0),
+            )}
+            action={
+              <div className="flex gap-1.5">
+                <span className="inline-flex items-center rounded-full bg-ink px-2.5 py-[3px] text-[11px] font-medium text-white">
+                  Revenue
+                </span>
+                <span className="inline-flex items-center rounded-full border border-line-strong px-2.5 py-[3px] text-[11px] font-medium text-ink-soft">
+                  Orders
+                </span>
+              </div>
+            }
           />
-        ) : (
+          <RevenueChart days={weekDays} />
+        </div>
+
+        <div className="flex min-h-0 flex-col rounded-card border border-line bg-white p-4">
+          <CardHead
+            title="Top sellers, today"
+            subtitle={`${topItems.length} items · by qty`}
+            action={
+              <Link
+                href={`/dashboard/${restaurantId}/reports`}
+                className="text-[12px] font-medium text-ink-soft hover:text-ink"
+              >
+                Report →
+              </Link>
+            }
+          />
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+            {topItems.length === 0 && (
+              <div className="py-6 text-center text-[12px] text-ink-muted">
+                No sales yet today.
+              </div>
+            )}
+            {topItems.map((row, i) => {
+              const pct = (row.qty / topMaxQty) * 100;
+              return (
+                <div
+                  key={row.name}
+                  className="grid items-center gap-3 py-2.5"
+                  style={{
+                    gridTemplateColumns: "24px 1fr auto",
+                    borderTop: i > 0 ? "1px solid var(--line)" : "none",
+                  }}
+                >
+                  <span
+                    className="mono text-[11px] text-ink-dim"
+                    style={{ letterSpacing: "0.06em" }}
+                  >
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <div className="min-w-0">
+                    <div
+                      className="truncate text-[13px] font-medium"
+                      style={{ letterSpacing: "-0.005em" }}
+                    >
+                      {row.name}
+                    </div>
+                    <div
+                      className="mt-1.5 overflow-hidden rounded-full"
+                      style={{
+                        height: 4,
+                        background: "var(--bg-sunken)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${pct}%`,
+                          height: "100%",
+                          background:
+                            i < 3 ? "var(--accent)" : "var(--ink-3)",
+                          transition: "width 0.4s ease",
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="tnum text-[13px] font-semibold">
+                      {row.qty}
+                    </div>
+                    <div className="tnum text-[11px] text-ink-muted">
+                      {formatPrice(parseFloat(row.total))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Branches + Brand */}
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="rounded-card border border-line bg-white p-4">
+          <CardHead
+            title="Branches"
+            subtitle={`${branches.length} total`}
+            action={
+              <Link
+                href={`/dashboard/${restaurantId}/branches`}
+                className="text-[12px] font-medium text-ink-soft hover:text-ink"
+              >
+                Manage →
+              </Link>
+            }
+          />
+          <div className="flex flex-col gap-2">
+            {branches.length === 0 && (
+              <div className="py-6 text-center text-[12px] text-ink-muted">
+                No branches yet.
+              </div>
+            )}
+            {branches.map((b) => {
+              const isActive = b.id === branchId;
+              return (
+                <div
+                  key={b.id}
+                  className="flex items-center justify-between gap-3 rounded-md px-3.5 py-3"
+                  style={{ background: "var(--bg-sunken)" }}
+                >
+                  <div className="min-w-0">
+                    <div
+                      className="flex items-center gap-2 truncate text-[13px] font-semibold"
+                      style={{ letterSpacing: "-0.005em" }}
+                    >
+                      {b.name}
+                      {isActive && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-clay-100 px-2 py-0.5 text-[10px] font-semibold text-clay-500">
+                          <span className="h-1 w-1 rounded-full bg-clay-500" />
+                          Active
+                        </span>
+                      )}
+                    </div>
+                    <div className="truncate text-[11px] text-ink-muted">
+                      {b.address ?? "—"}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="tnum text-[13px] font-semibold">
+                      {((b.settings?.vatRate ?? 0) * 100).toFixed(0)}%
+                    </div>
+                    <div className="text-[11px] text-ink-muted">VAT</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="rounded-card border border-line bg-white p-4">
+          <CardHead
+            title="Brand"
+            subtitle="Editable"
+            action={
+              <button
+                onClick={openEdit}
+                className="text-[12px] font-medium text-ink-soft hover:text-ink"
+              >
+                Edit →
+              </button>
+            }
+          />
           <div
-            style={{
-              width: 120,
-              height: 120,
-              borderRadius: 24,
-              background: "linear-gradient(135deg, var(--coral), oklch(0.4 0.15 28))",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 36,
-              fontWeight: 800,
-              letterSpacing: "-0.04em",
-            }}
+            className="flex items-center gap-4 rounded-card p-4"
+            style={{ background: "var(--bg-sunken)" }}
           >
-            {markOf(restaurantName)}
-          </div>
-        )}
-        <div style={{ flex: 1, minWidth: 240 }}>
-          <span className="label">ชื่อร้าน · NAME</span>
-          <div className="h-1" style={{ marginTop: 2 }}>
-            {restaurantName ?? "—"}
-          </div>
-        </div>
-        <button className="btn btn-ghost" onClick={openEdit}>
-          แก้ไข · EDIT
-        </button>
-      </div>
-
-      <Modal
-        isOpen={editOpen}
-        onOpenChange={(open) => {
-          if (!open) setEditOpen(false);
-        }}
-        className={`sm:max-w-xl ${MODAL_DARK}`}
-      >
-        <div className="dir-a" style={{ padding: 24, background: "var(--surface)" }}>
-          <div className="eyebrow" style={{ marginBottom: 16, fontSize: 13, color: "var(--text)" }}>
-            แก้ไขร้าน · EDIT RESTAURANT
-          </div>
-          {saveError && (
-            <div style={{ marginBottom: 16 }}>
-              <ErrorState message={saveError} />
-            </div>
-          )}
-          <div>
-            <span className="label">ชื่อร้าน · NAME</span>
-            <input
-              className="input"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <ImageUpload
-              ref={logoRef}
-              deferred
-              label="โลโก้ · LOGO"
-              value={logo || null}
-              onChange={(u) => setLogo(u ?? "")}
-            />
-          </div>
-          <div className="row" style={{ gap: 8, marginTop: 24 }}>
-            <button className="btn btn-ghost grow" onClick={() => setEditOpen(false)}>
-              ยกเลิก
-            </button>
-            <button
-              className="btn btn-primary grow"
-              onClick={save}
-              disabled={saving || !name.trim()}
-            >
-              {saving ? "กำลังบันทึก…" : "บันทึก · SAVE"}
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Stats */}
-      <div
-        className="grid gap-3.5"
-        style={{ gridTemplateColumns: "repeat(4, 1fr)", marginBottom: 18 }}
-      >
-        {stats.map((s) => (
-          <div key={s.en} className="stat">
-            <div className="eyebrow">
-              {s.th} · {s.en}
-            </div>
-            <div className={s.small ? "h-2" : "num"}>{s.val}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Quick actions */}
-      <div
-        className="grid gap-3.5"
-        style={{ gridTemplateColumns: "repeat(3, 1fr)", marginBottom: 24 }}
-      >
-        {actions.map((a) => (
-          <Link key={a.en} href={a.href} className="card" style={{
-            padding: 18,
-            display: "flex",
-            alignItems: "center",
-            gap: 14,
-            background: a.primary
-              ? "linear-gradient(135deg, var(--coral) 0%, oklch(0.5 0.15 28) 100%)"
-              : "var(--surface)",
-            borderColor: a.primary ? "var(--coral)" : "var(--border)",
-            color: a.primary ? "oklch(0.18 0.05 28)" : "var(--text)",
-          }}>
-            <div
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 14,
-                background: a.primary
-                  ? "oklch(0.95 0.05 28 / 0.2)"
-                  : "var(--bg-elev)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 22,
-              }}
-            >
-              {a.icon}
-            </div>
-            <div style={{ flex: 1 }}>
-              <div className="h-3">{a.th}</div>
-              <div
+            {restaurantLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={restaurantLogo}
+                alt=""
                 style={{
-                  fontSize: 11,
-                  letterSpacing: "0.05em",
-                  opacity: 0.7,
-                  textTransform: "uppercase",
-                  marginTop: 3,
-                  lineHeight: 1.3,
+                  width: 72,
+                  height: 72,
+                  borderRadius: 16,
+                  objectFit: "cover",
+                }}
+              />
+            ) : (
+              <div
+                className="flex items-center justify-center text-clay-500"
+                style={{
+                  width: 72,
+                  height: 72,
+                  borderRadius: 16,
+                  background: "var(--accent-soft)",
+                  fontSize: 24,
+                  fontWeight: 700,
+                  letterSpacing: "-0.02em",
                 }}
               >
-                {a.en}
+                {markOf(restaurantName)}
               </div>
-              <div style={{ fontSize: 11, opacity: 0.7, marginTop: 4 }}>
-                {a.desc}
+            )}
+            <div
+              className="min-w-0 border-l pl-4"
+              style={{ borderColor: "var(--line-strong)" }}
+            >
+              <div
+                className="truncate text-[18px] font-semibold"
+                style={{ letterSpacing: "-0.02em" }}
+              >
+                {restaurantName ?? "—"}
+              </div>
+              <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-muted">
+                Restaurant
+              </div>
+              <div className="mono mt-1 text-[11px] text-ink-dim">
+                ฿ ·{" "}
+                {branches.length} {branches.length === 1 ? "branch" : "branches"}
+                {menuCount != null && (
+                  <>
+                    {" "}
+                    · {menuCount} item{menuCount === 1 ? "" : "s"}
+                  </>
+                )}
               </div>
             </div>
-            <span style={{ fontSize: 18 }}>→</span>
-          </Link>
-        ))}
-      </div>
-
-      {/* Recent activity */}
-      <div className="card" style={{ padding: 20 }}>
-        <div className="row" style={{ justifyContent: "space-between", marginBottom: 14 }}>
-          <div>
-            <div className="h-2">กิจกรรมล่าสุด</div>
-            <div className="eyebrow">RECENT ACTIVITY</div>
           </div>
         </div>
-        {activity.map((a, i) => (
-          <div
-            key={i}
-            className="row"
-            style={{
-              padding: "12px 0",
-              borderTop: i === 0 ? "none" : "1px dashed var(--border)",
-              gap: 12,
-            }}
-          >
-            <span className={`dot dot-${a.dot}`} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13 }}>{a.th}</div>
-              <div style={{ fontSize: 11, color: "var(--text-3)" }}>{a.en}</div>
-            </div>
-            <span className="mono" style={{ fontSize: 11, color: "var(--text-3)" }}>
-              {a.time} ก่อน
-            </span>
-          </div>
-        ))}
       </div>
+
+      {restaurantId && (
+        <RestaurantFormModal
+          isOpen={editOpen}
+          onOpenChange={setEditOpen}
+          mode="edit"
+          restaurant={{
+            id: restaurantId,
+            name: restaurantName ?? "",
+            logo: restaurantLogo ?? null,
+          }}
+          theme={theme}
+          onSaved={async () => {
+            await refresh();
+            setEditOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

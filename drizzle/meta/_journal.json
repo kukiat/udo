@@ -36,6 +36,13 @@
       "when": 1779579142293,
       "tag": "0004_perfect_pestilence",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1780605568997,
+      "tag": "0005_wild_living_mummy",
+      "breakpoints": true
     }
   ]
 }

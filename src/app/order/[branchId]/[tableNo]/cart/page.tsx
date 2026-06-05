@@ -55,6 +55,12 @@ export default function CartPage() {
   const totals = settings ? calcTotals(cart.subtotal, settings) : null;
 
   const itemCount = cart.lines.reduce((s, l) => s + l.quantity, 0);
+  const vatPercent = settings
+    ? (settings.vatRate * 100).toFixed(2).replace(/\.?0+$/, "")
+    : null;
+  const servicePercent = settings
+    ? (settings.serviceChargeRate * 100).toFixed(2).replace(/\.?0+$/, "")
+    : null;
 
   const placeOrder = async () => {
     if (!tableId) {
@@ -90,29 +96,25 @@ export default function CartPage() {
 
   return (
     <div className="lg:mx-auto lg:max-w-3xl">
-      <header className="border-b border-line bg-cream px-4 pb-5 pt-5 lg:px-8 lg:pt-10">
+      <header className="px-4 pb-4 pt-5 lg:px-8 lg:pt-8">
         <Link
           href={orderLink(`/order/${branchId}/${tableNo}`)}
-          className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-muted transition-colors hover:text-ink"
+          className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-ink transition-colors hover:text-ink-muted"
         >
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
             <path d="M13 8H3M7 4 3 8l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           Back to menu
         </Link>
-        <div className="mt-3 text-[10px] font-medium uppercase tracking-[0.12em] text-ink-muted">
+        <h1 className="mt-4 text-[26px] font-semibold leading-[1.1] tracking-[-0.01em] text-ink lg:text-[28px]">
           Your order
-        </div>
-        <h1 className="mt-1.5 text-[32px] font-semibold leading-[1.1] tracking-[-0.02em] text-ink lg:text-[40px]">
-          Review &amp; send
         </h1>
-        <p className="mt-2 text-[13px] text-ink-muted">
-          Table {tableNo} · {itemCount} item{itemCount === 1 ? "" : "s"} · Edit
-          quantities or add a note for the kitchen.
+        <p className="mt-1.5 text-[13px] text-ink-muted">
+          Dine-in · Table {tableNo} · {itemCount} item{itemCount === 1 ? "" : "s"}
         </p>
       </header>
 
-      <main className="px-4 py-5 pb-32 lg:px-8 lg:py-8">
+      <main className="px-4 pb-8 lg:px-8">
         {empty ? (
           <EmptyState
             title="Nothing in your order yet"
@@ -135,128 +137,131 @@ export default function CartPage() {
                 return (
                   <li
                     key={l.lineId}
-                    className="grid grid-cols-[1fr_auto] gap-2.5 border-b border-line p-4 last:border-b-0"
+                    className="flex items-center gap-4 border-b border-line px-4 py-4 last:border-b-0 lg:px-5"
                   >
-                    <div className="flex min-w-0 gap-2.5">
-                      <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl">
-                        <ItemSwatch
-                          id={l.menuItemId}
-                          name={l.name}
-                          image={l.image}
-                          size="lg"
-                        />
-                      </div>
-                      <div className="inline-flex h-fit items-center rounded-full border border-line">
-                        <button
-                          onClick={() =>
-                            cart.updateQuantity(l.lineId, l.quantity - 1)
-                          }
-                          aria-label="Decrease"
-                          className="grid h-7 w-7 place-items-center rounded-full text-[16px] leading-none text-ink hover:bg-sand"
-                        >
-                          −
-                        </button>
-                        <span className="min-w-[22px] text-center text-[13px] font-semibold">
-                          {l.quantity}
-                        </span>
-                        <button
-                          onClick={() =>
-                            cart.updateQuantity(l.lineId, l.quantity + 1)
-                          }
-                          aria-label="Increase"
-                          className="grid h-7 w-7 place-items-center rounded-full text-[16px] leading-none text-ink hover:bg-sand"
-                        >
-                          +
-                        </button>
-                      </div>
-                      <div className="flex min-w-0 flex-col gap-1">
-                        <div className="text-[14px] font-semibold text-ink">
-                          {l.name}
-                        </div>
-                        {l.options.length > 0 && (
-                          <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[11.5px] text-ink-muted">
-                            {l.options.map((o, i) => (
-                              <span key={i}>
-                                {i > 0 && "• "}
-                                {o.name}
-                                {extras.includes(o)
-                                  ? ` (+${formatPrice(o.price)})`
-                                  : ""}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <input
-                          value={l.note}
-                          onChange={(e) =>
-                            cart.updateNote(l.lineId, e.target.value)
-                          }
-                          placeholder="Add a note…"
-                          className="mt-0.5 w-full rounded-lg border border-line bg-white px-2.5 py-1.5 text-[12.5px] outline-none focus:border-ink"
-                        />
-                      </div>
+                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl">
+                      <ItemSwatch
+                        id={l.menuItemId}
+                        name={l.name}
+                        image={l.image}
+                        size="lg"
+                      />
                     </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="mono text-[14px] font-semibold tabular-nums text-ink">
-                        {formatPrice(lineTotal)}
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <div className="text-[15px] font-semibold text-ink">
+                        {l.name}
+                      </div>
+                      {l.options.length > 0 && (
+                        <div className="text-[12.5px] text-ink-muted">
+                          {l.options.map((o, i) => (
+                            <span key={i}>
+                              {i > 0 && ", "}
+                              {o.name}
+                              {extras.includes(o)
+                                ? ` (+${formatPrice(o.price)})`
+                                : ""}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {l.note && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = prompt("Edit note", l.note);
+                            if (next !== null) cart.updateNote(l.lineId, next);
+                          }}
+                          className="mt-0.5 truncate text-left text-[12px] italic text-ink-muted hover:text-ink"
+                        >
+                          “{l.note}”
+                        </button>
+                      )}
+                      {!l.note && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = prompt("Add a note for the kitchen", "");
+                            if (next) cart.updateNote(l.lineId, next);
+                          }}
+                          className="mt-0.5 self-start text-[12px] text-ink-dim hover:text-ink-muted"
+                        >
+                          + Add note
+                        </button>
+                      )}
+                    </div>
+                    <div className="inline-flex h-9 shrink-0 items-center rounded-lg border border-line bg-white">
+                      <button
+                        onClick={() =>
+                          l.quantity === 1
+                            ? setRemoveTarget({ lineId: l.lineId, name: l.name })
+                            : cart.updateQuantity(l.lineId, l.quantity - 1)
+                        }
+                        aria-label="Decrease"
+                        className="grid h-9 w-9 place-items-center rounded-l-lg text-[16px] leading-none text-ink hover:bg-sand"
+                      >
+                        −
+                      </button>
+                      <span className="min-w-[28px] text-center text-[13.5px] font-semibold tabular-nums">
+                        {l.quantity}
                       </span>
                       <button
                         onClick={() =>
-                          setRemoveTarget({ lineId: l.lineId, name: l.name })
+                          cart.updateQuantity(l.lineId, l.quantity + 1)
                         }
-                        aria-label="Remove"
-                        className="grid h-[22px] w-[22px] place-items-center rounded-full text-[16px] leading-none text-ink-muted hover:bg-sand hover:text-ink"
+                        aria-label="Increase"
+                        className="grid h-9 w-9 place-items-center rounded-r-lg text-[16px] leading-none text-ink hover:bg-sand"
                       >
-                        ×
+                        +
                       </button>
+                    </div>
+                    <div className="w-[68px] shrink-0 text-right text-[15px] font-semibold tabular-nums text-ink">
+                      {formatPrice(lineTotal)}
                     </div>
                   </li>
                 );
               })}
             </ul>
 
-            <div className="mt-4 rounded-card border border-line bg-white p-5 shadow-card">
+            <div className="mt-4 rounded-card border border-line bg-white px-5 py-4 shadow-card">
               {!totals ? (
                 <Loading label="Calculating…" />
               ) : (
-                <dl className="flex flex-col gap-2 text-[13px] tabular-nums">
+                <dl className="flex flex-col gap-2 text-[14px] tabular-nums">
                   <Row label="Subtotal" value={formatPrice(totals.subtotal)} />
                   {totals.serviceCharge > 0 && (
                     <Row
-                      label="Service charge"
+                      label={`Service${servicePercent ? ` (${servicePercent}%)` : ""}`}
                       value={formatPrice(totals.serviceCharge)}
                       muted
                     />
                   )}
-                  <Row label="VAT" value={formatPrice(totals.vat)} muted />
+                  <Row
+                    label={`Tax${vatPercent ? ` (${vatPercent}%)` : ""}`}
+                    value={formatPrice(totals.vat)}
+                    muted
+                  />
                   <div className="mt-2 flex items-baseline justify-between border-t border-line pt-3">
-                    <dt className="text-[14px] font-semibold text-ink">Total</dt>
-                    <dd className="mono text-[22px] font-semibold tabular-nums text-ink">
+                    <dt className="text-[15px] font-semibold text-ink">Total</dt>
+                    <dd className="text-[22px] font-semibold tabular-nums text-ink">
                       {formatPrice(totals.total)}
                     </dd>
                   </div>
                 </dl>
               )}
             </div>
-
-            <p className="mt-4 text-center text-[11px] text-ink-dim">
-              By sending this order you agree to your table's service terms.
-              Anything kept on file stays at this table.
-            </p>
-
           </>
         )}
       </main>
 
       {!empty && (
-        <div className="fixed inset-x-0 bottom-0 z-20 bg-gradient-to-t from-cream via-cream/95 to-transparent px-4 pb-5 pt-6 lg:px-8">
-          <div className="mx-auto flex max-w-3xl gap-3">
+        <div className="px-4 pb-8 lg:px-8">
+          <div className="mx-auto flex max-w-3xl items-stretch gap-4">
             <Link
               href={orderLink(`/order/${branchId}/${tableNo}`)}
-              className="hidden flex-1 items-center justify-center gap-2 rounded-sm border border-line-strong bg-white px-4 py-3.5 text-sm font-medium text-ink transition-colors hover:bg-sand sm:inline-flex"
+              className="inline-flex flex-1 items-center justify-center gap-1.5 text-[14px] font-semibold text-ink transition-colors hover:text-ink-muted"
             >
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
-                <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
               </svg>
               Add more
             </Link>
@@ -264,18 +269,21 @@ export default function CartPage() {
               type="button"
               disabled={submitting || !tableId}
               onClick={placeOrder}
-              className="inline-flex flex-[2] items-center justify-center gap-2 rounded-sm bg-clay-500 px-4 py-3.5 text-sm font-semibold text-white shadow-card transition-colors hover:bg-clay-600 disabled:cursor-not-allowed disabled:bg-sand disabled:text-ink-muted"
+              className="inline-flex flex-[2] items-center justify-center gap-2 rounded-xl bg-clay-500 px-5 py-3.5 text-[14.5px] font-semibold text-white shadow-card transition-colors hover:bg-clay-600 disabled:cursor-not-allowed disabled:bg-sand disabled:text-ink-muted"
             >
               {submitting
-                ? "Sending to kitchen…"
-                : `Send to kitchen${totals ? ` · ${formatPrice(totals.total)}` : ""}`}
+                ? "Placing order…"
+                : `Place order${totals ? ` · ${formatPrice(totals.total)}` : ""}`}
               {!submitting && (
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
-                  <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               )}
             </button>
           </div>
+          <p className="mx-auto mt-4 max-w-md text-center text-[11.5px] text-ink-dim">
+            By placing your order you agree to our table service terms. Card kept on file at the table.
+          </p>
         </div>
       )}
 

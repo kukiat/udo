@@ -352,7 +352,7 @@ export default function MenuPage() {
                     {c.items.length} items
                   </span>
                 </div>
-                <div className="grid grid-cols-1 gap-2 lg:grid-cols-[repeat(auto-fill,minmax(260px,1fr))] lg:gap-4">
+                <div className="grid grid-cols-1 gap-2 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] lg:gap-4">
                   {c.items.map((item) => (
                     <MenuCard key={item.id} item={item} onSelect={setSelected} />
                   ))}

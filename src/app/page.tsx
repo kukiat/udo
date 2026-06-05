@@ -29,13 +29,6 @@ const ROLES = [
     tone: "accent" as const,
   },
   {
-    href: "/pos",
-    name: "Point of Sale",
-    blurb: "Shifts, cash drawer, payments, printable receipts.",
-    pose: "DESKTOP / TABLET",
-    tone: "amber" as const,
-  },
-  {
     href: "/dashboard",
     name: "Admin",
     blurb: "Restaurants, branches, menu, branch overrides, sales reports.",
@@ -72,7 +65,10 @@ export default function Home() {
   return (
     <div className="flex min-h-screen flex-col bg-cream">
       {/* Header */}
-      <header className="sticky top-0 z-20 flex items-center justify-between border-b border-line bg-cream/85 px-6 py-5 backdrop-blur lg:px-10">
+      <header
+        className="sticky top-0 z-20 flex items-center justify-between border-b border-line px-6 py-5 backdrop-blur lg:px-10"
+        style={{ background: "#15171C" }}
+      >
         <div className="inline-flex items-center gap-2.5">
           <span className="relative inline-block h-5 w-5 rounded-full bg-ink">
             <span className="absolute inset-[20%] rounded-full bg-clay-500" />

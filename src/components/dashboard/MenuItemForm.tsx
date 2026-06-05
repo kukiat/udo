@@ -5,11 +5,11 @@ import {
   useForm,
   useFieldArray,
   type Control,
-  type UseFormRegister,
 } from "react-hook-form";
 
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import { Select } from "@/components/ui/Select";
+import { TextInput } from "@/components/ui/TextInput";
 
 export type MenuItemFormValues = {
   name: string;
@@ -46,11 +46,12 @@ export function MenuItemForm({
   stickyFooter?: boolean;
 }) {
   const {
-    register,
     control,
     handleSubmit,
     setValue,
     watch,
+    getValues,
+    trigger,
     formState: { errors },
   } = useForm<MenuItemFormValues>({ defaultValues });
 
@@ -67,20 +68,42 @@ export function MenuItemForm({
           ① ข้อมูลเมนู · BASICS
         </div>
         <Field label="ชื่อ · NAME" error={errors.name?.message}>
-          <input
-            {...register("name", { required: "Name is required" })}
-            className="input"
-            placeholder='เช่น "ผัดไทย"'
+          <Controller
+            control={control}
+            name="name"
+            rules={{ required: "Name is required" }}
+            render={({ field }) => (
+              <TextInput
+                value={field.value}
+                onChange={field.onChange}
+                icon={null}
+                type="text"
+                width="100%"
+                placeholder='เช่น "ผัดไทย"'
+                ariaLabel="ชื่อเมนู"
+                invalid={!!errors.name}
+              />
+            )}
           />
         </Field>
 
         <div style={{ marginTop: 12 }}>
           <Field label="คำอธิบาย · DESCRIPTION">
-            <textarea
-              {...register("description")}
-              className="input"
-              style={{ minHeight: 72, resize: "vertical" }}
-              placeholder="คำอธิบายสั้นๆ"
+            <Controller
+              control={control}
+              name="description"
+              render={({ field }) => (
+                <TextInput
+                  multiline
+                  value={field.value}
+                  onChange={field.onChange}
+                  width="100%"
+                  rows={3}
+                  inputStyle={{ minHeight: 72 }}
+                  placeholder="คำอธิบายสั้นๆ"
+                  ariaLabel="คำอธิบาย"
+                />
+              )}
             />
           </Field>
         </div>
@@ -92,17 +115,30 @@ export function MenuItemForm({
             onChange={(url) => setValue("image", url ?? "")}
           />
           <Field label="ราคา · PRICE" error={errors.price?.message}>
-            <input
-              {...register("price", {
+            <Controller
+              control={control}
+              name="price"
+              rules={{
                 required: "Price is required",
                 pattern: {
                   value: /^\d+(\.\d{1,2})?$/,
                   message: "Enter a valid price",
                 },
-              })}
-              className="input mono"
-              placeholder="0.00"
-              inputMode="decimal"
+              }}
+              render={({ field }) => (
+                <TextInput
+                  value={field.value}
+                  onChange={field.onChange}
+                  mono
+                  icon={null}
+                  type="text"
+                  inputMode="decimal"
+                  width="100%"
+                  placeholder="0.00"
+                  ariaLabel="ราคา"
+                  invalid={!!errors.price}
+                />
+              )}
             />
           </Field>
         </div>
@@ -212,11 +248,24 @@ export function MenuItemForm({
           {fields.map((field, index) => (
             <div key={field.id} className="card-elev" style={{ padding: 14 }}>
               <div className="row" style={{ gap: 8, alignItems: "flex-start" }}>
-                <input
-                  {...register(`optionGroups.${index}.name`, { required: true })}
-                  className="input"
-                  placeholder="ชื่อกลุ่ม (เช่น ขนาด)"
-                />
+                <div style={{ flex: 1 }}>
+                  <Controller
+                    control={control}
+                    name={`optionGroups.${index}.name`}
+                    rules={{ required: true }}
+                    render={({ field }) => (
+                      <TextInput
+                        value={field.value}
+                        onChange={field.onChange}
+                        icon={null}
+                        type="text"
+                        width="100%"
+                        placeholder="ชื่อกลุ่ม (เช่น ขนาด)"
+                        ariaLabel="ชื่อกลุ่มตัวเลือก"
+                      />
+                    )}
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={() => remove(index)}
@@ -227,8 +276,8 @@ export function MenuItemForm({
                 </button>
               </div>
 
-              <div className="row" style={{ gap: 14, flexWrap: "wrap", marginTop: 10 }}>
-                <label className="row" style={{ gap: 6, fontSize: 13, cursor: "pointer" }}>
+              <div className="row" style={{ gap: 14, flexWrap: "wrap", marginTop: 10, alignItems: "flex-start" }}>
+                <label className="row" style={{ gap: 6, fontSize: 13, cursor: "pointer", marginTop: 6 }}>
                   <input
                     type="checkbox"
                     checked={watch(`optionGroups.${index}.required`)}
@@ -238,31 +287,81 @@ export function MenuItemForm({
                   />
                   จำเป็น · Required
                 </label>
-                <label className="row" style={{ gap: 6, fontSize: 13, color: "var(--text-2)" }}>
-                  Min
-                  <input
-                    type="number"
-                    {...register(`optionGroups.${index}.minSelect`, {
-                      valueAsNumber: true,
-                    })}
-                    className="input mono"
-                    style={{ width: 64, padding: "6px 8px" }}
-                  />
-                </label>
-                <label className="row" style={{ gap: 6, fontSize: 13, color: "var(--text-2)" }}>
-                  Max
-                  <input
-                    type="number"
-                    {...register(`optionGroups.${index}.maxSelect`, {
-                      valueAsNumber: true,
-                    })}
-                    className="input mono"
-                    style={{ width: 64, padding: "6px 8px" }}
-                  />
-                </label>
+                <div className="col" style={{ gap: 4, alignItems: "flex-start" }}>
+                  <label className="row" style={{ gap: 6, fontSize: 13, color: "var(--text-2)" }}>
+                    Min
+                    <Controller
+                      control={control}
+                      name={`optionGroups.${index}.minSelect`}
+                      rules={{
+                        min: { value: 0, message: "Min must be ≥ 0" },
+                        validate: (value) =>
+                          Number(value) <= Number(getValues(`optionGroups.${index}.maxSelect`)) ||
+                          "Min must not be greater than Max",
+                      }}
+                      render={({ field }) => (
+                        <TextInput
+                          value={String(field.value ?? "")}
+                          onChange={(v) => {
+                            field.onChange(v === "" ? 0 : Number(v));
+                            trigger(`optionGroups.${index}.maxSelect`);
+                          }}
+                          type="number"
+                          min={0}
+                          mono
+                          icon={null}
+                          width={64}
+                          ariaLabel="Min select"
+                          invalid={!!errors.optionGroups?.[index]?.minSelect}
+                        />
+                      )}
+                    />
+                  </label>
+                  {errors.optionGroups?.[index]?.minSelect && (
+                    <span style={{ fontSize: 12, color: "oklch(0.75 0.16 18)", textAlign: "left" }}>
+                      {errors.optionGroups[index]?.minSelect?.message}
+                    </span>
+                  )}
+                </div>
+                <div className="col" style={{ gap: 4, alignItems: "flex-start" }}>
+                  <label className="row" style={{ gap: 6, fontSize: 13, color: "var(--text-2)" }}>
+                    Max
+                    <Controller
+                      control={control}
+                      name={`optionGroups.${index}.maxSelect`}
+                      rules={{
+                        min: { value: 0, message: "Max must be ≥ 0" },
+                        validate: (value) =>
+                          Number(value) >= Number(getValues(`optionGroups.${index}.minSelect`)) ||
+                          "Max must not be less than Min",
+                      }}
+                      render={({ field }) => (
+                        <TextInput
+                          value={String(field.value ?? "")}
+                          onChange={(v) => {
+                            field.onChange(v === "" ? 0 : Number(v));
+                            trigger(`optionGroups.${index}.minSelect`);
+                          }}
+                          type="number"
+                          min={0}
+                          mono
+                          icon={null}
+                          width={64}
+                          ariaLabel="Max select"
+                          invalid={!!errors.optionGroups?.[index]?.maxSelect}
+                        />
+                      )}
+                    />
+                  </label>
+                  {errors.optionGroups?.[index]?.maxSelect && (
+                    <span style={{ fontSize: 12, color: "oklch(0.75 0.16 18)", textAlign: "left" }}>
+                      {errors.optionGroups[index]?.maxSelect?.message}
+                    </span>
+                  )}
+                </div>
               </div>
 
-              <OptionItemsField control={control} register={register} groupIndex={index} />
+              <OptionItemsField control={control} groupIndex={index} />
             </div>
           ))}
         </div>
@@ -296,11 +395,9 @@ export function MenuItemForm({
 // Nested field array for a single group's option items.
 function OptionItemsField({
   control,
-  register,
   groupIndex,
 }: {
   control: Control<MenuItemFormValues>;
-  register: UseFormRegister<MenuItemFormValues>;
   groupIndex: number;
 }) {
   const { fields, append, remove } = useFieldArray({
@@ -314,22 +411,50 @@ function OptionItemsField({
       style={{ gap: 8, borderTop: "1px dashed var(--border)", paddingTop: 12, marginTop: 12 }}
     >
       {fields.map((field, i) => (
-        <div key={field.id} className="row" style={{ gap: 8 }}>
-          <input
-            {...register(`optionGroups.${groupIndex}.optionItems.${i}.name`, {
-              required: true,
-            })}
-            className="input"
-            placeholder="ชื่อตัวเลือก (เช่น ใหญ่)"
-          />
-          <input
-            {...register(`optionGroups.${groupIndex}.optionItems.${i}.price`, {
-              pattern: /^\d+(\.\d{1,2})?$/,
-            })}
-            className="input mono"
-            style={{ width: 110 }}
-            placeholder="+ ราคา"
-            inputMode="decimal"
+        <div key={field.id} className="row" style={{ gap: 8, alignItems: "flex-start" }}>
+          <div style={{ flex: 1 }}>
+            <Controller
+              control={control}
+              name={`optionGroups.${groupIndex}.optionItems.${i}.name`}
+              rules={{ required: "Option name is required" }}
+              render={({ field: f, fieldState }) => (
+                <>
+                  <TextInput
+                    value={f.value}
+                    onChange={f.onChange}
+                    icon={null}
+                    type="text"
+                    width="100%"
+                    placeholder="ชื่อตัวเลือก (เช่น ใหญ่)"
+                    ariaLabel="ชื่อตัวเลือก"
+                    invalid={!!fieldState.error}
+                  />
+                  {fieldState.error && (
+                    <span style={{ fontSize: 12, color: "oklch(0.75 0.16 18)", marginTop: 4, display: "block" }}>
+                      {fieldState.error.message}
+                    </span>
+                  )}
+                </>
+              )}
+            />
+          </div>
+          <Controller
+            control={control}
+            name={`optionGroups.${groupIndex}.optionItems.${i}.price`}
+            rules={{ pattern: /^\d+(\.\d{1,2})?$/ }}
+            render={({ field: f }) => (
+              <TextInput
+                value={f.value}
+                onChange={f.onChange}
+                mono
+                icon={null}
+                type="text"
+                inputMode="decimal"
+                width={110}
+                placeholder="+ ราคา"
+                ariaLabel="ราคาตัวเลือก"
+              />
+            )}
           />
           <button
             type="button"

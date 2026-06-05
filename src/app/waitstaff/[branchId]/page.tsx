@@ -6,10 +6,11 @@ import { QRCodeSVG } from "qrcode.react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CancelOrderDialog } from "@/components/order/CancelOrderDialog";
-import { BranchPill, MarrowTopBar } from "@/components/dashboard/TopBar";
+import { TopBar } from "@/components/dashboard/TopBar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { PillButton } from "@/components/ui/PillButton";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/cn";
@@ -214,10 +215,42 @@ function FloorStat({
   );
 }
 
+const THEME_KEY = "rms.waitstaff.theme";
+
 export default function WaitstaffPage() {
   const { branchId } = useParams<{ branchId: string }>();
   const router = useRouter();
   const { user } = useAuth();
+
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(THEME_KEY);
+      if (stored === "light" || stored === "dark") setTheme(stored);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add("kds-theme");
+    if (theme === "dark") root.classList.add("kds-dark");
+    else root.classList.remove("kds-dark");
+    return () => {
+      root.classList.remove("kds-theme", "kds-dark");
+    };
+  }, [theme]);
+  const toggleTheme = () => {
+    setTheme((prev) => {
+      const next = prev === "light" ? "dark" : "light";
+      try {
+        localStorage.setItem(THEME_KEY, next);
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
 
   const [branch, setBranch] = useState<BranchInfo | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -240,6 +273,9 @@ export default function WaitstaffPage() {
     url: string;
   } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [latency, setLatency] = useState<number | null>(null);
+  const joinAt = useRef<number>(0);
 
   const loadOrders = useCallback(async () => {
     const d = await api<{ orders: OrderDTO[] }>(
@@ -371,9 +407,20 @@ export default function WaitstaffPage() {
     socket.on("bill:paid", refreshAll);
     socket.on("bill:requested", refreshSessions);
 
-    const join = () => socket.emit("branch:join", { branchId });
+    const join = () => {
+      setConnected(true);
+      joinAt.current = performance.now();
+      socket.emit("branch:join", { branchId });
+      // Use a short round-trip ping for a friendly latency readout.
+      const t0 = performance.now();
+      socket.emit("ping", () => {
+        setLatency(Math.max(1, Math.round(performance.now() - t0)));
+      });
+    };
+    const onDisconnect = () => setConnected(false);
     if (socket.connected) join();
     socket.on("connect", join);
+    socket.on("disconnect", onDisconnect);
 
     return () => {
       socket.off("order:new", refreshAll);
@@ -381,6 +428,7 @@ export default function WaitstaffPage() {
       socket.off("bill:paid", refreshAll);
       socket.off("bill:requested", refreshSessions);
       socket.off("connect", join);
+      socket.off("disconnect", onDisconnect);
     };
   }, [branchId, loadOrders, loadTables, loadSessions]);
 
@@ -607,7 +655,6 @@ export default function WaitstaffPage() {
     return () => clearTimeout(timer);
   }, [orders]);
   // Grid toolbar filters.
-  const [search, setSearch] = useState("");
   const [tableFilter, setTableFilter] = useState<"all" | "available" | "occupied">(
     "all",
   );
@@ -623,13 +670,9 @@ export default function WaitstaffPage() {
     : [];
 
   const filteredTables = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return tables.filter((t) => {
-      if (tableFilter !== "all" && t.status !== tableFilter) return false;
-      if (q && !t.tableNumber.toLowerCase().includes(q)) return false;
-      return true;
-    });
-  }, [tables, tableFilter, search]);
+    if (tableFilter === "all") return tables;
+    return tables.filter((t) => t.status === tableFilter);
+  }, [tables, tableFilter]);
 
   const occupiedCount = tables.filter((t) => t.status === "occupied").length;
   const availableCount = tables.filter((t) => t.status === "available").length;
@@ -662,23 +705,32 @@ export default function WaitstaffPage() {
   if (loading) return <Loading />;
 
   return (
-    <div className="min-h-screen bg-cream">
-      <MarrowTopBar
-        label="STAFF TERMINAL"
+    <div
+      suppressHydrationWarning
+      className={cn(
+        "kds-theme min-h-screen bg-cream",
+        theme === "dark" && "kds-dark",
+      )}
+    >
+      <TopBar
+        role="Staff Terminal"
+        showLive={false}
+        left={
+          <WaitBranchSwitcher
+            branches={branches}
+            branchId={branchId}
+            restaurantName={branch?.restaurant?.name ?? null}
+            activeBranchName={branch?.name ?? null}
+            onChange={(id) => router.push(`/waitstaff/${id}`)}
+          />
+        }
         right={
           <>
-            {branches.length > 0 && (
-              <BranchPill
-                branches={branches}
-                branchId={branchId}
-                onChange={(id) => router.push(`/waitstaff/${id}`)}
-              />
-            )}
+            <WaitLivePill connected={connected} latency={latency} />
             <Link href={`/pos/${branchId}`}>
-              <Button variant="secondary" size="sm">
-                Cashier / POS
-              </Button>
+              <PillButton>Cashier / POS</PillButton>
             </Link>
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
           </>
         }
       />
@@ -708,14 +760,8 @@ export default function WaitstaffPage() {
             </div>
           </div>
 
-          {/* Search + filter */}
-          <div className="flex flex-col gap-2 border-b border-line p-3">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search tables…"
-              className="w-full rounded-sm border border-line-strong bg-white px-3 py-2 text-sm outline-none focus:border-clay-500 focus:ring-2 focus:ring-clay-100"
-            />
+          {/* Filter */}
+          <div className="border-b border-line p-3">
             <div className="flex gap-1">
               {(["all", "available", "occupied"] as const).map((f) => (
                 <button
@@ -742,7 +788,7 @@ export default function WaitstaffPage() {
                 description={
                   tables.length === 0
                     ? "Add tables when creating the branch in the dashboard."
-                    : "Try a different search or filter."
+                    : "Try a different filter."
                 }
               />
             ) : (
@@ -791,14 +837,20 @@ export default function WaitstaffPage() {
                           fg: "text-olive",
                           dot: "bg-olive",
                         };
+              const selected = t.id === detailTableId;
               return (
                 <button
                   key={t.id}
                   onClick={() => openDetail(t.id)}
+                  aria-pressed={selected}
                   className={cn(
                     "group relative flex aspect-square flex-col justify-between rounded-card border bg-white p-3 text-left shadow-card transition-all duration-200",
                     visual.bg,
                     "hover:-translate-y-px hover:border-ink",
+                    selected &&
+                      (theme === "dark"
+                        ? "!border-[#F5F2EA]"
+                        : "!border-clay-500"),
                   )}
                 >
                   {/* Top row: table label + status dot */}
@@ -817,19 +869,19 @@ export default function WaitstaffPage() {
                   </div>
 
                   {/* Middle: ready / overdue chips */}
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex min-w-0 flex-wrap gap-1 overflow-hidden">
                     {checkRequested && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-clay-500 px-2 py-[2px] text-[10px] font-semibold text-white">
+                      <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-clay-500 px-2 py-[2px] text-[10px] font-semibold text-white">
                         Check
                       </span>
                     )}
                     {overdue > 0 && !checkRequested && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-rose px-2 py-[2px] text-[10px] font-semibold text-white">
+                      <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-rose px-2 py-[2px] text-[10px] font-semibold text-white">
                         {overdue} late
                       </span>
                     )}
                     {ready > 0 && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-olive px-2 py-[2px] text-[10px] font-semibold text-white">
+                      <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-olive px-2 py-[2px] text-[10px] font-semibold text-white">
                         <span className="h-1 w-1 rounded-full bg-white" />
                         {ready} ready
                       </span>
@@ -838,7 +890,7 @@ export default function WaitstaffPage() {
 
                   {/* Bottom row: orders count · session timer */}
                   <div className="flex items-center justify-between gap-1 text-[10px] text-ink-muted">
-                    <span className="inline-flex items-center gap-1">
+                    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap">
                       <svg
                         viewBox="0 0 16 16"
                         width={10}
@@ -855,7 +907,7 @@ export default function WaitstaffPage() {
                       {count}
                     </span>
                     {session && (
-                      <span className="mono inline-flex items-center gap-1 tabular-nums">
+                      <span className="mono inline-flex shrink-0 items-center gap-1 whitespace-nowrap tabular-nums">
                         <svg
                           viewBox="0 0 16 16"
                           width={10}
@@ -978,17 +1030,11 @@ export default function WaitstaffPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    <Button size="sm" variant="secondary">
-                      Cashier / POS
-                    </Button>
+                    <PillButton>Cashier / POS</PillButton>
                   </Link>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onPress={() => showLink(selectedTable)}
-                  >
+                  <PillButton onPress={() => showLink(selectedTable)}>
                     Order link
-                  </Button>
+                  </PillButton>
                 </>
               ) : (
                 <Button
@@ -1023,7 +1069,9 @@ export default function WaitstaffPage() {
                       "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide transition",
                       active
                         ? "bg-ink text-white"
-                        : "border border-line bg-white text-ink-soft hover:bg-sand",
+                        : theme === "dark"
+                          ? "border border-[#343843] bg-[var(--bg-elev)] text-ink-soft hover:bg-sand"
+                          : "border border-line bg-white text-ink-soft hover:bg-sand",
                     )}
                   >
                     {s === "all" ? "All" : s}
@@ -1146,6 +1194,7 @@ export default function WaitstaffPage() {
                               size="sm"
                               variant="danger"
                               onPress={() => setCancelTarget(order)}
+                              className="!rounded-full px-4"
                             >
                               Cancel
                             </Button>
@@ -1155,6 +1204,7 @@ export default function WaitstaffPage() {
                               size="sm"
                               isDisabled={servingId === order.id}
                               className={cn(
+                                "!rounded-full px-4",
                                 order.status === "ready" &&
                                   "!bg-olive hover:!bg-olive/90",
                               )}
@@ -1192,12 +1242,9 @@ export default function WaitstaffPage() {
                   {formatPrice(selectedTableTotal)}
                 </div>
               </div>
-              <Button
-                variant="secondary"
-                onPress={() => setDetailTableId(null)}
-              >
+              <PillButton onPress={() => setDetailTableId(null)}>
                 Clear selection
-              </Button>
+              </PillButton>
             </div>
           </div>
           </>
@@ -1433,9 +1480,7 @@ export default function WaitstaffPage() {
               {linkModal.url}
             </a>
             <div className="mt-4 flex justify-end gap-2">
-              <Button variant="secondary" onPress={() => setLinkModal(null)}>
-                Close
-              </Button>
+              <PillButton onPress={() => setLinkModal(null)}>Close</PillButton>
               <Button onPress={copyLink}>
                 {copied ? "Copied!" : "Copy link"}
               </Button>
@@ -1443,6 +1488,230 @@ export default function WaitstaffPage() {
           </div>
         )}
       </Modal>
+    </div>
+  );
+}
+
+// ============== Header pieces ==============
+
+function ThemeToggle({
+  theme,
+  onToggle,
+}: {
+  theme: "light" | "dark";
+  onToggle: () => void;
+}) {
+  const nextLabel = theme === "light" ? "Dark" : "Light";
+  return (
+    <button
+      onClick={onToggle}
+      aria-label={`Switch to ${nextLabel} theme`}
+      title={`Switch to ${nextLabel} theme`}
+      className="btn-quiet flex items-center gap-[6px] rounded-[8px] px-[10px] py-[6px] text-[12px] text-[var(--ink-2)] tracking-[0.02em]"
+    >
+      <span aria-hidden className="text-[13px] leading-none">
+        {theme === "light" ? "◐" : "○"}
+      </span>
+      {nextLabel}
+    </button>
+  );
+}
+
+function WaitLivePill({
+  connected,
+  latency,
+}: {
+  connected: boolean;
+  latency: number | null;
+}) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "5px 10px",
+        borderRadius: 999,
+        border: "1px solid",
+        borderColor: connected ? "var(--olive)" : "var(--line-strong)",
+        background: connected ? "var(--olive-soft)" : "var(--bg-sunken)",
+        color: connected ? "var(--olive)" : "var(--ink-3)",
+        fontSize: 11,
+        fontWeight: 600,
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+      }}
+    >
+      <span
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: "50%",
+          background: connected ? "var(--olive)" : "var(--ink-3)",
+          animation: connected ? "blink 1.6s infinite" : "none",
+        }}
+      />
+      {connected ? "Live" : "Offline"}
+      {connected && latency != null && (
+        <span
+          className="mono"
+          style={{ color: "var(--olive)", opacity: 0.7, letterSpacing: 0 }}
+        >
+          {latency}ms
+        </span>
+      )}
+    </span>
+  );
+}
+
+// Mono "Restaurant · Branch" text that opens a dropdown to switch branches,
+// matching the KDS header subtext but interactive (waitstaff users span
+// multiple branches).
+function WaitBranchSwitcher({
+  branches,
+  branchId,
+  restaurantName,
+  activeBranchName,
+  onChange,
+}: {
+  branches: { id: string; name: string }[];
+  branchId: string | null;
+  restaurantName: string | null;
+  activeBranchName: string | null;
+  onChange: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const label = `${restaurantName ?? "—"} · ${activeBranchName ?? ""}`;
+
+  if (branches.length <= 1) {
+    return (
+      <span
+        className="mono"
+        style={{ fontSize: 11, color: "var(--ink-4)" }}
+      >
+        {label}
+      </span>
+    );
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="true"
+        aria-expanded={open}
+        className="mono inline-flex items-center gap-1.5 rounded-md border border-transparent px-1.5 py-0.5 transition-colors"
+        style={{
+          fontSize: 11,
+          color: open ? "var(--ink-2)" : "var(--ink-4)",
+          background: open ? "var(--bg-sunken)" : "transparent",
+        }}
+        onMouseEnter={(e) => {
+          if (!open) {
+            e.currentTarget.style.background = "var(--bg-sunken)";
+            e.currentTarget.style.color = "var(--ink-2)";
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!open) {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.color = "var(--ink-4)";
+          }
+        }}
+      >
+        <span className="max-w-[280px] truncate">{label}</span>
+        <span
+          aria-hidden
+          className="transition-transform"
+          style={{
+            fontSize: 9,
+            transform: open ? "rotate(180deg)" : "none",
+            opacity: 0.7,
+          }}
+        >
+          ▾
+        </span>
+      </button>
+
+      {open && (
+        <div
+          className="absolute left-0 z-[95] mt-2 w-[288px] animate-slide-up rounded-lg border border-line bg-white p-2 shadow-pop"
+          style={{ borderRadius: 16 }}
+        >
+          <div className="px-2.5 pb-2 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-muted">
+            Switch branch
+          </div>
+          <div className="flex flex-col gap-0.5">
+            {branches.map((b) => {
+              const isActive = b.id === branchId;
+              return (
+                <button
+                  key={b.id}
+                  onClick={() => {
+                    onChange(b.id);
+                    setOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-md border-0 px-2.5 py-2 text-left transition-colors"
+                  style={{
+                    background: isActive ? "var(--bg-sunken)" : "transparent",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive)
+                      e.currentTarget.style.background = "var(--bg-sunken)";
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive)
+                      e.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  <span
+                    className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-md"
+                    style={{
+                      background: isActive
+                        ? "var(--accent-soft)"
+                        : "var(--bg-sunken)",
+                      color: isActive ? "var(--accent)" : "var(--ink-3)",
+                      fontSize: 14,
+                    }}
+                    aria-hidden
+                  >
+                    ⌂
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span
+                      className="block truncate text-[13px] font-semibold"
+                      style={{ letterSpacing: "-0.01em" }}
+                    >
+                      {b.name}
+                    </span>
+                  </span>
+                  {isActive && (
+                    <span
+                      aria-hidden
+                      className="flex-shrink-0 text-clay-500"
+                      style={{ fontSize: 14 }}
+                    >
+                      ✓
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

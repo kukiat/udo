@@ -8,7 +8,6 @@ import {
   useState,
 } from "react";
 
-import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 
 export type ImageUploadHandle = {
@@ -41,8 +40,13 @@ export const ImageUpload = forwardRef<
     onChange: (url: string | null) => void;
     className?: string;
     deferred?: boolean;
+    uploadLabel?: string;
+    hint?: string;
   }
->(function ImageUpload({ label, value, onChange, className, deferred }, ref) {
+>(function ImageUpload(
+  { label, value, onChange, className, deferred, uploadLabel, hint },
+  ref,
+) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -119,84 +123,117 @@ export const ImageUpload = forwardRef<
   };
 
   const shown = preview ?? value;
-  const hasPending = preview !== null;
 
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
       {label && <span className="label">{label}</span>}
-      <div className="flex items-start gap-3">
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={uploading}
-          title="Click to upload image"
-          aria-label="Upload image"
-          className="flex h-20 w-20 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-line bg-sand transition-colors hover:border-clay-300 disabled:cursor-wait"
-        >
-          {uploading ? (
-            <span className="text-xs text-ink-muted">Uploading…</span>
-          ) : shown ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={shown} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <span className="px-1 text-center text-xs text-ink-muted">
-              Click to upload
-            </span>
-          )}
-        </button>
-        <div className="flex flex-1 flex-col gap-2">
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/gif"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) pick(f);
-              e.target.value = "";
-            }}
-          />
-          {shown && (
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onPress={() => {
-                  clearPending();
-                  onChange(null);
-                }}
+      <div className="flex items-center gap-3">
+        <div className="relative h-14 w-14 shrink-0">
+          <div
+            className="flex h-full w-full items-center justify-center overflow-hidden rounded-lg border border-line bg-sand"
+            style={{ borderColor: "var(--line)", background: "var(--bg-sunken)" }}
+          >
+            {uploading ? (
+              <span className="text-[10px] text-ink-muted">…</span>
+            ) : shown ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={shown} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <svg
+                viewBox="0 0 24 24"
+                width={22}
+                height={22}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                style={{ color: "var(--ink-4, #6b6b6b)" }}
               >
-                Remove
-              </Button>
-            </div>
-          )}
-          {hasPending ? (
-            <p className="text-xs text-ink-muted">
-              Image ready — uploads when you save.
-            </p>
-          ) : (
-            <input
-              type="url"
-              value={value ?? ""}
-              placeholder="…or paste an image URL"
-              onChange={(e) => onChange(e.target.value || null)}
-              className="input"
-            />
-          )}
-          {!hasPending && value && (
-            <a
-              href={value}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="self-start text-xs text-clay-600 hover:text-clay-700 hover:underline"
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <path d="M21 15l-5-5L5 21" />
+              </svg>
+            )}
+          </div>
+          {shown && !uploading && (
+            <button
+              type="button"
+              onClick={() => {
+                clearPending();
+                onChange(null);
+              }}
+              title="Remove image"
+              aria-label="Remove image"
+              className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border shadow-sm transition-colors hover:bg-red-50 hover:text-red-600"
+              style={{
+                borderColor: "var(--line)",
+                background: "var(--bg-elev)",
+                color: "var(--ink)",
+              }}
             >
-              Open link ↗
-            </a>
+              <svg
+                viewBox="0 0 24 24"
+                width={12}
+                height={12}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
           )}
-          {error && <p className="text-xs text-red-600">{error}</p>}
         </div>
+        <div className="flex flex-col gap-1">
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={uploading}
+            aria-label={uploadLabel ?? "Upload image"}
+            className="inline-flex items-center gap-2 self-start rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors disabled:cursor-wait"
+            style={{
+              border: "1px solid var(--line-strong, var(--line))",
+              background: "var(--bg-elev)",
+              color: "var(--ink)",
+            }}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width={13}
+              height={13}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 19V6" />
+              <path d="M5 12l7-7 7 7" />
+            </svg>
+            {uploading ? "Uploading…" : (uploadLabel ?? "Upload image")}
+          </button>
+          <span className="text-[11px]" style={{ color: "var(--ink-4, var(--ink-3))" }}>
+            {hint ?? "PNG, JPG or WEBP · square works best"}
+          </span>
+        </div>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) pick(f);
+            e.target.value = "";
+          }}
+        />
       </div>
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>
   );
 });

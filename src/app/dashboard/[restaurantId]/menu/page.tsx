@@ -1,15 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import {
   MenuItemForm,
   type MenuItemFormValues,
 } from "@/components/dashboard/MenuItemForm";
+import { useDashboardTheme } from "@/components/dashboard/DashboardShell";
 import { ItemSwatch } from "@/components/menu/ItemSwatch";
 import { Modal } from "@/components/ui/Modal";
-import { Select } from "@/components/ui/Select";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useRestaurant } from "@/contexts/RestaurantContext";
 import { api } from "@/lib/fetcher";
@@ -48,25 +47,21 @@ type MenuItemDetail = {
 
 const PAGE_SIZE = 10;
 
-const STATUS_OPTIONS: { id: MenuItemStatus; label: string }[] = [
-  { id: "available", label: "พร้อม · Available" },
-  { id: "sold_out", label: "หมด · Sold out" },
-  { id: "hidden", label: "ซ่อน · Hidden" },
-];
-
-const statusPill: Record<MenuItemStatus, string> = {
-  available: "pill-lime",
-  sold_out: "pill-danger",
-  hidden: "pill-muted",
-};
-const statusLabel: Record<MenuItemStatus, string> = {
-  available: "● พร้อม",
-  sold_out: "● หมด",
-  hidden: "● ซ่อน",
+const EMPTY: MenuItemFormValues = {
+  name: "",
+  description: "",
+  price: "",
+  image: "",
+  categoryId: "",
+  kdsStationId: "",
+  status: "available",
+  optionGroups: [],
 };
 
 export default function MenuListPage() {
   const { restaurantId, stations, loading: ctxLoading } = useRestaurant();
+  const theme = useDashboardTheme();
+  const isDark = theme === "dark";
   const [items, setItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [total, setTotal] = useState(0);
@@ -74,6 +69,7 @@ export default function MenuListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [createOpen, setCreateOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<MenuItemFormValues | null>(null);
   const [editLoading, setEditLoading] = useState(false);
@@ -158,19 +154,24 @@ export default function MenuListPage() {
     }
   };
 
-  const changeStatus = async (id: string, status: string | null) => {
-    if (!status) return;
-    setItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, status: status as MenuItemStatus } : i)),
-    );
+  const submitCreate = async (v: MenuItemFormValues) => {
+    if (!restaurantId) return;
+    setSubmitting(true);
+    setError(null);
     try {
-      await api(`/api/menu/${id}`, {
-        method: "PUT",
-        body: JSON.stringify({ status }),
+      await api("/api/menu", {
+        method: "POST",
+        body: JSON.stringify({
+          restaurantId,
+          ...toMenuItemPayload(v),
+        }),
       });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to update status");
+      setCreateOpen(false);
       load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create item");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -195,7 +196,7 @@ export default function MenuListPage() {
   if (ctxLoading || loading) return <Loading />;
 
   return (
-    <div className="max-w-5xl">
+    <div className={`max-w-5xl dir-a kds-theme${isDark ? " kds-dark" : ""}`}>
       <div className="row" style={{ justifyContent: "space-between", marginBottom: 18 }}>
         <div>
           <div className="h-display" style={{ fontSize: 44 }}>
@@ -205,9 +206,9 @@ export default function MenuListPage() {
             MENU ITEMS · {total} รายการ
           </div>
         </div>
-        <Link href={`/dashboard/${restaurantId}/menu/create`}>
-          <button className="btn btn-primary">＋ เพิ่มเมนู · CREATE NEW</button>
-        </Link>
+        <button className="btn btn-primary" onClick={() => setCreateOpen(true)}>
+          ＋ เพิ่มเมนู · CREATE NEW
+        </button>
       </div>
 
       {error && (
@@ -221,9 +222,9 @@ export default function MenuListPage() {
           title="No menu items"
           description="Create your first menu item to get started."
           action={
-            <Link href={`/dashboard/${restaurantId}/menu/create`}>
-              <button className="btn btn-primary">＋ เพิ่มเมนู · CREATE NEW</button>
-            </Link>
+            <button className="btn btn-primary" onClick={() => setCreateOpen(true)}>
+              ＋ เพิ่มเมนู · CREATE NEW
+            </button>
           }
         />
       ) : (
@@ -235,7 +236,6 @@ export default function MenuListPage() {
                 <th>เมนู · ITEM</th>
                 <th>หมวด · CAT</th>
                 <th style={{ textAlign: "right" }}>ราคา · PRICE</th>
-                <th>สถานะ · STATUS</th>
                 <th style={{ textAlign: "right" }} />
               </tr>
             </thead>
@@ -259,23 +259,9 @@ export default function MenuListPage() {
                   </td>
                   <td
                     className="mono"
-                    style={{ textAlign: "right", fontWeight: 700, color: "var(--lime)" }}
+                    style={{ textAlign: "right", fontWeight: 700, color: "var(--olive)" }}
                   >
                     {formatPrice(it.price)}
-                  </td>
-                  <td>
-                    <div className="row" style={{ gap: 8 }}>
-                      <span className={`pill ${statusPill[it.status]}`} style={{ fontSize: 10 }}>
-                        {statusLabel[it.status]}
-                      </span>
-                      <Select
-                        dark
-                        className="w-36"
-                        options={STATUS_OPTIONS.map((o) => ({ id: o.id, label: o.label }))}
-                        selectedKey={it.status}
-                        onSelectionChange={(k) => changeStatus(it.id, k)}
-                      />
-                    </div>
                   </td>
                   <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                     <button
@@ -330,17 +316,47 @@ export default function MenuListPage() {
       )}
 
       <Modal
+        isOpen={createOpen}
+        onOpenChange={(open) => !open && setCreateOpen(false)}
+        className={`sm:max-w-2xl dir-a kds-theme${isDark ? " kds-dark" : ""}`}
+        header={
+          <h2 className="eyebrow" style={{ fontSize: 13, color: "var(--text)" }}>
+            เพิ่มเมนูใหม่ · CREATE MENU ITEM
+          </h2>
+        }
+      >
+        <div
+          className={`dir-a kds-theme${isDark ? " kds-dark" : ""}`}
+          style={{ padding: 20, background: "var(--surface)" }}
+        >
+          <MenuItemForm
+            defaultValues={EMPTY}
+            categories={categories}
+            stations={stations}
+            submitting={submitting}
+            onSubmit={submitCreate}
+            stickyFooter
+          />
+        </div>
+      </Modal>
+
+      <Modal
         isOpen={editId !== null}
         onOpenChange={(open) => !open && closeEdit()}
-        className="sm:max-w-2xl !border-[oklch(0.34_0.025_270)] !bg-[oklch(0.24_0.02_270)]"
-      >
-        <div className="dir-a" style={{ padding: 20, background: "var(--surface)" }}>
+        className={`sm:max-w-2xl dir-a kds-theme${isDark ? " kds-dark" : ""}`}
+        header={
           <h2
             className="eyebrow"
-            style={{ marginBottom: 14, fontSize: 13, color: "var(--text)" }}
+            style={{ fontSize: 13, color: "var(--text)" }}
           >
             แก้ไขเมนู · EDIT MENU ITEM
           </h2>
+        }
+      >
+        <div
+          className={`dir-a kds-theme${isDark ? " kds-dark" : ""}`}
+          style={{ padding: 20, background: "var(--surface)" }}
+        >
           {editLoading || !editValues ? (
             <Loading />
           ) : (
@@ -359,9 +375,12 @@ export default function MenuListPage() {
       <Modal
         isOpen={deleteItem !== null}
         onOpenChange={(open) => !open && setDeleteItem(null)}
-        className="!border-[oklch(0.34_0.025_270)] !bg-[oklch(0.24_0.02_270)]"
+        className={isDark ? "!border-[#23262E] !bg-[#15171C]" : undefined}
       >
-        <div className="dir-a col" style={{ gap: 16, padding: 20, background: "var(--surface)" }}>
+        <div
+          className={`dir-a col kds-theme${isDark ? " kds-dark" : ""}`}
+          style={{ gap: 16, padding: 20, background: "var(--surface)" }}
+        >
           <div>
             <h2 className="h-2">ลบเมนู? · Delete menu item?</h2>
             <p style={{ marginTop: 4, fontSize: 13, color: "var(--text-3)" }}>

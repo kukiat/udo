@@ -90,7 +90,7 @@ export function MenuItemDetail({
   };
 
   return (
-    <Modal isOpen={Boolean(item)} onOpenChange={(o) => !o && onClose()}>
+    <Modal isOpen={Boolean(item)} onOpenChange={(o) => !o && onClose()} showClose={false}>
       <div className="flex max-h-[92vh] flex-col">
         <div className="relative h-[200px] flex-shrink-0">
           <ItemSwatch

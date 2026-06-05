@@ -147,4 +147,5 @@ export type ClientToServerEvents = {
   "kds:join": (p: KdsJoinPayload) => void;
   "branch:join": (p: KdsJoinPayload) => void;
   "table:join": (p: TableJoinPayload) => void;
+  ping: (ack: () => void) => void;
 };

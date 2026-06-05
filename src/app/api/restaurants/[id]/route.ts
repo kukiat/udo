@@ -17,7 +17,13 @@ export async function GET(req: Request, { params }: Params) {
       with: withBranches
         ? {
             branches: {
-              columns: { id: true, name: true, address: true, settings: true },
+              columns: {
+                id: true,
+                name: true,
+                address: true,
+                isActive: true,
+                settings: true,
+              },
               orderBy: [asc(schema.branches.name)],
             },
           }
