@@ -33,6 +33,12 @@ export async function PUT(req: Request, { params }: Params) {
         .set({
           ...(data.name !== undefined && { name: data.name }),
           ...(data.address !== undefined && { address: data.address ?? null }),
+          ...(data.openingTime !== undefined && {
+            openingTime: data.openingTime ?? null,
+          }),
+          ...(data.closingTime !== undefined && {
+            closingTime: data.closingTime ?? null,
+          }),
           ...(data.isActive !== undefined && { isActive: data.isActive }),
           ...(data.settings !== undefined && { settings: data.settings }),
         })

@@ -32,6 +32,7 @@ export async function POST(req: Request) {
         restaurantId: data.restaurantId,
         parentId: data.parentId ?? null,
         name: data.name,
+        ...(data.isActive !== undefined && { isActive: data.isActive }),
         sortOrder: data.sortOrder,
         image: data.image ?? null,
       })

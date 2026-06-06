@@ -7,9 +7,11 @@ import {
   type BranchFieldsValue,
   branchFieldsFromSettings,
   emptyBranchFields,
+  normalizeBranchTime,
   settingsFromBranchFields,
   tablesFromCount,
 } from "@/components/dashboard/BranchFields";
+import { DashboardTableFooter } from "@/components/dashboard/TableFooter";
 import { useDashboardTheme } from "@/components/dashboard/DashboardShell";
 import { Modal } from "@/components/ui/Modal";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
@@ -56,6 +58,8 @@ export default function BranchesPage() {
     setError(null);
     const settings = settingsFromBranchFields(fields);
     const address = fields.address.trim() || null;
+    const openingTime = fields.openingTime || null;
+    const closingTime = fields.closingTime || null;
     try {
       if (editingId) {
         await api(`/api/branches/${editingId}`, {
@@ -63,6 +67,8 @@ export default function BranchesPage() {
           body: JSON.stringify({
             name: fields.name,
             address,
+            openingTime,
+            closingTime,
             settings,
             isActive,
             // Add-only reconciliation: any new numbers are created, existing
@@ -77,6 +83,8 @@ export default function BranchesPage() {
             restaurantId,
             name: fields.name,
             address,
+            openingTime,
+            closingTime,
             settings,
             tables: tablesFromCount(fields.tables),
           }),
@@ -287,7 +295,7 @@ function BranchesTable({
   branches: BranchSummary[];
   onEdit: (b: BranchSummary) => void;
 }) {
-  const cols = "minmax(200px, 1.6fr) minmax(200px, 1.8fr) 90px 90px 110px 150px";
+  const cols = "minmax(170px, 1.4fr) minmax(180px, 1.5fr) 120px 70px 70px 90px 80px";
   return (
     <div
       style={{
@@ -310,6 +318,7 @@ function BranchesTable({
       >
         <HeaderLabel label="ชื่อ · NAME" />
         <HeaderLabel label="ที่อยู่ · ADDRESS" />
+        <HeaderLabel label="เวลา · HOURS" />
         <HeaderLabel label="KDS" align="right" />
         <HeaderLabel label="VAT" align="right" />
         <HeaderLabel label="บริการ" align="right" />
@@ -382,6 +391,16 @@ function BranchesTable({
           <div
             className="tnum mono"
             style={{
+              fontSize: 13,
+              fontWeight: 500,
+              color: "var(--ink-2)",
+            }}
+          >
+            {formatBranchHours(b)}
+          </div>
+          <div
+            className="tnum mono"
+            style={{
               fontSize: 14,
               fontWeight: 600,
               textAlign: "right",
@@ -444,8 +463,19 @@ function BranchesTable({
           </div>
         </div>
       ))}
+      <DashboardTableFooter
+        total={branches.length}
+        noun={branches.length === 1 ? "branch" : "branches"}
+      />
     </div>
   );
+}
+
+function formatBranchHours(b: BranchSummary) {
+  if (!b.openingTime && !b.closingTime) return "—";
+  return `${normalizeBranchTime(b.openingTime) || "—"}–${
+    normalizeBranchTime(b.closingTime) || "—"
+  }`;
 }
 
 function HeaderLabel({

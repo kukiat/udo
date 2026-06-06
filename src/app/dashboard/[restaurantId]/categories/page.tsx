@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 
+import { DashboardTableFooter } from "@/components/dashboard/TableFooter";
 import { useDashboardTheme } from "@/components/dashboard/DashboardShell";
+import { ItemSwatch } from "@/components/menu/ItemSwatch";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
 import { TextInput } from "@/components/ui/TextInput";
-import { ErrorState, Loading } from "@/components/ui/States";
+import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useRestaurant } from "@/contexts/RestaurantContext";
 import { api } from "@/lib/fetcher";
 
@@ -15,11 +17,10 @@ type Category = {
   id: string;
   name: string;
   parentId: string | null;
+  isActive: boolean;
   sortOrder: number;
   image: string | null;
 };
-
-const HUES = [38, 110, 32, 18, 75, 50, 200, 300];
 
 export default function CategoriesPage() {
   const { restaurantId, loading: ctxLoading } = useRestaurant();
@@ -36,6 +37,7 @@ export default function CategoriesPage() {
   const [sortOrder, setSortOrder] = useState("0");
   const [parentId, setParentId] = useState<string | null>(null);
   const [image, setImage] = useState<string | null>(null);
+  const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const load = () => {
@@ -57,6 +59,7 @@ export default function CategoriesPage() {
     setSortOrder("0");
     setParentId(null);
     setImage(null);
+    setIsActive(true);
   };
 
   const openCreate = () => {
@@ -75,6 +78,7 @@ export default function CategoriesPage() {
           method: "PUT",
           body: JSON.stringify({
             name,
+            isActive,
             sortOrder: Number(sortOrder),
             parentId,
             image,
@@ -108,18 +112,9 @@ export default function CategoriesPage() {
     setSortOrder(String(c.sortOrder));
     setParentId(c.parentId);
     setImage(c.image);
+    setIsActive(c.isActive);
     setError(null);
     setFormOpen(true);
-  };
-
-  const remove = async (id: string) => {
-    if (!confirm("Delete this category?")) return;
-    try {
-      await api(`/api/categories/${id}`, { method: "DELETE" });
-      load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to delete category");
-    }
   };
 
   if (ctxLoading || loading) return <Loading />;
@@ -227,6 +222,25 @@ export default function CategoriesPage() {
               onChange={setImage}
             />
           </div>
+          {editingId && (
+            <div style={{ marginTop: 12 }}>
+              <span className="label">STATUS</span>
+              <div className="row" style={{ gap: 8 }}>
+                <StatusRadio
+                  label="Active"
+                  selected={isActive}
+                  onSelect={() => setIsActive(true)}
+                  accent="var(--olive)"
+                />
+                <StatusRadio
+                  label="Inactive"
+                  selected={!isActive}
+                  onSelect={() => setIsActive(false)}
+                  accent="var(--rose)"
+                />
+              </div>
+            </div>
+          )}
           <div className="row" style={{ gap: 8, marginTop: 24 }}>
             <button
               className="btn btn-ghost grow"
@@ -254,81 +268,176 @@ export default function CategoriesPage() {
         </div>
       )}
 
-      <div
-        className="grid gap-3.5"
-        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}
-      >
-        {ordered.map((c, i) => {
-          const hue = HUES[i % HUES.length];
-          return (
-            <div
-              key={c.id}
-              className="card"
-              style={{ padding: 18, position: "relative", overflow: "hidden" }}
-            >
-              <div
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: 4,
-                  background: `oklch(0.7 0.18 ${hue})`,
-                }}
-              />
-              <div className="row" style={{ justifyContent: "space-between", marginBottom: 14 }}>
-                <span className="eyebrow" style={{ color: `oklch(0.75 0.16 ${hue})` }}>
-                  {c.parentId ? "หมวดย่อย" : `หมวด #${String(i + 1).padStart(2, "0")}`}
-                </span>
-              </div>
-              <div className="h-2">
-                {c.parentId && <span style={{ color: "var(--text-3)" }}>↳ </span>}
-                {c.name}
-              </div>
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "var(--text-3)",
-                  marginTop: 2,
-                  marginBottom: 14,
-                }}
-              >
-                {c.parentId
-                  ? `ใน ${nameById.get(c.parentId) ?? "—"}`
-                  : `ลำดับ ${c.sortOrder}`}
-              </div>
-              <div className="row" style={{ justifyContent: "flex-end", gap: 6 }}>
-                <button
-                  className="pill"
-                  style={{ cursor: "pointer" }}
-                  onClick={() => startEdit(c)}
-                >
-                  แก้ไข
-                </button>
-                <button
-                  className="pill pill-danger"
-                  style={{ cursor: "pointer" }}
-                  onClick={() => remove(c.id)}
-                >
-                  ลบ
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div
-        className="row"
-        style={{
-          justifyContent: "flex-end",
-          marginTop: 16,
-          fontSize: 12,
-          color: "var(--text-3)",
-        }}
-      >
-        {ordered.length} หมวดทั้งหมด · {ordered.length} categories total
-      </div>
+      {ordered.length === 0 ? (
+        <EmptyState
+          title="No categories"
+          description="Create your first category to get started."
+          action={
+            <button className="btn btn-primary" onClick={openCreate}>
+              ＋ หมวดใหม่ · NEW CATEGORY
+            </button>
+          }
+        />
+      ) : (
+        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <table className="table">
+            <thead>
+              <tr>
+                <th style={{ width: 60 }} />
+                <th>หมวด · CATEGORY</th>
+                <th>หมวดแม่ · PARENT</th>
+                <th style={{ textAlign: "center" }}>ACTIVE</th>
+                <th style={{ textAlign: "right" }}>ลำดับ · SORT</th>
+                <th style={{ textAlign: "right" }} />
+              </tr>
+            </thead>
+            <tbody>
+              {ordered.map((c) => (
+                <tr key={c.id} style={{ opacity: c.isActive ? 1 : 0.55 }}>
+                  <td>
+                    <ItemSwatch
+                      id={c.id}
+                      name={c.name}
+                      image={c.image}
+                      size="xs"
+                      className="rounded-lg"
+                    />
+                  </td>
+                  <td style={{ fontWeight: 700 }}>
+                    {c.parentId && <span style={{ color: "var(--text-3)" }}>↳ </span>}
+                    {c.name}
+                  </td>
+                  <td>
+                    <span className="pill" style={{ fontSize: 11 }}>
+                      {c.parentId ? (nameById.get(c.parentId) ?? "—") : "หมวดหลัก"}
+                    </span>
+                  </td>
+                  <td style={{ textAlign: "center" }}>
+                    <span
+                      className="pill"
+                      style={{
+                        fontSize: 11,
+                        color: c.isActive ? "var(--olive)" : "var(--text-3)",
+                        background: c.isActive ? "var(--olive-soft)" : "var(--line)",
+                      }}
+                    >
+                      {c.isActive ? "Active" : "Inactive"}
+                    </span>
+                  </td>
+                  <td className="mono" style={{ textAlign: "right", fontWeight: 700 }}>
+                    {c.sortOrder}
+                  </td>
+                  <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                    <button
+                      className="pill"
+                      style={iconButtonStyle}
+                      onClick={() => startEdit(c)}
+                      aria-label="Edit category"
+                      title="Edit category"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                      </svg>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <DashboardTableFooter
+            total={ordered.length}
+            noun={ordered.length === 1 ? "category" : "categories"}
+          />
+        </div>
+      )}
     </div>
   );
 }
+
+function StatusRadio({
+  label,
+  selected,
+  onSelect,
+  accent,
+}: {
+  label: string;
+  selected: boolean;
+  onSelect: () => void;
+  accent: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onClick={onSelect}
+      className="
+        flex items-center gap-2 pr-0 pl-0 py-2
+        border-none bg-transparent
+        font-semibold text-[13px] font-sans
+        cursor-pointer
+        outline-none
+      "
+      style={{
+        color: "var(--ink-2)",
+        paddingLeft: 0,
+        paddingRight: 0,
+        paddingTop: 10,
+        paddingBottom: 10,
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          width: 16,
+          height: 16,
+          borderRadius: 999,
+          flexShrink: 0,
+          border: `2px solid ${selected ? accent : "var(--line-strong)"}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {selected && (
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: 999,
+              background: accent,
+            }}
+          />
+        )}
+      </span>
+      {label}
+    </button>
+  );
+}
+
+const iconButtonStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: 28,
+  height: 28,
+  padding: 0,
+  borderRadius: 999,
+  border: "1px solid var(--line-strong)",
+  background: "transparent",
+  color: "var(--ink-2)",
+  fontSize: 0,
+  cursor: "pointer",
+  fontFamily: "inherit",
+};

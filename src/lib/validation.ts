@@ -18,6 +18,11 @@ export function normalizeMoney(v: string | null | undefined): string | null {
 }
 
 const menuItemStatus = z.enum(["available", "sold_out", "hidden"]);
+const branchTime = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/, "Invalid time value")
+  .nullable()
+  .optional();
 
 // Image reference: an absolute http(s) URL or a local upload path (/uploads/..).
 const imageUrl = z
@@ -41,6 +46,8 @@ export const branchSettingsSchema = z.object({
 const branchInputSchema = z.object({
   name: z.string().min(1).max(160),
   address: z.string().max(500).nullable().optional(),
+  openingTime: branchTime,
+  closingTime: branchTime,
   settings: branchSettingsSchema.optional(),
   tables: z
     .array(z.string().trim().min(1).max(20))
@@ -77,6 +84,7 @@ export const categoryCreateSchema = z.object({
   restaurantId: z.string().uuid(),
   parentId: z.string().uuid().nullable().optional(),
   name: z.string().min(1).max(120),
+  isActive: z.boolean().optional(),
   sortOrder: z.number().int().min(0).default(0),
   image: imageUrl.nullable().optional(),
 });
@@ -128,17 +136,15 @@ export const menuItemUpdateSchema = menuItemCreateSchema
 
 // --- Branch menu override ---------------------------------------------------
 
+const branchMenuItemOverrideSchema = z.object({
+  menuItemId: z.string().uuid(),
+  isAvailable: z.boolean().default(true),
+  price: optionalMoney,
+});
+
 export const branchMenuUpdateSchema = z.object({
   branchId: z.string().uuid(),
-  items: z
-    .array(
-      z.object({
-        menuItemId: z.string().uuid(),
-        isAvailable: z.boolean().default(true),
-        price: optionalMoney,
-      }),
-    )
-    .min(1),
+  items: z.array(branchMenuItemOverrideSchema).min(1),
 });
 
 // --- Sessions ---------------------------------------------------------------
@@ -225,4 +231,5 @@ export const paymentSchema = z.object({
 
 export type MenuItemCreateInput = z.infer<typeof menuItemCreateSchema>;
 export type MenuItemUpdateInput = z.infer<typeof menuItemUpdateSchema>;
+export type BranchMenuUpdateInput = z.infer<typeof branchMenuUpdateSchema>;
 export type OrderCreateInput = z.infer<typeof orderCreateSchema>;

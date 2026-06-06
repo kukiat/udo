@@ -129,7 +129,7 @@ export function Sidebar({ restaurantId }: { restaurantId?: string }) {
 
   return (
     <aside
-      className="hidden flex-shrink-0 flex-col self-stretch overflow-hidden border-r border-line bg-cream md:sticky md:top-16 md:flex md:h-[calc(100vh-64px)]"
+      className="hidden flex-shrink-0 flex-col self-stretch overflow-hidden border-r border-line bg-cream md:flex"
       style={{
         width: collapsed ? 74 : 220,
         flexBasis: collapsed ? 74 : 220,
@@ -153,7 +153,7 @@ export function Sidebar({ restaurantId }: { restaurantId?: string }) {
       </div>
 
       {/* Nav — soft pill items */}
-      <nav className="flex min-h-0 flex-1 flex-col gap-1 px-3 py-1">
+      <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-3 py-1">
         {items.map((item) => {
           const active = item.exact
             ? pathname === item.href

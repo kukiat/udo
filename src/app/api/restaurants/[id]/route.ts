@@ -21,6 +21,8 @@ export async function GET(req: Request, { params }: Params) {
                 id: true,
                 name: true,
                 address: true,
+                openingTime: true,
+                closingTime: true,
                 isActive: true,
                 settings: true,
               },

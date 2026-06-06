@@ -1,8 +1,20 @@
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { badRequest, notFound, parseBody, serverError } from "@/lib/api";
-import { branchMenuUpdateSchema, normalizeMoney } from "@/lib/validation";
+import {
+  branchMenuUpdateSchema,
+  normalizeMoney,
+} from "@/lib/validation";
+
+type BranchMenuOverrideInput = {
+  branchId: string;
+  items: {
+    menuItemId: string;
+    isAvailable?: boolean;
+    price?: string | null;
+  }[];
+};
 
 // All master menu items for the branch's restaurant, with any branch override.
 export async function GET(req: Request) {
@@ -54,39 +66,56 @@ export async function GET(req: Request) {
   }
 }
 
+async function upsertBranchMenuOverrides(data: BranchMenuOverrideInput) {
+  if (data.items.length === 0) return;
+
+  const values = data.items.map((item) => ({
+    branchId: data.branchId,
+    menuItemId: item.menuItemId,
+    isAvailable: item.isAvailable ?? true,
+    price: normalizeMoney(item.price),
+  }));
+
+  // Single batched upsert keyed on the (branchId, menuItemId) unique index.
+  await db
+    .insert(schema.branchMenuItems)
+    .values(values)
+    .onConflictDoUpdate({
+      target: [
+        schema.branchMenuItems.branchId,
+        schema.branchMenuItems.menuItemId,
+      ],
+      set: {
+        isAvailable: sql`excluded.is_available`,
+        price: sql`excluded.price`,
+      },
+    });
+}
+
+// Upsert only the branch menu overrides included in the request.
+export async function POST(req: Request) {
+  try {
+    const { data, error } = await parseBody(req, branchMenuUpdateSchema);
+    if (error) return error;
+
+    await upsertBranchMenuOverrides(data);
+
+    return Response.json({ ok: true, updated: data.items.length });
+  } catch (err) {
+    console.error("POST /api/branch-menu", err);
+    return serverError();
+  }
+}
+
 // Bulk upsert branch availability + price overrides.
 export async function PUT(req: Request) {
   try {
     const { data, error } = await parseBody(req, branchMenuUpdateSchema);
     if (error) return error;
 
-    await db.transaction(async (tx) => {
-      for (const item of data.items) {
-        const price = normalizeMoney(item.price);
-        const existing = await tx.query.branchMenuItems.findFirst({
-          where: and(
-            eq(schema.branchMenuItems.branchId, data.branchId),
-            eq(schema.branchMenuItems.menuItemId, item.menuItemId),
-          ),
-          columns: { id: true },
-        });
-        if (existing) {
-          await tx
-            .update(schema.branchMenuItems)
-            .set({ isAvailable: item.isAvailable, price })
-            .where(eq(schema.branchMenuItems.id, existing.id));
-        } else {
-          await tx.insert(schema.branchMenuItems).values({
-            branchId: data.branchId,
-            menuItemId: item.menuItemId,
-            isAvailable: item.isAvailable,
-            price,
-          });
-        }
-      }
-    });
+    await upsertBranchMenuOverrides(data);
 
-    return Response.json({ ok: true });
+    return Response.json({ ok: true, updated: data.items.length });
   } catch (err) {
     console.error("PUT /api/branch-menu", err);
     return serverError();

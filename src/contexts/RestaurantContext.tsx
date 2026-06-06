@@ -18,6 +18,8 @@ export type BranchSummary = {
   id: string;
   name: string;
   address: string | null;
+  openingTime: string | null;
+  closingTime: string | null;
   isActive: boolean;
   settings: BranchSettings;
 };

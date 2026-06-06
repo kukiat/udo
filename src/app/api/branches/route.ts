@@ -62,6 +62,8 @@ export async function POST(req: Request) {
           restaurantId: data.restaurantId,
           name: data.name,
           address: data.address ?? null,
+          openingTime: data.openingTime ?? null,
+          closingTime: data.closingTime ?? null,
           settings: data.settings ?? DEFAULT_SETTINGS,
         })
         .returning();

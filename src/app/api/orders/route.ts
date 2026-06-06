@@ -136,6 +136,15 @@ export async function POST(req: Request) {
       if (!menuById.has(item.menuItemId)) {
         return badRequest(`Unknown menu item: ${item.menuItemId}`);
       }
+      const menu = menuById.get(item.menuItemId)!;
+      const override = overrideById.get(item.menuItemId);
+      if (
+        menu.status !== "available" ||
+        menu.deletedAt ||
+        override?.isAvailable === false
+      ) {
+        return badRequest(`Menu item is not available: ${menu.name}`);
+      }
       for (const oid of item.optionItemIds ?? []) {
         if (!optionById.has(oid)) {
           return badRequest(`Unknown option item: ${oid}`);

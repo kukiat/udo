@@ -114,6 +114,8 @@ export function RestaurantFormModal(props: Props) {
               branches: branches.map((b) => ({
                 name: b.name,
                 address: b.address.trim() || null,
+                openingTime: b.openingTime || null,
+                closingTime: b.closingTime || null,
                 settings: settingsFromBranchFields(b),
                 tables: tablesFromCount(b.tables),
               })),

@@ -30,6 +30,8 @@ async function seedBranch(
       restaurantId,
       name,
       address,
+      openingTime: "09:00",
+      closingTime: "22:00",
       settings: { maxKdsScreens: 3, vatRate: 0.07, serviceChargeRate: 0 },
     })
     .returning();
@@ -155,6 +157,8 @@ async function main() {
       restaurantId: restaurant.id,
       name: "Main Branch",
       address: "123 Demo Street, Bangkok",
+      openingTime: "09:00",
+      closingTime: "22:00",
       settings: { maxKdsScreens: 3, vatRate: 0.07, serviceChargeRate: 0 },
     })
     .returning();

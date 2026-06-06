@@ -58,18 +58,22 @@ export function DashboardShell({
         suppressHydrationWarning
         className={`kds-theme${theme === "dark" ? " kds-dark" : ""}`}
         style={{
+          height: "100vh",
           minHeight: "100vh",
           display: "flex",
           flexDirection: "column",
+          overflow: "hidden",
           background: "var(--bg)",
           color: "var(--ink)",
           transition: "background .2s ease, color .2s ease",
         }}
       >
         <RestaurantTopBar theme={theme} onToggleTheme={toggleTheme} />
-        <div className="flex flex-1 flex-col md:flex-row">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
           <Sidebar restaurantId={restaurantId} />
-          <main className="flex-1 overflow-y-auto p-5 md:p-7">{children}</main>
+          <main className="min-w-0 flex-1 overflow-y-auto p-5 md:p-7">
+            {children}
+          </main>
         </div>
       </div>
     </DashboardThemeContext.Provider>

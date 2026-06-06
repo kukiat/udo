@@ -1,11 +1,13 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 
 import {
   MenuItemForm,
   type MenuItemFormValues,
 } from "@/components/dashboard/MenuItemForm";
+import { DashboardTableFooter } from "@/components/dashboard/TableFooter";
 import { useDashboardTheme } from "@/components/dashboard/DashboardShell";
 import { ItemSwatch } from "@/components/menu/ItemSwatch";
 import { Modal } from "@/components/ui/Modal";
@@ -57,6 +59,87 @@ const EMPTY: MenuItemFormValues = {
   status: "available",
   optionGroups: [],
 };
+
+const iconButtonStyle = {
+  width: 34,
+  height: 34,
+  padding: 0,
+  marginRight: 6,
+  cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+} satisfies CSSProperties;
+
+const iconDangerButtonStyle = {
+  ...iconButtonStyle,
+  marginRight: 0,
+} satisfies CSSProperties;
+
+const statusLabel: Record<MenuItemStatus, string> = {
+  available: "Available",
+  sold_out: "Sold out",
+  hidden: "Hidden",
+};
+
+const statusStyle: Record<MenuItemStatus, CSSProperties> = {
+  available: {
+    background: "rgba(124, 138, 78, 0.16)",
+    borderColor: "rgba(124, 138, 78, 0.32)",
+    color: "var(--olive)",
+  },
+  sold_out: {
+    background: "rgba(201, 138, 60, 0.16)",
+    borderColor: "rgba(201, 138, 60, 0.36)",
+    color: "#9a5b14",
+  },
+  hidden: {
+    background: "var(--bg-elev)",
+    borderColor: "var(--line)",
+    color: "var(--text-3)",
+  },
+};
+
+function EditIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={16}
+      height={16}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={16}
+      height={16}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M19 6l-1 14H6L5 6" />
+      <path d="M10 11v5" />
+      <path d="M14 11v5" />
+    </svg>
+  );
+}
 
 export default function MenuListPage() {
   const { restaurantId, stations, loading: ctxLoading } = useRestaurant();
@@ -195,6 +278,9 @@ export default function MenuListPage() {
 
   if (ctxLoading || loading) return <Loading />;
 
+  const page = Math.floor(offset / PAGE_SIZE) + 1;
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
   return (
     <div className={`max-w-5xl dir-a kds-theme${isDark ? " kds-dark" : ""}`}>
       <div className="row" style={{ justifyContent: "space-between", marginBottom: 18 }}>
@@ -232,9 +318,10 @@ export default function MenuListPage() {
           <table className="table">
             <thead>
               <tr>
-                <th style={{ width: 60 }} />
+                <th style={{ width: 96 }} />
                 <th>เมนู · ITEM</th>
                 <th>หมวด · CAT</th>
+                <th>สถานะ · STATUS</th>
                 <th style={{ textAlign: "right" }}>ราคา · PRICE</th>
                 <th style={{ textAlign: "right" }} />
               </tr>
@@ -247,14 +334,22 @@ export default function MenuListPage() {
                       id={it.id}
                       name={it.name}
                       image={it.image}
-                      size="xs"
-                      className="rounded-lg"
+                      size="sm"
+                      className="rounded-xl"
                     />
                   </td>
                   <td style={{ fontWeight: 700 }}>{it.name}</td>
                   <td>
                     <span className="pill" style={{ fontSize: 11 }}>
                       {it.category?.name ?? "—"}
+                    </span>
+                  </td>
+                  <td>
+                    <span
+                      className="pill"
+                      style={{ ...statusStyle[it.status], fontSize: 11 }}
+                    >
+                      {statusLabel[it.status]}
                     </span>
                   </td>
                   <td
@@ -266,52 +361,35 @@ export default function MenuListPage() {
                   <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                     <button
                       className="pill"
-                      style={{ marginRight: 6, cursor: "pointer" }}
+                      style={iconButtonStyle}
                       onClick={() => openEdit(it.id)}
+                      aria-label={`แก้ไขเมนู ${it.name}`}
+                      title="แก้ไข · Edit"
                     >
-                      แก้
+                      <EditIcon />
                     </button>
                     <button
                       className="pill pill-danger"
-                      style={{ cursor: "pointer" }}
+                      style={iconDangerButtonStyle}
                       onClick={() => setDeleteItem(it)}
+                      aria-label={`ลบเมนู ${it.name}`}
+                      title="ลบ · Delete"
                     >
-                      ลบ
+                      <TrashIcon />
                     </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-      )}
-
-      {total > 0 && (
-        <div className="row" style={{ justifyContent: "space-between", marginTop: 16 }}>
-          <span style={{ fontSize: 12, color: "var(--text-3)" }}>
-            แสดง {offset + 1}–{Math.min(offset + PAGE_SIZE, total)} จาก {total}
-          </span>
-          <div className="row" style={{ gap: 6 }}>
-            <button
-              className="pill"
-              style={{ cursor: "pointer", opacity: offset === 0 ? 0.5 : 1 }}
-              disabled={offset === 0}
-              onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
-            >
-              ← ก่อนหน้า
-            </button>
-            <button
-              className="pill"
-              style={{
-                cursor: "pointer",
-                opacity: offset + PAGE_SIZE >= total ? 0.5 : 1,
-              }}
-              disabled={offset + PAGE_SIZE >= total}
-              onClick={() => setOffset((o) => o + PAGE_SIZE)}
-            >
-              ถัดไป →
-            </button>
-          </div>
+          <DashboardTableFooter
+            page={page}
+            pageCount={pageCount}
+            total={total}
+            pageSize={PAGE_SIZE}
+            noun="menu items"
+            onChange={(next) => setOffset((next - 1) * PAGE_SIZE)}
+          />
         </div>
       )}
 

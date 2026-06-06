@@ -47,6 +47,7 @@ export default function DashboardHome() {
   const [removing, setRemoving] = useState(false);
 
   const [theme, setTheme] = useState<"light" | "dark">("light");
+
   useEffect(() => {
     try {
       const stored = localStorage.getItem("rms.dashboard.theme");
@@ -55,6 +56,7 @@ export default function DashboardHome() {
       /* ignore */
     }
   }, []);
+
   useEffect(() => {
     const root = document.documentElement;
     root.classList.add("kds-theme");
@@ -64,6 +66,7 @@ export default function DashboardHome() {
       root.classList.remove("kds-theme", "kds-dark");
     };
   }, [theme]);
+  
   const toggleTheme = () => {
     setTheme((prev) => {
       const next = prev === "light" ? "dark" : "light";

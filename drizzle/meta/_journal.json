@@ -43,6 +43,20 @@
       "when": 1780605568997,
       "tag": "0005_wild_living_mummy",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1780764677779,
+      "tag": "0006_stormy_domino",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1780765713054,
+      "tag": "0007_stormy_thor_girl",
+      "breakpoints": true
     }
   ]
 }

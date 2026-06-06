@@ -19,6 +19,7 @@ export async function PUT(req: Request, { params }: Params) {
       .update(schema.categories)
       .set({
         ...(data.name !== undefined && { name: data.name }),
+        ...(data.isActive !== undefined && { isActive: data.isActive }),
         ...(data.parentId !== undefined && { parentId: data.parentId ?? null }),
         ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
         ...(data.image !== undefined && { image: data.image }),

@@ -20,7 +20,10 @@ export async function GET(req: Request) {
 
     const [categories, items, overrides] = await Promise.all([
       db.query.categories.findMany({
-        where: eq(schema.categories.restaurantId, branch.restaurantId),
+        where: and(
+          eq(schema.categories.restaurantId, branch.restaurantId),
+          eq(schema.categories.isActive, true),
+        ),
         orderBy: [asc(schema.categories.sortOrder)],
       }),
       db.query.menuItems.findMany({

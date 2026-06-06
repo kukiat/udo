@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 import {
   type AnyPgColumn,
+  boolean,
   index,
   integer,
   pgTable,
@@ -23,6 +24,7 @@ export const categories = pgTable(
       onDelete: "cascade",
     }),
     name: text("name").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
     image: text("image"),
   },

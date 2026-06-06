@@ -14,7 +14,14 @@ export async function GET(req: Request) {
       with: withBranches
         ? {
             branches: {
-              columns: { id: true, name: true, address: true, settings: true },
+              columns: {
+                id: true,
+                name: true,
+                address: true,
+                openingTime: true,
+                closingTime: true,
+                settings: true,
+              },
               orderBy: [asc(schema.branches.name)],
             },
           }
@@ -51,6 +58,8 @@ export async function POST(req: Request) {
             restaurantId: restaurant.id,
             name: b.name,
             address: b.address ?? null,
+            openingTime: b.openingTime ?? null,
+            closingTime: b.closingTime ?? null,
             settings: b.settings ?? DEFAULT_SETTINGS,
           })),
         )

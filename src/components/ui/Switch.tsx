@@ -21,7 +21,10 @@ export function Switch({
       )}
     >
       <span className="h-6 w-10 rounded-full bg-line p-0.5 transition-colors group-selected:bg-clay-500 group-data-[disabled]:opacity-50">
-        <span className="block h-5 w-5 rounded-full bg-white shadow transition-transform group-selected:translate-x-4" />
+        <span
+          className="block h-5 w-5 rounded-full shadow transition-transform group-selected:translate-x-4"
+          style={{ backgroundColor: "#fff" }}
+        />
       </span>
       {children}
     </AriaSwitch>

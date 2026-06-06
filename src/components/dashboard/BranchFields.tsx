@@ -6,6 +6,8 @@ import { TextInput } from "@/components/ui/TextInput";
 export type BranchFieldsValue = {
   name: string;
   address: string;
+  openingTime: string;
+  closingTime: string;
   maxKds: string;
   vat: string;
   service: string;
@@ -18,11 +20,17 @@ export const TABLES_MAX = 50;
 export const emptyBranchFields = (): BranchFieldsValue => ({
   name: "",
   address: "",
+  openingTime: "09:00",
+  closingTime: "22:00",
   maxKds: "3",
   vat: "7",
   service: "0",
   tables: TABLES_MIN,
 });
+
+export function normalizeBranchTime(value: string | null | undefined) {
+  return value ? value.slice(0, 5) : "";
+}
 
 /** A floor of `count` tables, numbered "1".."count" (matches the API seed). */
 export const tablesFromCount = (count: number): string[] =>
@@ -32,12 +40,16 @@ export const tablesFromCount = (count: number): string[] =>
 export function branchFieldsFromSettings(b: {
   name: string;
   address: string | null;
+  openingTime?: string | null;
+  closingTime?: string | null;
   settings: { maxKdsScreens: number; vatRate: number; serviceChargeRate: number };
   tables?: number;
 }): BranchFieldsValue {
   return {
     name: b.name,
     address: b.address ?? "",
+    openingTime: normalizeBranchTime(b.openingTime) || "09:00",
+    closingTime: normalizeBranchTime(b.closingTime) || "22:00",
     maxKds: String(b.settings.maxKdsScreens),
     vat: String(Math.round(b.settings.vatRate * 100)),
     service: String(Math.round(b.settings.serviceChargeRate * 100)),
@@ -121,6 +133,33 @@ export function BranchFields({
             icon={null}
             type="text"
             ariaLabel={`ที่อยู่สาขา${suffix}`}
+          />
+        </label>
+      </div>
+
+      <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr", marginTop: 12 }}>
+        <label style={{ display: "block" }}>
+          <span style={labelStyle}>เวลาเปิด · OPEN</span>
+          <TextInput
+            value={value.openingTime}
+            onChange={(v) => onChange({ openingTime: v })}
+            type="time"
+            mono
+            icon={null}
+            width="100%"
+            ariaLabel={`เวลาเปิดสาขา${suffix}`}
+          />
+        </label>
+        <label style={{ display: "block" }}>
+          <span style={labelStyle}>เวลาปิด · CLOSE</span>
+          <TextInput
+            value={value.closingTime}
+            onChange={(v) => onChange({ closingTime: v })}
+            type="time"
+            mono
+            icon={null}
+            width="100%"
+            ariaLabel={`เวลาปิดสาขา${suffix}`}
           />
         </label>
       </div>
