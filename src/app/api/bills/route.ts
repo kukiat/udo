@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { badRequest, notFound, serverError } from "@/lib/api";
-import { calcTotals } from "@/lib/utils";
+import { calcTotals, makeTimer } from "@/lib/utils";
 
 // Returns the bill for a table session, recomputed from its orders, plus the
 // line items. Creates/refreshes the persisted bill row.
@@ -12,22 +12,28 @@ export async function GET(req: Request) {
     const sessionId = searchParams.get("sessionId");
     if (!sessionId) return badRequest("sessionId is required");
 
-    const session = await db.query.tableSessions.findFirst({
-      where: eq(schema.tableSessions.id, sessionId),
-      with: {
-        branch: { columns: { settings: true } },
-        orders: {
-          with: {
-            items: {
-              with: {
-                menuItem: { columns: { name: true } },
-                options: { with: { optionItem: { columns: { name: true } } } },
+    const timed = makeTimer(`bills GET ${crypto.randomUUID().slice(0, 8)}`);
+
+    const session = await timed("select session+orders+items", () =>
+      db.query.tableSessions.findFirst({
+        where: eq(schema.tableSessions.id, sessionId),
+        with: {
+          branch: { columns: { settings: true } },
+          orders: {
+            with: {
+              items: {
+                with: {
+                  menuItem: { columns: { name: true } },
+                  options: {
+                    with: { optionItem: { columns: { name: true } } },
+                  },
+                },
               },
             },
           },
         },
-      },
-    });
+      }),
+    );
     if (!session) return notFound("Session not found");
 
     // Cancelled orders are excluded from the bill entirely.
@@ -41,9 +47,11 @@ export async function GET(req: Request) {
     );
     const settings = session.branch.settings;
 
-    const existing = await db.query.bills.findFirst({
-      where: eq(schema.bills.tableSessionId, sessionId),
-    });
+    const existing = await timed("select bill", () =>
+      db.query.bills.findFirst({
+        where: eq(schema.bills.tableSessionId, sessionId),
+      }),
+    );
     const discount = existing ? parseFloat(existing.discount) : 0;
     const totals = calcTotals(subtotal, settings, discount);
 
@@ -56,16 +64,20 @@ export async function GET(req: Request) {
       totalAmount: totals.total.toFixed(2),
     };
     if (bill) {
-      [bill] = await db
-        .update(schema.bills)
-        .set(values)
-        .where(eq(schema.bills.id, bill.id))
-        .returning();
+      [bill] = await timed("update bill", () =>
+        db
+          .update(schema.bills)
+          .set(values)
+          .where(eq(schema.bills.id, bill!.id))
+          .returning(),
+      );
     } else {
-      [bill] = await db
-        .insert(schema.bills)
-        .values({ tableSessionId: sessionId, status: "open", ...values })
-        .returning();
+      [bill] = await timed("insert bill", () =>
+        db
+          .insert(schema.bills)
+          .values({ tableSessionId: sessionId, status: "open", ...values })
+          .returning(),
+      );
     }
 
     const lineItems = billableOrders.flatMap((o) =>

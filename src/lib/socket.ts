@@ -27,24 +27,50 @@ export function getIO(): AppIOServer | undefined {
   return g.__rmsIO;
 }
 
+function toRoomExceptOrigin(
+  io: AppIOServer,
+  room: string,
+  originSocketId?: string | null,
+) {
+  return originSocketId ? io.to(room).except(originSocketId) : io.to(room);
+}
+
 /** Broadcast a newly placed order to all KDS + floor screens in its branch. */
-export function emitNewOrder(order: OrderDTO) {
+export function emitNewOrder(order: OrderDTO, originSocketId?: string | null) {
   const io = getIO();
   if (!io) return;
-  io.to(branchKdsRoom(order.branchId)).emit("order:new", order);
-  io.to(branchRoom(order.branchId)).emit("order:new", order);
+  toRoomExceptOrigin(io, branchKdsRoom(order.branchId), originSocketId).emit(
+    "order:new",
+    order,
+  );
+  toRoomExceptOrigin(io, branchRoom(order.branchId), originSocketId).emit(
+    "order:new",
+    order,
+  );
 }
 
 /**
  * Broadcast an order status change to the branch KDS, the branch floor staff,
  * and the customer's table.
  */
-export function emitOrderStatusUpdate(order: OrderDTO) {
+export function emitOrderStatusUpdate(
+  order: OrderDTO,
+  originSocketId?: string | null,
+) {
   const io = getIO();
   if (!io) return;
-  io.to(branchKdsRoom(order.branchId)).emit("order:status-update", { order });
-  io.to(branchRoom(order.branchId)).emit("order:status-update", { order });
-  io.to(tableRoom(order.tableId)).emit("order:status-update", { order });
+  toRoomExceptOrigin(io, branchKdsRoom(order.branchId), originSocketId).emit(
+    "order:status-update",
+    { order },
+  );
+  toRoomExceptOrigin(io, branchRoom(order.branchId), originSocketId).emit(
+    "order:status-update",
+    { order },
+  );
+  toRoomExceptOrigin(io, tableRoom(order.tableId), originSocketId).emit(
+    "order:status-update",
+    { order },
+  );
 }
 
 /** Notify the customer's table and the branch floor staff that the bill is settled. */

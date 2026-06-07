@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { db, schema } from "@/db";
-import type { OrderDTO, OrderStatus } from "@/types";
+import type { OrderDTO, OrderStatus, OrderType } from "@/types";
 
 // Valid transitions for an order's lifecycle. Forward moves advance prep;
 // kitchen staff may also step an order back one stage to correct a mistake
@@ -25,27 +25,44 @@ export function canCancel(status: OrderStatus): boolean {
   return status === "pending" || status === "preparing";
 }
 
-/** Load a single order with table, items, menu item names, and options. */
-export async function loadOrderDTO(orderId: string): Promise<OrderDTO | null> {
-  const order = await db.query.orders.findFirst({
-    where: eq(schema.orders.id, orderId),
-    with: {
-      table: { columns: { tableNumber: true } },
-      items: {
-        with: {
-          menuItem: {
-            columns: { name: true, kdsStationId: true },
-            with: { category: { columns: { name: true } } },
-          },
-          options: {
-            with: { optionItem: { columns: { name: true } } },
-          },
-        },
-      },
-    },
-  });
-  if (!order) return null;
+// Minimal shape needed to assemble an OrderDTO. Any query that wants to build a
+// DTO (e.g. a write transaction reusing rows it already fetched) just has to
+// load these relations so it can call buildOrderDTO without a second round-trip.
+export type OrderDTOSource = {
+  id: string;
+  branchId: string;
+  tableId: string;
+  tableSessionId: string;
+  orderNumber: string;
+  status: OrderStatus;
+  type: OrderType;
+  totalAmount: string;
+  createdAt: Date;
+  cancelledAt: Date | null;
+  cancelReason: string | null;
+  table: { tableNumber: string };
+  items: {
+    id: string;
+    menuItemId: string;
+    quantity: number;
+    unitPrice: string;
+    note: string | null;
+    menuItem: {
+      name: string;
+      kdsStationId: string | null;
+      category: { name: string } | null;
+    };
+    options: {
+      id: string;
+      optionItemId: string;
+      price: string;
+      optionItem: { name: string };
+    }[];
+  }[];
+};
 
+/** Assemble an OrderDTO from an already-loaded order row + relations. */
+export function buildOrderDTO(order: OrderDTOSource): OrderDTO {
   return {
     id: order.id,
     branchId: order.branchId,
@@ -76,4 +93,26 @@ export async function loadOrderDTO(orderId: string): Promise<OrderDTO | null> {
       })),
     })),
   };
+}
+
+/** Load a single order with table, items, menu item names, and options. */
+export async function loadOrderDTO(orderId: string): Promise<OrderDTO | null> {
+  const order = await db.query.orders.findFirst({
+    where: eq(schema.orders.id, orderId),
+    with: {
+      table: { columns: { tableNumber: true } },
+      items: {
+        with: {
+          menuItem: {
+            columns: { name: true, kdsStationId: true },
+            with: { category: { columns: { name: true } } },
+          },
+          options: {
+            with: { optionItem: { columns: { name: true } } },
+          },
+        },
+      },
+    },
+  });
+  return order ? buildOrderDTO(order) : null;
 }

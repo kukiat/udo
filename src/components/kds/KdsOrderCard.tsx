@@ -2,6 +2,8 @@
 
 import { useMemo } from "react";
 
+import { CloseButton } from "@/components/ui/CloseButton";
+import { PillButton } from "@/components/ui/PillButton";
 import { cn } from "@/lib/cn";
 import type { OrderDTO, OrderItemDTO, OrderStatus } from "@/types";
 
@@ -163,7 +165,7 @@ export function KdsOrderCard({
   let primaryLabel = "Bump · served";
   if (order.status === "pending") primaryLabel = "Start order";
   else if (order.status === "preparing") primaryLabel = "Mark ready";
-  else if (order.status === "ready") primaryLabel = "Bump · served";
+  else if (order.status === "ready") primaryLabel = "Served";
 
   const canCancel = order.status === "pending" || order.status === "preparing";
 
@@ -401,51 +403,21 @@ export function KdsOrderCard({
         }}
       >
         {canCancel && (
-          <button
-            onClick={() => onCancel(order)}
-            style={{
-              padding: "8px 10px",
-              border: "none",
-              background: "transparent",
-              color: "var(--ink-3)",
-              cursor: "pointer",
-              borderRadius: "var(--radius-sm)",
-              fontSize: 12,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-            }}
-            title="Cancel order"
-            aria-label="Cancel order"
-          >
-            ✕
-          </button>
+          <CloseButton onPress={() => onCancel(order)} label="Cancel order" />
         )}
         {next && (
-          <button
-            onClick={() => onBump(order, next)}
-            disabled={bumping}
-            style={{
-              flex: 1,
-              padding: "8px 12px",
-              background:
-                order.status === "ready" ? "#7AA56F" : "var(--accent)",
-              color: "var(--accent-ink)",
-              border: "none",
-              borderRadius: "var(--radius-sm)",
-              cursor: bumping ? "not-allowed" : "pointer",
-              opacity: bumping ? 0.55 : 1,
-              fontSize: 13,
-              fontWeight: 600,
-              letterSpacing: "-0.005em",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-            }}
+          <PillButton
+            tone={order.status === "ready" ? "success" : "accent"}
+            onPress={() => onBump(order, next)}
+            isDisabled={bumping}
+            className={cn(
+              "!flex-1",
+              order.status === "ready" &&
+                "!border-[#7AA56F] !bg-[#7AA56F] hover:!border-[#6f9a64] hover:!bg-[#6f9a64] hover:!shadow-none",
+            )}
           >
             {primaryLabel}
-          </button>
+          </PillButton>
         )}
       </div>
     </div>

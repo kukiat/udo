@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import {
+  integer,
   index,
   pgTable,
   text,
@@ -43,6 +44,14 @@ export const tableSessions = pgTable(
       .notNull()
       .references(() => tables.id, { onDelete: "cascade" }),
     status: sessionStatus("status").notNull().default("active"),
+    partySize: integer("party_size"),
+    seatedAt: timestamp("seated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    tableNote: text("table_note"),
+    customerName: text("customer_name"),
+    customerPhone: text("customer_phone"),
+    expectedLeaveAt: timestamp("expected_leave_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

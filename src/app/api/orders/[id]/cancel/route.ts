@@ -10,6 +10,7 @@ import {
 } from "@/lib/api";
 import { canCancel, loadOrderDTO } from "@/lib/orders";
 import { emitOrderStatusUpdate } from "@/lib/socket";
+import { makeTimer } from "@/lib/utils";
 import { orderCancelSchema } from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string }> };
@@ -20,10 +21,16 @@ export async function POST(req: Request, { params }: Params) {
     const { data, error } = await parseBody(req, orderCancelSchema);
     if (error) return error;
 
-    const current = await db.query.orders.findFirst({
-      where: eq(schema.orders.id, id),
-      columns: { status: true, tableSessionId: true },
-    });
+    const timed = makeTimer(
+      `order-cancel POST ${id.slice(0, 8)} ${crypto.randomUUID().slice(0, 8)}`,
+    );
+
+    const current = await timed("select order", () =>
+      db.query.orders.findFirst({
+        where: eq(schema.orders.id, id),
+        columns: { status: true, tableSessionId: true },
+      }),
+    );
     if (!current) return notFound("Order not found");
 
     if (!canCancel(current.status)) {
@@ -34,10 +41,12 @@ export async function POST(req: Request, { params }: Params) {
 
     // Once the check has been requested (or the bill is paid), the table is
     // closing out — orders can no longer be cancelled.
-    const bill = await db.query.bills.findFirst({
-      where: eq(schema.bills.tableSessionId, current.tableSessionId),
-      columns: { status: true },
-    });
+    const bill = await timed("select bill", () =>
+      db.query.bills.findFirst({
+        where: eq(schema.bills.tableSessionId, current.tableSessionId),
+        columns: { status: true },
+      }),
+    );
     if (bill && bill.status !== "open") {
       return errorResponse(
         "BILL_LOCKED",
@@ -46,17 +55,19 @@ export async function POST(req: Request, { params }: Params) {
       );
     }
 
-    await db
-      .update(schema.orders)
-      .set({
-        status: "cancelled",
-        cancelledAt: new Date(),
-        cancelReason: data.reason ?? null,
-      })
-      .where(eq(schema.orders.id, id));
+    await timed("update order cancelled", () =>
+      db
+        .update(schema.orders)
+        .set({
+          status: "cancelled",
+          cancelledAt: new Date(),
+          cancelReason: data.reason ?? null,
+        })
+        .where(eq(schema.orders.id, id)),
+    );
 
-    const dto = await loadOrderDTO(id);
-    if (dto) emitOrderStatusUpdate(dto);
+    const dto = await timed("load order dto", () => loadOrderDTO(id));
+    if (dto) emitOrderStatusUpdate(dto, req.headers.get("x-rms-socket-id"));
     return Response.json({ order: dto });
   } catch (err) {
     console.error("POST /api/orders/[id]/cancel", err);

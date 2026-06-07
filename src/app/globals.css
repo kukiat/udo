@@ -46,11 +46,15 @@
   --foreground: var(--ink);
 }
 
+html {
+  font-size: 16px;
+}
+
 body {
   color: var(--ink);
   background: var(--bg);
-  font-size: 14px;
-  line-height: 1.45;
+  font-size: 1rem;
+  line-height: 1.5rem;
   font-feature-settings: "ss01", "cv11";
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -289,6 +293,11 @@ body {
 .kds-theme.kds-dark .bg-rose-soft { background-color: var(--rose-soft); }
 .kds-theme.kds-dark .bg-amber { background-color: var(--amber); }
 .kds-theme.kds-dark .bg-amber-soft { background-color: var(--amber-soft); }
+.kds-theme.kds-dark .bg-green-50 { background-color: var(--olive-soft); }
+.kds-theme.kds-dark .bg-amber-50 { background-color: var(--amber-soft); }
+.kds-theme.kds-dark .bg-red-50,
+.kds-theme.kds-dark .bg-red-100 { background-color: var(--rose-soft); }
+.kds-theme.kds-dark .bg-blue-50 { background-color: #142134; }
 
 .kds-theme.kds-dark .text-ink { color: var(--ink); }
 .kds-theme.kds-dark .text-ink-soft { color: var(--ink-2); }
@@ -300,6 +309,11 @@ body {
 .kds-theme.kds-dark .text-olive { color: var(--olive); }
 .kds-theme.kds-dark .text-rose { color: var(--rose); }
 .kds-theme.kds-dark .text-amber { color: var(--amber); }
+.kds-theme.kds-dark .text-green-700 { color: var(--olive); }
+.kds-theme.kds-dark .text-amber-700 { color: var(--amber); }
+.kds-theme.kds-dark .text-red-600,
+.kds-theme.kds-dark .text-red-700 { color: var(--rose); }
+.kds-theme.kds-dark .text-blue-700 { color: #7DB5FF; }
 
 .kds-theme.kds-dark .border-line { border-color: var(--line); }
 .kds-theme.kds-dark .border-line-strong { border-color: var(--line-strong); }
@@ -308,6 +322,7 @@ body {
 .kds-theme.kds-dark .border-ink { border-color: var(--ink); }
 .kds-theme.kds-dark .border-olive { border-color: var(--olive); }
 .kds-theme.kds-dark .border-rose { border-color: var(--rose); }
+.kds-theme.kds-dark .border-red-200 { border-color: var(--rose); }
 
 .kds-theme.kds-dark .divide-line > :not([hidden]) ~ :not([hidden]) {
   border-color: var(--line);
@@ -319,6 +334,8 @@ body {
 .kds-theme.kds-dark .\!bg-clay-500 { background-color: var(--accent) !important; }
 .kds-theme.kds-dark .\!bg-clay-600 { background-color: var(--accent) !important; }
 .kds-theme.kds-dark .\!border-line { border-color: var(--line) !important; }
+.kds-theme.kds-dark .hover\:bg-red-50:hover,
+.kds-theme.kds-dark .hover\:bg-red-100:hover { background-color: var(--rose-soft); }
 
 /* Dashboard pill variants (.dir-a) under KDS dark. Their soft fills are
    hard-coded light hexes in the .dir-a scope, so remap them onto the

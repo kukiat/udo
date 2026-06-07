@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { Modal } from "@/components/ui/Modal";
+import { PillButton } from "@/components/ui/PillButton";
 import type { OrderDTO } from "@/types";
 
 export function CancelOrderDialog({
@@ -80,39 +81,23 @@ export function CancelOrderDialog({
         </label>
 
         <div className="flex gap-2">
-          <button
-            type="button"
-            disabled={cancelling}
-            onClick={onDismiss}
-            className="flex-1 inline-flex items-center justify-center gap-2 font-medium text-sm px-4 py-2 rounded-xl border transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{
-              background: "transparent",
-              borderColor: "var(--line-strong)",
-              color: "var(--ink)",
-            }}
-            onMouseEnter={(e) => {
-              if (!cancelling)
-                e.currentTarget.style.background = "var(--bg-sunken)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
-            }}
+          <PillButton
+            tone="neutral"
+            isDisabled={cancelling}
+            onPress={onDismiss}
+            className="flex-1"
           >
             Keep order
-          </button>
-          <button
-            type="button"
-            disabled={cancelling}
-            onClick={() => onConfirm(reason)}
-            className="flex-1 inline-flex items-center justify-center gap-2 font-medium text-sm px-4 py-2 rounded-xl border transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{
-              background: "var(--rose-soft)",
-              borderColor: "var(--rose)",
-              color: "var(--rose)",
-            }}
+          </PillButton>
+          <PillButton
+            tone="danger"
+            variant="outline"
+            isDisabled={cancelling}
+            onPress={() => onConfirm(reason)}
+            className="flex-1"
           >
             {cancelling ? "Cancelling…" : "Cancel order"}
-          </button>
+          </PillButton>
         </div>
       </div>
     </Modal>

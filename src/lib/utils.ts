@@ -4,6 +4,23 @@ export type BranchSettings = {
   serviceChargeRate: number;
 };
 
+// Wraps an async operation so its wall-clock duration is logged. The scope acts
+// as a correlation id so overlapping logs (e.g. concurrent requests) stay
+// readable.
+export type Timed = <T>(label: string, fn: () => Promise<T>) => Promise<T>;
+
+export function makeTimer(scope: string): Timed {
+  return async (label, fn) => {
+    const start = performance.now();
+    try {
+      return await fn();
+    } finally {
+      const ms = (performance.now() - start).toFixed(1);
+      console.log(`[${scope}] ${label}: ${ms}ms`);
+    }
+  };
+}
+
 const THB = new Intl.NumberFormat("th-TH", {
   style: "currency",
   currency: "THB",

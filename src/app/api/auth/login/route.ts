@@ -4,6 +4,7 @@ import { db, schema } from "@/db";
 import { errorResponse, parseBody, serverError } from "@/lib/api";
 import { createSession, type AuthUser, type UserRole } from "@/lib/auth";
 import { verifyPassword } from "@/lib/password";
+import { makeTimer } from "@/lib/utils";
 import { loginSchema } from "@/lib/validation";
 
 export async function POST(req: Request) {
@@ -11,9 +12,13 @@ export async function POST(req: Request) {
     const { data, error } = await parseBody(req, loginSchema);
     if (error) return error;
 
-    const user = await db.query.users.findFirst({
-      where: eq(schema.users.email, data.email.toLowerCase()),
-    });
+    const timed = makeTimer(`auth-login POST ${crypto.randomUUID().slice(0, 8)}`);
+
+    const user = await timed("select user", () =>
+      db.query.users.findFirst({
+        where: eq(schema.users.email, data.email.toLowerCase()),
+      }),
+    );
 
     // Always run a verify to keep timing roughly constant for unknown emails.
     const ok = user
@@ -28,7 +33,7 @@ export async function POST(req: Request) {
       );
     }
 
-    await createSession(user.id);
+    await timed("create session", () => createSession(user.id));
 
     const authUser: AuthUser = {
       id: user.id,

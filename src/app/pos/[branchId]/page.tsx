@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useAuth } from "@/contexts/AuthContext";
+import { cn } from "@/lib/cn";
 import { api } from "@/lib/fetcher";
 import { formatPrice, type BillTotals } from "@/lib/utils";
 import type {
@@ -38,11 +39,28 @@ type BillResponse = {
 const billStatusTone = (s: string) =>
   s === "paid" ? "green" : s === "requested" ? "amber" : "neutral";
 
+const THEME_KEY = "rms.pos.theme";
+
+const formatClock = (iso: string) =>
+  new Date(iso).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
 function PosPageInner() {
   const { branchId } = useParams<{ branchId: string }>();
   const searchParams = useSearchParams();
   const requestedSessionId = searchParams.get("session");
   const { user } = useAuth();
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    if (typeof window === "undefined") return "dark";
+    try {
+      const stored = localStorage.getItem(THEME_KEY);
+      return stored === "light" || stored === "dark" ? stored : "dark";
+    } catch {
+      return "dark";
+    }
+  });
 
   const [sessions, setSessions] = useState<PosSession[]>([]);
   const [shift, setShift] = useState<Shift | null>(null);
@@ -53,6 +71,28 @@ function PosPageInner() {
   const [payOpen, setPayOpen] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add("kds-theme");
+    if (theme === "dark") root.classList.add("kds-dark");
+    else root.classList.remove("kds-dark");
+    return () => {
+      root.classList.remove("kds-theme", "kds-dark");
+    };
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => {
+      const next = prev === "light" ? "dark" : "light";
+      try {
+        localStorage.setItem(THEME_KEY, next);
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
 
   const loadSessions = useCallback(async () => {
     const d = await api<{ sessions: PosSession[] }>(
@@ -139,11 +179,29 @@ function PosPageInner() {
     }
   };
 
-  if (loading) return <Loading />;
+  if (loading) {
+    return (
+      <div
+        suppressHydrationWarning
+        className={cn(
+          "kds-theme flex min-h-screen items-center justify-center",
+          theme === "dark" && "kds-dark",
+        )}
+        style={{ background: "var(--bg)", color: "var(--ink)" }}
+      >
+        <Loading />
+      </div>
+    );
+  }
 
   return (
-    <div className="mx-auto max-w-6xl p-5 md:p-7">
-      <div className="mb-5 flex items-center justify-between border-b border-line pb-4">
+    <div
+      suppressHydrationWarning
+      className={cn("kds-theme min-h-screen", theme === "dark" && "kds-dark")}
+      style={{ background: "var(--bg)", color: "var(--ink)" }}
+    >
+      <div className="mx-auto max-w-6xl p-5 md:p-7">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
         <div className="flex items-center gap-4">
           <HomeLink />
           <span aria-hidden className="h-6 w-px bg-line-strong/60" />
@@ -154,7 +212,10 @@ function PosPageInner() {
             <span className="mono text-[11px] text-ink-dim">Cashier · register</span>
           </div>
         </div>
-        <AccountMenu />
+        <div className="flex items-center gap-2">
+          <ThemeToggle theme={theme} onToggle={toggleTheme} />
+          <AccountMenu compact />
+        </div>
       </div>
 
       <ShiftBar
@@ -187,12 +248,12 @@ function PosPageInner() {
                 <button
                   key={s.sessionId}
                   onClick={() => selectSession(s)}
-                  className={
-                    "group rounded-card border p-3.5 text-left shadow-card transition-all " +
-                    (selected?.sessionId === s.sessionId
-                      ? "border-clay-500 bg-white"
-                      : "border-line bg-white hover:-translate-y-px hover:border-line-strong hover:shadow-elev")
-                  }
+                  className={cn(
+                    "group rounded-card border p-3.5 text-left shadow-card transition-all",
+                    selected?.sessionId === s.sessionId
+                      ? "border-clay-500 bg-clay-100"
+                      : "border-line bg-white hover:-translate-y-px hover:border-line-strong hover:bg-sand hover:shadow-elev",
+                  )}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-semibold tracking-tight text-ink">
@@ -205,6 +266,15 @@ function PosPageInner() {
                   <p className="mt-1.5 text-[12px] text-ink-muted">
                     {s.orderCount} order{s.orderCount === 1 ? "" : "s"}
                   </p>
+                  <p className="mt-1 text-[11px] text-ink-muted">
+                    {s.partySize ? `${s.partySize} guests · ` : ""}
+                    Seated {formatClock(s.seatedAt)}
+                  </p>
+                  {s.expectedLeaveAt && (
+                    <p className="mt-0.5 text-[11px] text-ink-muted">
+                      Leave by {formatClock(s.expectedLeaveAt)}
+                    </p>
+                  )}
                   <p className="mono mt-1 text-[15px] font-semibold tabular-nums text-ink">
                     {formatPrice(s.subtotal)}
                   </p>
@@ -229,6 +299,22 @@ function PosPageInner() {
                   {bill.bill.status}
                 </Badge>
               </div>
+              {(selected.customerName ||
+                selected.customerPhone ||
+                selected.tableNote) && (
+                <div className="mt-3 rounded-lg border border-line bg-sand px-3 py-2 text-[12px] text-ink-muted">
+                  {(selected.customerName || selected.customerPhone) && (
+                    <p className="font-medium text-ink">
+                      {[selected.customerName, selected.customerPhone]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  )}
+                  {selected.tableNote && (
+                    <p className="mt-1">{selected.tableNote}</p>
+                  )}
+                </div>
+              )}
 
               <div className="mt-3 divide-y divide-line">
                 {bill.lineItems.map((li, i) => (
@@ -299,13 +385,23 @@ function PosPageInner() {
           <Receipt receipt={receipt} onClose={() => setReceipt(null)} />
         )}
       </Modal>
+      </div>
     </div>
   );
 }
 
 export default function PosPage() {
   return (
-    <Suspense fallback={<Loading />}>
+    <Suspense
+      fallback={
+        <div
+          className="kds-theme kds-dark flex min-h-screen items-center justify-center"
+          style={{ background: "var(--bg)", color: "var(--ink)" }}
+        >
+          <Loading />
+        </div>
+      }
+    >
       <PosPageInner />
     </Suspense>
   );
@@ -317,5 +413,34 @@ function Row({ label, value }: { label: string; value: number }) {
       <span className="text-ink-soft">{label}</span>
       <span>{formatPrice(value)}</span>
     </div>
+  );
+}
+
+function ThemeToggle({
+  theme,
+  onToggle,
+}: {
+  theme: "light" | "dark";
+  onToggle: () => void;
+}) {
+  const nextLabel = theme === "light" ? "Dark" : "Light";
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={`Switch to ${nextLabel} theme`}
+      title={`Switch to ${nextLabel} theme`}
+      className="btn-quiet h-9 rounded-full px-3 text-[12px] font-medium"
+    >
+      <span
+        aria-hidden
+        className={cn(
+          "h-2 w-2 rounded-full",
+          theme === "light" ? "bg-ink-muted" : "bg-clay-500",
+        )}
+      />
+      {nextLabel}
+    </button>
   );
 }

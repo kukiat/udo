@@ -75,6 +75,11 @@ export default {
           "monospace",
         ],
       },
+      fontSize: {
+        sm: ["0.875rem", { lineHeight: "1.25rem" }],
+        md: ["1rem", { lineHeight: "1.5rem" }],
+        lg: ["1.125rem", { lineHeight: "1.75rem" }],
+      },
       fontFeatureSettings: {
         marrow: '"ss01", "cv11"',
       },

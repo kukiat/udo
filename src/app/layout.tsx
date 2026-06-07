@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 // Runs before hydration so the persisted theme is applied to <html> on first
 // paint — prevents a flash of light theme when the user saved dark previously.
 // Components (DashboardShell, KDS page) keep this class in sync via useEffect.
-const themeBootstrap = `(function(){try{var p=location.pathname;if(p.indexOf('/kds')===0){if(localStorage.getItem('rms.kds.theme')==='dark'){document.documentElement.classList.add('kds-theme','kds-dark');}}else if(p.indexOf('/dashboard')===0){document.documentElement.classList.add('kds-theme');if(localStorage.getItem('rms.dashboard.theme')==='dark'){document.documentElement.classList.add('kds-dark');}}}catch(e){}})();`;
+const themeBootstrap = `(function(){try{var p=location.pathname;if(p.indexOf('/kds')===0){if(localStorage.getItem('rms.kds.theme')==='dark'){document.documentElement.classList.add('kds-theme','kds-dark');}}else if(p.indexOf('/pos')===0){document.documentElement.classList.add('kds-theme');if(localStorage.getItem('rms.pos.theme')!=='light'){document.documentElement.classList.add('kds-dark');}}else if(p.indexOf('/dashboard')===0){document.documentElement.classList.add('kds-theme');if(localStorage.getItem('rms.dashboard.theme')==='dark'){document.documentElement.classList.add('kds-dark');}}}catch(e){}})();`;
 
 export default function RootLayout({
   children,

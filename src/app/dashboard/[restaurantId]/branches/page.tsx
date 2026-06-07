@@ -20,6 +20,7 @@ import {
   type BranchSummary,
 } from "@/contexts/RestaurantContext";
 import { api } from "@/lib/fetcher";
+import { PillButton } from "@/components/ui/PillButton";
 
 export default function BranchesPage() {
   const { restaurantId, branches, loading, refresh } = useRestaurant();
@@ -133,9 +134,9 @@ export default function BranchesPage() {
             BRANCHES · จัดการสาขาของร้าน
           </div>
         </div>
-        <button className="btn btn-primary" onClick={openCreate}>
-          ＋ สาขาใหม่ · NEW BRANCH
-        </button>
+        <PillButton tone="accent" variant="outline" onClick={openCreate}>
+          New branch
+        </PillButton>
       </div>
 
       <Modal

@@ -149,10 +149,26 @@ export const branchMenuUpdateSchema = z.object({
 
 // --- Sessions ---------------------------------------------------------------
 
-export const sessionCreateSchema = z.object({
-  branchId: z.string().uuid(),
-  tableId: z.string().uuid(),
-});
+export const sessionCreateSchema = z
+  .object({
+    branchId: z.string().uuid(),
+    tableId: z.string().uuid(),
+    partySize: z.number().int().min(1).max(999).nullable().optional(),
+    seatedAt: z.coerce.date().optional(),
+    tableNote: z.string().trim().max(1000).nullable().optional(),
+    customerName: z.string().trim().max(160).nullable().optional(),
+    customerPhone: z.string().trim().max(80).nullable().optional(),
+    expectedLeaveAt: z.coerce.date().nullable().optional(),
+  })
+  .refine(
+    (s) =>
+      !s.expectedLeaveAt ||
+      s.expectedLeaveAt.getTime() > (s.seatedAt ?? new Date()).getTime(),
+    {
+      message: "expectedLeaveAt must be after seatedAt",
+      path: ["expectedLeaveAt"],
+    },
+  );
 
 // --- Orders -----------------------------------------------------------------
 
@@ -185,6 +201,15 @@ export const orderStatusSchema = z.object({
 
 export const orderCancelSchema = z.object({
   reason: z.string().max(500).nullable().optional(),
+});
+
+export const orderItemUpdateSchema = z.object({
+  quantity: z.number().int().min(1).optional(),
+  note: z.string().max(500).nullable().optional(),
+});
+
+export const orderItemDeleteSchema = z.object({
+  reason: z.string().trim().min(1).max(500),
 });
 
 export const tableCreateSchema = z.object({

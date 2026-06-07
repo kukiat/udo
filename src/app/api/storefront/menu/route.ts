@@ -2,6 +2,7 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { badRequest, notFound, serverError } from "@/lib/api";
+import { makeTimer } from "@/lib/utils";
 import type { CategoryWithItemsDTO, MenuItemDTO } from "@/types";
 
 // Customer-facing menu: available items grouped by category, branch overrides
@@ -12,39 +13,51 @@ export async function GET(req: Request) {
     const branchId = searchParams.get("branchId");
     if (!branchId) return badRequest("branchId is required");
 
-    const branch = await db.query.branches.findFirst({
-      where: eq(schema.branches.id, branchId),
-      columns: { id: true, restaurantId: true },
-    });
+    const timed = makeTimer(
+      `storefront-menu GET ${crypto.randomUUID().slice(0, 8)}`,
+    );
+
+    const branch = await timed("select branch", () =>
+      db.query.branches.findFirst({
+        where: eq(schema.branches.id, branchId),
+        columns: { id: true, restaurantId: true },
+      }),
+    );
     if (!branch) return notFound("Branch not found");
 
-    const [categories, items, overrides] = await Promise.all([
-      db.query.categories.findMany({
-        where: and(
-          eq(schema.categories.restaurantId, branch.restaurantId),
-          eq(schema.categories.isActive, true),
-        ),
-        orderBy: [asc(schema.categories.sortOrder)],
-      }),
-      db.query.menuItems.findMany({
-        where: and(
-          eq(schema.menuItems.restaurantId, branch.restaurantId),
-          eq(schema.menuItems.status, "available"),
-          isNull(schema.menuItems.deletedAt),
-        ),
-        with: {
-          optionGroups: {
-            orderBy: [asc(schema.optionGroups.sortOrder)],
+    const [categories, items, overrides] = await timed(
+      "select categories + items + overrides",
+      () =>
+        Promise.all([
+          db.query.categories.findMany({
+            where: and(
+              eq(schema.categories.restaurantId, branch.restaurantId),
+              eq(schema.categories.isActive, true),
+            ),
+            orderBy: [asc(schema.categories.sortOrder)],
+          }),
+          db.query.menuItems.findMany({
+            where: and(
+              eq(schema.menuItems.restaurantId, branch.restaurantId),
+              eq(schema.menuItems.status, "available"),
+              isNull(schema.menuItems.deletedAt),
+            ),
             with: {
-              optionItems: { orderBy: [asc(schema.optionItems.sortOrder)] },
+              optionGroups: {
+                orderBy: [asc(schema.optionGroups.sortOrder)],
+                with: {
+                  optionItems: {
+                    orderBy: [asc(schema.optionItems.sortOrder)],
+                  },
+                },
+              },
             },
-          },
-        },
-      }),
-      db.query.branchMenuItems.findMany({
-        where: eq(schema.branchMenuItems.branchId, branchId),
-      }),
-    ]);
+          }),
+          db.query.branchMenuItems.findMany({
+            where: eq(schema.branchMenuItems.branchId, branchId),
+          }),
+        ]),
+    );
 
     const overrideByItem = new Map(
       overrides.map((o) => [o.menuItemId, o]),

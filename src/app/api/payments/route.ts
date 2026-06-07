@@ -6,13 +6,17 @@ import { getCurrentUser } from "@/lib/auth";
 import { computeSessionBill } from "@/lib/bills";
 import { emitBillPaid, emitOrderStatusUpdate } from "@/lib/socket";
 import { loadOrderDTO } from "@/lib/orders";
+import { makeTimer } from "@/lib/utils";
 import { paymentSchema } from "@/lib/validation";
 
 // Take payment for a table session: recompute the bill, record the payment,
 // mark the bill paid, close the session, and free the table.
 export async function POST(req: Request) {
   try {
-    const user = await getCurrentUser();
+    const scope = `payments POST ${crypto.randomUUID().slice(0, 8)}`;
+    const timed = makeTimer(scope);
+
+    const user = await timed("get current user", () => getCurrentUser());
     const { data, error } = await parseBody(req, paymentSchema);
     if (error) return error;
 
@@ -21,7 +25,9 @@ export async function POST(req: Request) {
         ? undefined
         : parseFloat(data.discount);
 
-    const computed = await computeSessionBill(data.sessionId, discount);
+    const computed = await timed("compute session bill", () =>
+      computeSessionBill(data.sessionId, discount),
+    );
     if (!computed) return badRequest("Session not found");
 
     const total = computed.totals.total;
@@ -32,10 +38,12 @@ export async function POST(req: Request) {
       }
     }
 
-    const session = await db.query.tableSessions.findFirst({
-      where: eq(schema.tableSessions.id, data.sessionId),
-      columns: { id: true, tableId: true, status: true },
-    });
+    const session = await timed("select session", () =>
+      db.query.tableSessions.findFirst({
+        where: eq(schema.tableSessions.id, data.sessionId),
+        columns: { id: true, tableId: true, status: true },
+      }),
+    );
     if (!session) return badRequest("Session not found");
     if (session.status === "closed") return badRequest("Session already closed");
 
@@ -43,14 +51,16 @@ export async function POST(req: Request) {
     // cashier's open shift for the branch).
     let shiftId = data.shiftId ?? null;
     if (!shiftId && user) {
-      const openShift = await db.query.shifts.findFirst({
-        where: and(
-          eq(schema.shifts.branchId, computed.branchId),
-          eq(schema.shifts.cashierId, user.id),
-          eq(schema.shifts.status, "open"),
-        ),
-        columns: { id: true },
-      });
+      const openShift = await timed("select open shift", () =>
+        db.query.shifts.findFirst({
+          where: and(
+            eq(schema.shifts.branchId, computed.branchId),
+            eq(schema.shifts.cashierId, user.id),
+            eq(schema.shifts.status, "open"),
+          ),
+          columns: { id: true },
+        }),
+      );
       shiftId = openShift?.id ?? null;
     }
 
@@ -58,6 +68,7 @@ export async function POST(req: Request) {
       data.method === "cash" && data.tendered ? parseFloat(data.tendered) : null;
     const change = tendered !== null ? Math.max(0, tendered - total) : null;
 
+    const txStart = performance.now();
     const result = await db.transaction(async (tx) => {
       const values = {
         subtotal: computed.totals.subtotal.toFixed(2),
@@ -68,65 +79,86 @@ export async function POST(req: Request) {
         status: "paid" as const,
       };
 
-      const existing = await tx.query.bills.findFirst({
-        where: eq(schema.bills.tableSessionId, data.sessionId),
-      });
+      const existing = await timed("select bill", () =>
+        tx.query.bills.findFirst({
+          where: eq(schema.bills.tableSessionId, data.sessionId),
+        }),
+      );
       let bill;
       if (existing) {
-        [bill] = await tx
-          .update(schema.bills)
-          .set(values)
-          .where(eq(schema.bills.id, existing.id))
-          .returning();
+        [bill] = await timed("update bill paid", () =>
+          tx
+            .update(schema.bills)
+            .set(values)
+            .where(eq(schema.bills.id, existing.id))
+            .returning(),
+        );
       } else {
-        [bill] = await tx
-          .insert(schema.bills)
-          .values({ tableSessionId: data.sessionId, ...values })
-          .returning();
+        [bill] = await timed("insert bill paid", () =>
+          tx
+            .insert(schema.bills)
+            .values({ tableSessionId: data.sessionId, ...values })
+            .returning(),
+        );
       }
 
-      const [payment] = await tx
-        .insert(schema.payments)
-        .values({
-          billId: bill.id,
-          shiftId,
-          cashierId: user?.id ?? null,
-          method: data.method,
-          amount: total.toFixed(2),
-          tendered: tendered !== null ? tendered.toFixed(2) : null,
-          change: change !== null ? change.toFixed(2) : null,
-        })
-        .returning();
+      const [payment] = await timed("insert payment", () =>
+        tx
+          .insert(schema.payments)
+          .values({
+            billId: bill.id,
+            shiftId,
+            cashierId: user?.id ?? null,
+            method: data.method,
+            amount: total.toFixed(2),
+            tendered: tendered !== null ? tendered.toFixed(2) : null,
+            change: change !== null ? change.toFixed(2) : null,
+          })
+          .returning(),
+      );
 
       // Close the session and mark its served orders completed.
-      await tx
-        .update(schema.tableSessions)
-        .set({ status: "closed", closedAt: new Date() })
-        .where(eq(schema.tableSessions.id, data.sessionId));
-      await tx
-        .update(schema.tables)
-        .set({ status: "available" })
-        .where(eq(schema.tables.id, session.tableId));
-      await tx
-        .update(schema.orders)
-        .set({ status: "completed" })
-        .where(
-          and(
-            eq(schema.orders.tableSessionId, data.sessionId),
-            eq(schema.orders.status, "served"),
+      await timed("close session", () =>
+        tx
+          .update(schema.tableSessions)
+          .set({ status: "closed", closedAt: new Date() })
+          .where(eq(schema.tableSessions.id, data.sessionId)),
+      );
+      await timed("free table", () =>
+        tx
+          .update(schema.tables)
+          .set({ status: "available" })
+          .where(eq(schema.tables.id, session.tableId)),
+      );
+      await timed("complete served orders", () =>
+        tx
+          .update(schema.orders)
+          .set({ status: "completed" })
+          .where(
+            and(
+              eq(schema.orders.tableSessionId, data.sessionId),
+              eq(schema.orders.status, "served"),
+            ),
           ),
-        );
+      );
 
       return { bill, payment };
     });
+    console.log(
+      `[${scope}] transaction total: ${(performance.now() - txStart).toFixed(
+        1,
+      )}ms`,
+    );
 
     // Notify the customer's table that the bill is settled (best-effort).
-    const orders = await db.query.orders.findMany({
-      where: eq(schema.orders.tableSessionId, data.sessionId),
-      columns: { id: true, status: true },
-    });
+    const orders = await timed("select session orders", () =>
+      db.query.orders.findMany({
+        where: eq(schema.orders.tableSessionId, data.sessionId),
+        columns: { id: true, status: true },
+      }),
+    );
     for (const o of orders.filter((x) => x.status === "completed")) {
-      const dto = await loadOrderDTO(o.id);
+      const dto = await timed("load order dto", () => loadOrderDTO(o.id));
       if (dto) emitOrderStatusUpdate(dto);
     }
     emitBillPaid(computed.branchId, data.sessionId, session.tableId);

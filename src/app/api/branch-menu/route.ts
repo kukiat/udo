@@ -2,6 +2,7 @@ import { and, asc, eq, isNull, sql } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { badRequest, notFound, parseBody, serverError } from "@/lib/api";
+import { makeTimer, type Timed } from "@/lib/utils";
 import {
   branchMenuUpdateSchema,
   normalizeMoney,
@@ -23,25 +24,31 @@ export async function GET(req: Request) {
     const branchId = searchParams.get("branchId");
     if (!branchId) return badRequest("branchId is required");
 
-    const branch = await db.query.branches.findFirst({
-      where: eq(schema.branches.id, branchId),
-      columns: { id: true, restaurantId: true },
-    });
+    const timed = makeTimer(`branch-menu GET ${crypto.randomUUID().slice(0, 8)}`);
+
+    const branch = await timed("select branch", () =>
+      db.query.branches.findFirst({
+        where: eq(schema.branches.id, branchId),
+        columns: { id: true, restaurantId: true },
+      }),
+    );
     if (!branch) return notFound("Branch not found");
 
-    const [items, overrides] = await Promise.all([
-      db.query.menuItems.findMany({
-        where: and(
-          eq(schema.menuItems.restaurantId, branch.restaurantId),
-          isNull(schema.menuItems.deletedAt),
-        ),
-        orderBy: [asc(schema.menuItems.name)],
-        with: { category: { columns: { id: true, name: true } } },
-      }),
-      db.query.branchMenuItems.findMany({
-        where: eq(schema.branchMenuItems.branchId, branchId),
-      }),
-    ]);
+    const [items, overrides] = await timed("select items + overrides", () =>
+      Promise.all([
+        db.query.menuItems.findMany({
+          where: and(
+            eq(schema.menuItems.restaurantId, branch.restaurantId),
+            isNull(schema.menuItems.deletedAt),
+          ),
+          orderBy: [asc(schema.menuItems.name)],
+          with: { category: { columns: { id: true, name: true } } },
+        }),
+        db.query.branchMenuItems.findMany({
+          where: eq(schema.branchMenuItems.branchId, branchId),
+        }),
+      ]),
+    );
 
     const overrideByItem = new Map(overrides.map((o) => [o.menuItemId, o]));
 
@@ -66,7 +73,10 @@ export async function GET(req: Request) {
   }
 }
 
-async function upsertBranchMenuOverrides(data: BranchMenuOverrideInput) {
+async function upsertBranchMenuOverrides(
+  data: BranchMenuOverrideInput,
+  timed: Timed,
+) {
   if (data.items.length === 0) return;
 
   const values = data.items.map((item) => ({
@@ -77,19 +87,21 @@ async function upsertBranchMenuOverrides(data: BranchMenuOverrideInput) {
   }));
 
   // Single batched upsert keyed on the (branchId, menuItemId) unique index.
-  await db
-    .insert(schema.branchMenuItems)
-    .values(values)
-    .onConflictDoUpdate({
-      target: [
-        schema.branchMenuItems.branchId,
-        schema.branchMenuItems.menuItemId,
-      ],
-      set: {
-        isAvailable: sql`excluded.is_available`,
-        price: sql`excluded.price`,
-      },
-    });
+  await timed("upsert branch menu overrides", () =>
+    db
+      .insert(schema.branchMenuItems)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [
+          schema.branchMenuItems.branchId,
+          schema.branchMenuItems.menuItemId,
+        ],
+        set: {
+          isAvailable: sql`excluded.is_available`,
+          price: sql`excluded.price`,
+        },
+      }),
+  );
 }
 
 // Upsert only the branch menu overrides included in the request.
@@ -98,7 +110,10 @@ export async function POST(req: Request) {
     const { data, error } = await parseBody(req, branchMenuUpdateSchema);
     if (error) return error;
 
-    await upsertBranchMenuOverrides(data);
+    const timed = makeTimer(
+      `branch-menu POST ${crypto.randomUUID().slice(0, 8)}`,
+    );
+    await upsertBranchMenuOverrides(data, timed);
 
     return Response.json({ ok: true, updated: data.items.length });
   } catch (err) {
@@ -113,7 +128,10 @@ export async function PUT(req: Request) {
     const { data, error } = await parseBody(req, branchMenuUpdateSchema);
     if (error) return error;
 
-    await upsertBranchMenuOverrides(data);
+    const timed = makeTimer(
+      `branch-menu PUT ${crypto.randomUUID().slice(0, 8)}`,
+    );
+    await upsertBranchMenuOverrides(data, timed);
 
     return Response.json({ ok: true, updated: data.items.length });
   } catch (err) {

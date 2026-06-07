@@ -4,6 +4,7 @@ import { db, schema } from "@/db";
 import { badRequest, errorResponse, parseBody, serverError } from "@/lib/api";
 import { loadOrderDTO } from "@/lib/orders";
 import { emitNewOrder } from "@/lib/socket";
+import { makeTimer } from "@/lib/utils";
 import { orderCreateSchema } from "@/lib/validation";
 
 // Statuses still relevant to the kitchen.
@@ -29,6 +30,8 @@ export async function GET(req: Request) {
       return badRequest("tableId, sessionId, or branchId is required");
     }
 
+    const timed = makeTimer(`orders GET ${crypto.randomUUID().slice(0, 8)}`);
+
     const where = sessionId
       ? eq(schema.orders.tableSessionId, sessionId)
       : branchId
@@ -45,23 +48,25 @@ export async function GET(req: Request) {
             : eq(schema.orders.branchId, branchId)
         : eq(schema.orders.tableId, tableId!);
 
-    const rows = await db.query.orders.findMany({
-      where,
-      orderBy: (o, { desc, asc }) =>
-        branchId ? [asc(o.createdAt)] : [desc(o.createdAt)],
-      with: {
-        table: { columns: { tableNumber: true } },
-        items: {
-          with: {
-            menuItem: {
-              columns: { name: true, kdsStationId: true },
-              with: { category: { columns: { name: true } } },
+    const rows = await timed("select orders+items", () =>
+      db.query.orders.findMany({
+        where,
+        orderBy: (o, { desc, asc }) =>
+          branchId ? [asc(o.createdAt)] : [desc(o.createdAt)],
+        with: {
+          table: { columns: { tableNumber: true } },
+          items: {
+            with: {
+              menuItem: {
+                columns: { name: true, kdsStationId: true },
+                with: { category: { columns: { name: true } } },
+              },
+              options: { with: { optionItem: { columns: { name: true } } } },
             },
-            options: { with: { optionItem: { columns: { name: true } } } },
           },
         },
-      },
-    });
+      }),
+    );
 
     const orders = rows.map((order) => ({
       id: order.id,
@@ -106,25 +111,32 @@ export async function POST(req: Request) {
     const { data, error } = await parseBody(req, orderCreateSchema);
     if (error) return error;
 
+    const scope = `orders POST ${crypto.randomUUID().slice(0, 8)}`;
+    const timed = makeTimer(scope);
+
     // --- Snapshot prices from the DB (never trust client prices) -----------
     const menuItemIds = [...new Set(data.items.map((i) => i.menuItemId))];
     const allOptionIds = [
       ...new Set(data.items.flatMap((i) => i.optionItemIds ?? [])),
     ];
 
-    const [menuItems, branchOverrides, optionItems] = await Promise.all([
-      db.query.menuItems.findMany({
-        where: inArray(schema.menuItems.id, menuItemIds),
-      }),
-      db.query.branchMenuItems.findMany({
-        where: eq(schema.branchMenuItems.branchId, data.branchId),
-      }),
-      allOptionIds.length
-        ? db.query.optionItems.findMany({
-            where: inArray(schema.optionItems.id, allOptionIds),
-          })
-        : Promise.resolve([]),
-    ]);
+    const [menuItems, branchOverrides, optionItems] = await timed(
+      "snapshot prices",
+      () =>
+        Promise.all([
+          db.query.menuItems.findMany({
+            where: inArray(schema.menuItems.id, menuItemIds),
+          }),
+          db.query.branchMenuItems.findMany({
+            where: eq(schema.branchMenuItems.branchId, data.branchId),
+          }),
+          allOptionIds.length
+            ? db.query.optionItems.findMany({
+                where: inArray(schema.optionItems.id, allOptionIds),
+              })
+            : Promise.resolve([]),
+        ]),
+    );
 
     const menuById = new Map(menuItems.map((m) => [m.id, m]));
     const overrideById = new Map(
@@ -152,41 +164,52 @@ export async function POST(req: Request) {
       }
     }
 
+    const txStart = performance.now();
     const orderId = await db.transaction(async (tx) => {
       // Get or create the active session for this table.
-      let session = await tx.query.tableSessions.findFirst({
-        where: and(
-          eq(schema.tableSessions.tableId, data.tableId),
-          eq(schema.tableSessions.status, "active"),
-        ),
-      });
+      let session = await timed("select active session", () =>
+        tx.query.tableSessions.findFirst({
+          where: and(
+            eq(schema.tableSessions.tableId, data.tableId),
+            eq(schema.tableSessions.status, "active"),
+          ),
+        }),
+      );
       if (session) {
         // Once the check has been requested (or the bill is paid), the table is
         // closing out — no further items may be added.
-        const bill = await tx.query.bills.findFirst({
-          where: eq(schema.bills.tableSessionId, session.id),
-          columns: { status: true },
-        });
+        const bill = await timed("select bill", () =>
+          tx.query.bills.findFirst({
+            where: eq(schema.bills.tableSessionId, session!.id),
+            columns: { status: true },
+          }),
+        );
         if (bill && bill.status !== "open") {
           throw new BillLockedError();
         }
       }
       if (!session) {
-        [session] = await tx
-          .insert(schema.tableSessions)
-          .values({ branchId: data.branchId, tableId: data.tableId })
-          .returning();
-        await tx
-          .update(schema.tables)
-          .set({ status: "occupied" })
-          .where(eq(schema.tables.id, data.tableId));
+        [session] = await timed("insert session", () =>
+          tx
+            .insert(schema.tableSessions)
+            .values({ branchId: data.branchId, tableId: data.tableId })
+            .returning(),
+        );
+        await timed("update table occupied", () =>
+          tx
+            .update(schema.tables)
+            .set({ status: "occupied" })
+            .where(eq(schema.tables.id, data.tableId)),
+        );
       }
 
       // Sequential-ish order number, scoped to the branch.
-      const countRows = await tx.query.orders.findMany({
-        where: eq(schema.orders.branchId, data.branchId),
-        columns: { id: true },
-      });
+      const countRows = await timed("count branch orders", () =>
+        tx.query.orders.findMany({
+          where: eq(schema.orders.branchId, data.branchId),
+          columns: { id: true },
+        }),
+      );
       const orderNumber = `#${String(countRows.length + 1).padStart(4, "0")}`;
 
       let orderTotal = 0;
@@ -221,46 +244,57 @@ export async function POST(req: Request) {
         });
       }
 
-      const [order] = await tx
-        .insert(schema.orders)
-        .values({
-          branchId: data.branchId,
-          tableId: data.tableId,
-          tableSessionId: session.id,
-          orderNumber,
-          type: data.type,
-          status: "pending",
-          totalAmount: orderTotal.toFixed(2),
-        })
-        .returning();
+      const [order] = await timed("insert order", () =>
+        tx
+          .insert(schema.orders)
+          .values({
+            branchId: data.branchId,
+            tableId: data.tableId,
+            tableSessionId: session!.id,
+            orderNumber,
+            type: data.type,
+            status: "pending",
+            totalAmount: orderTotal.toFixed(2),
+          })
+          .returning(),
+      );
 
       for (const row of itemRows) {
-        const [orderItem] = await tx
-          .insert(schema.orderItems)
-          .values({
-            orderId: order.id,
-            menuItemId: row.menuItemId,
-            quantity: row.quantity,
-            unitPrice: row.unitPrice,
-            note: row.note,
-          })
-          .returning();
+        const [orderItem] = await timed("insert order item", () =>
+          tx
+            .insert(schema.orderItems)
+            .values({
+              orderId: order.id,
+              menuItemId: row.menuItemId,
+              quantity: row.quantity,
+              unitPrice: row.unitPrice,
+              note: row.note,
+            })
+            .returning(),
+        );
         if (row.optionIds.length > 0) {
-          await tx.insert(schema.orderItemOptions).values(
-            row.optionIds.map((oid) => ({
-              orderItemId: orderItem.id,
-              optionItemId: oid,
-              price: row.optionPrices.get(oid) ?? "0",
-            })),
+          await timed("insert order item options", () =>
+            tx.insert(schema.orderItemOptions).values(
+              row.optionIds.map((oid) => ({
+                orderItemId: orderItem.id,
+                optionItemId: oid,
+                price: row.optionPrices.get(oid) ?? "0",
+              })),
+            ),
           );
         }
       }
 
       return order.id;
     });
+    console.log(
+      `[${scope}] transaction total: ${(performance.now() - txStart).toFixed(
+        1,
+      )}ms`,
+    );
 
-    const dto = await loadOrderDTO(orderId);
-    if (dto) emitNewOrder(dto);
+    const dto = await timed("load order dto", () => loadOrderDTO(orderId));
+    if (dto) emitNewOrder(dto, req.headers.get("x-rms-socket-id"));
     return Response.json({ order: dto }, { status: 201 });
   } catch (err) {
     if (err instanceof BillLockedError) {

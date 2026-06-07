@@ -2,6 +2,7 @@ import { and, asc, count, eq, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { badRequest, parseBody, serverError } from "@/lib/api";
+import { makeTimer } from "@/lib/utils";
 import { menuItemCreateSchema } from "@/lib/validation";
 
 const DEFAULT_LIMIT = 10;
@@ -18,24 +19,28 @@ export async function GET(req: Request) {
     const rawLimit = Number(searchParams.get("limit")) || DEFAULT_LIMIT;
     const limit = Math.min(MAX_LIMIT, Math.max(1, rawLimit));
 
+    const timed = makeTimer(`menu GET ${crypto.randomUUID().slice(0, 8)}`);
+
     const where = and(
       eq(schema.menuItems.restaurantId, restaurantId),
       isNull(schema.menuItems.deletedAt),
     );
 
-    const [items, [{ total }]] = await Promise.all([
-      db.query.menuItems.findMany({
-        where,
-        orderBy: [asc(schema.menuItems.name)],
-        limit,
-        offset,
-        with: {
-          category: { columns: { id: true, name: true } },
-          kdsStation: { columns: { id: true, name: true } },
-        },
-      }),
-      db.select({ total: count() }).from(schema.menuItems).where(where),
-    ]);
+    const [items, [{ total }]] = await timed("select menu items + count", () =>
+      Promise.all([
+        db.query.menuItems.findMany({
+          where,
+          orderBy: [asc(schema.menuItems.name)],
+          limit,
+          offset,
+          with: {
+            category: { columns: { id: true, name: true } },
+            kdsStation: { columns: { id: true, name: true } },
+          },
+        }),
+        db.select({ total: count() }).from(schema.menuItems).where(where),
+      ]),
+    );
 
     return Response.json({ items, total, offset, limit });
   } catch (err) {
@@ -49,47 +54,61 @@ export async function POST(req: Request) {
     const { data, error } = await parseBody(req, menuItemCreateSchema);
     if (error) return error;
 
+    const scope = `menu POST ${crypto.randomUUID().slice(0, 8)}`;
+    const timed = makeTimer(scope);
+    const txStart = performance.now();
     const created = await db.transaction(async (tx) => {
-      const [item] = await tx
-        .insert(schema.menuItems)
-        .values({
-          restaurantId: data.restaurantId,
-          name: data.name,
-          description: data.description ?? null,
-          price: data.price,
-          image: data.image ?? null,
-          categoryId: data.categoryId,
-          kdsStationId: data.kdsStationId ?? null,
-          status: data.status,
-        })
-        .returning();
+      const [item] = await timed("insert menu item", () =>
+        tx
+          .insert(schema.menuItems)
+          .values({
+            restaurantId: data.restaurantId,
+            name: data.name,
+            description: data.description ?? null,
+            price: data.price,
+            image: data.image ?? null,
+            categoryId: data.categoryId,
+            kdsStationId: data.kdsStationId ?? null,
+            status: data.status,
+          })
+          .returning(),
+      );
 
       for (const group of data.optionGroups ?? []) {
-        const [g] = await tx
-          .insert(schema.optionGroups)
-          .values({
-            menuItemId: item.id,
-            name: group.name,
-            required: group.required,
-            minSelect: group.minSelect,
-            maxSelect: group.maxSelect,
-            sortOrder: group.sortOrder,
-          })
-          .returning();
+        const [g] = await timed("insert option group", () =>
+          tx
+            .insert(schema.optionGroups)
+            .values({
+              menuItemId: item.id,
+              name: group.name,
+              required: group.required,
+              minSelect: group.minSelect,
+              maxSelect: group.maxSelect,
+              sortOrder: group.sortOrder,
+            })
+            .returning(),
+        );
         const items = group.optionItems ?? [];
         if (items.length > 0) {
-          await tx.insert(schema.optionItems).values(
-            items.map((oi) => ({
-              optionGroupId: g.id,
-              name: oi.name,
-              price: oi.price,
-              sortOrder: oi.sortOrder,
-            })),
+          await timed("insert option items", () =>
+            tx.insert(schema.optionItems).values(
+              items.map((oi) => ({
+                optionGroupId: g.id,
+                name: oi.name,
+                price: oi.price,
+                sortOrder: oi.sortOrder,
+              })),
+            ),
           );
         }
       }
       return item;
     });
+    console.log(
+      `[${scope}] transaction total: ${(performance.now() - txStart).toFixed(
+        1,
+      )}ms`,
+    );
 
     return Response.json({ item: created }, { status: 201 });
   } catch (err) {

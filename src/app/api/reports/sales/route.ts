@@ -2,6 +2,7 @@ import { and, gte, lte } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { badRequest, serverError } from "@/lib/api";
+import { makeTimer } from "@/lib/utils";
 
 // Sales analytics for a branch over a date range, derived from recorded
 // payments (actual revenue) and the order items behind each paid bill.
@@ -19,24 +20,29 @@ export async function GET(req: Request) {
       ? new Date(new Date(searchParams.get("to")!).setHours(23, 59, 59, 999))
       : now;
 
-    const payments = await db.query.payments.findMany({
-      where: and(
-        gte(schema.payments.createdAt, from),
-        lte(schema.payments.createdAt, to),
-      ),
-      with: {
-        bill: {
-          with: {
-            tableSession: {
-              columns: { branchId: true },
-              with: {
-                orders: {
-                  with: {
-                    items: {
-                      with: {
-                        menuItem: {
-                          columns: { name: true },
-                          with: { category: { columns: { name: true } } },
+    const timed = makeTimer(
+      `reports-sales GET ${crypto.randomUUID().slice(0, 8)}`,
+    );
+    const payments = await timed("select payments+bills+orders", () =>
+      db.query.payments.findMany({
+        where: and(
+          gte(schema.payments.createdAt, from),
+          lte(schema.payments.createdAt, to),
+        ),
+        with: {
+          bill: {
+            with: {
+              tableSession: {
+                columns: { branchId: true },
+                with: {
+                  orders: {
+                    with: {
+                      items: {
+                        with: {
+                          menuItem: {
+                            columns: { name: true },
+                            with: { category: { columns: { name: true } } },
+                          },
                         },
                       },
                     },
@@ -46,8 +52,8 @@ export async function GET(req: Request) {
             },
           },
         },
-      },
-    });
+      }),
+    );
 
     const scoped = payments.filter(
       (p) => p.bill?.tableSession?.branchId === branchId,

@@ -2,6 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { badRequest, notFound, parseBody, serverError } from "@/lib/api";
+import { makeTimer } from "@/lib/utils";
 import { branchUpdateSchema } from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string }> };
@@ -9,10 +10,15 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(_req: Request, { params }: Params) {
   try {
     const { id } = await params;
-    const branch = await db.query.branches.findFirst({
-      where: eq(schema.branches.id, id),
-      with: { restaurant: { columns: { name: true } } },
-    });
+    const timed = makeTimer(
+      `branch GET ${id.slice(0, 8)} ${crypto.randomUUID().slice(0, 8)}`,
+    );
+    const branch = await timed("select branch", () =>
+      db.query.branches.findFirst({
+        where: eq(schema.branches.id, id),
+        with: { restaurant: { columns: { name: true } } },
+      }),
+    );
     if (!branch) return notFound("Branch not found");
     return Response.json({ branch });
   } catch (err) {
@@ -27,23 +33,32 @@ export async function PUT(req: Request, { params }: Params) {
     const { data, error } = await parseBody(req, branchUpdateSchema);
     if (error) return error;
 
+    const scope = `branch PUT ${id.slice(0, 8)} ${crypto
+      .randomUUID()
+      .slice(0, 8)}`;
+    const timed = makeTimer(scope);
+    const txStart = performance.now();
     const updated = await db.transaction(async (tx) => {
-      const [branch] = await tx
-        .update(schema.branches)
-        .set({
-          ...(data.name !== undefined && { name: data.name }),
-          ...(data.address !== undefined && { address: data.address ?? null }),
-          ...(data.openingTime !== undefined && {
-            openingTime: data.openingTime ?? null,
-          }),
-          ...(data.closingTime !== undefined && {
-            closingTime: data.closingTime ?? null,
-          }),
-          ...(data.isActive !== undefined && { isActive: data.isActive }),
-          ...(data.settings !== undefined && { settings: data.settings }),
-        })
-        .where(eq(schema.branches.id, id))
-        .returning();
+      const [branch] = await timed("update branch", () =>
+        tx
+          .update(schema.branches)
+          .set({
+            ...(data.name !== undefined && { name: data.name }),
+            ...(data.address !== undefined && {
+              address: data.address ?? null,
+            }),
+            ...(data.openingTime !== undefined && {
+              openingTime: data.openingTime ?? null,
+            }),
+            ...(data.closingTime !== undefined && {
+              closingTime: data.closingTime ?? null,
+            }),
+            ...(data.isActive !== undefined && { isActive: data.isActive }),
+            ...(data.settings !== undefined && { settings: data.settings }),
+          })
+          .where(eq(schema.branches.id, id))
+          .returning(),
+      );
       if (!branch) return null;
 
       // Add-only table reconciliation: create any supplied numbers that don't
@@ -54,18 +69,22 @@ export async function PUT(req: Request, { params }: Params) {
           new Set(data.tables.map((t) => t.trim()).filter(Boolean)),
         );
         if (desired.length > 0) {
-          const existing = await tx.query.tables.findMany({
-            where: and(
-              eq(schema.tables.branchId, id),
-              inArray(schema.tables.tableNumber, desired),
-            ),
-            columns: { tableNumber: true },
-          });
+          const existing = await timed("select existing tables", () =>
+            tx.query.tables.findMany({
+              where: and(
+                eq(schema.tables.branchId, id),
+                inArray(schema.tables.tableNumber, desired),
+              ),
+              columns: { tableNumber: true },
+            }),
+          );
           const have = new Set(existing.map((t) => t.tableNumber));
           const toAdd = desired.filter((n) => !have.has(n));
           if (toAdd.length > 0) {
-            await tx.insert(schema.tables).values(
-              toAdd.map((tableNumber) => ({ branchId: id, tableNumber })),
+            await timed("insert tables", () =>
+              tx.insert(schema.tables).values(
+                toAdd.map((tableNumber) => ({ branchId: id, tableNumber })),
+              ),
             );
           }
         }
@@ -73,6 +92,11 @@ export async function PUT(req: Request, { params }: Params) {
 
       return branch;
     });
+    console.log(
+      `[${scope}] transaction total: ${(performance.now() - txStart).toFixed(
+        1,
+      )}ms`,
+    );
 
     if (!updated) return notFound("Branch not found");
     return Response.json({ branch: updated });
@@ -86,19 +110,27 @@ export async function DELETE(_req: Request, { params }: Params) {
   try {
     const { id } = await params;
 
+    const timed = makeTimer(
+      `branch DELETE ${id.slice(0, 8)} ${crypto.randomUUID().slice(0, 8)}`,
+    );
+
     // Protect transactional data: block delete if the branch has any orders.
-    const order = await db.query.orders.findFirst({
-      where: eq(schema.orders.branchId, id),
-      columns: { id: true },
-    });
+    const order = await timed("select branch order", () =>
+      db.query.orders.findFirst({
+        where: eq(schema.orders.branchId, id),
+        columns: { id: true },
+      }),
+    );
     if (order) {
       return badRequest("Cannot delete a branch that has orders");
     }
 
-    const [deleted] = await db
-      .delete(schema.branches)
-      .where(eq(schema.branches.id, id))
-      .returning();
+    const [deleted] = await timed("delete branch", () =>
+      db
+        .delete(schema.branches)
+        .where(eq(schema.branches.id, id))
+        .returning(),
+    );
     if (!deleted) return notFound("Branch not found");
     return Response.json({ ok: true });
   } catch (err) {

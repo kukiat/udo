@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { badRequest, serverError } from "@/lib/api";
+import { makeTimer } from "@/lib/utils";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -20,13 +21,19 @@ export async function GET(req: Request) {
       return badRequest("branchId and tableNo are required");
     }
 
-    const table = await db.query.tables.findFirst({
-      where: and(
-        eq(schema.tables.branchId, branchId),
-        eq(schema.tables.tableNumber, tableNo),
-      ),
-      columns: { id: true },
-    });
+    const timed = makeTimer(
+      `session-access GET ${crypto.randomUUID().slice(0, 8)}`,
+    );
+
+    const table = await timed("select table", () =>
+      db.query.tables.findFirst({
+        where: and(
+          eq(schema.tables.branchId, branchId),
+          eq(schema.tables.tableNumber, tableNo),
+        ),
+        columns: { id: true },
+      }),
+    );
     if (!table) {
       return Response.json({ valid: false, reason: "not_found" });
     }
@@ -35,10 +42,12 @@ export async function GET(req: Request) {
       return Response.json({ valid: false, reason: "not_found" });
     }
 
-    const session = await db.query.tableSessions.findFirst({
-      where: eq(schema.tableSessions.id, sessionId),
-      columns: { id: true, branchId: true, tableId: true, status: true },
-    });
+    const session = await timed("select session", () =>
+      db.query.tableSessions.findFirst({
+        where: eq(schema.tableSessions.id, sessionId),
+        columns: { id: true, branchId: true, tableId: true, status: true },
+      }),
+    );
     if (
       !session ||
       session.branchId !== branchId ||

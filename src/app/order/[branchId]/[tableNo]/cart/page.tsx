@@ -20,6 +20,11 @@ type BranchResponse = {
 type TablesResponse = {
   tables: { id: string; tableNumber: string }[];
 };
+type NoteTarget = {
+  lineId: string;
+  name: string;
+  note: string;
+};
 
 export default function CartPage() {
   const { branchId, tableNo } = useParams<{
@@ -39,6 +44,8 @@ export default function CartPage() {
     lineId: string;
     name: string;
   } | null>(null);
+  const [noteTarget, setNoteTarget] = useState<NoteTarget | null>(null);
+  const [draftNote, setDraftNote] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -168,8 +175,12 @@ export default function CartPage() {
                         <button
                           type="button"
                           onClick={() => {
-                            const next = prompt("Edit note", l.note);
-                            if (next !== null) cart.updateNote(l.lineId, next);
+                            setDraftNote(l.note);
+                            setNoteTarget({
+                              lineId: l.lineId,
+                              name: l.name,
+                              note: l.note,
+                            });
                           }}
                           className="mt-0.5 truncate text-left text-[12px] italic text-ink-muted hover:text-ink"
                         >
@@ -180,8 +191,12 @@ export default function CartPage() {
                         <button
                           type="button"
                           onClick={() => {
-                            const next = prompt("Add a note for the kitchen", "");
-                            if (next) cart.updateNote(l.lineId, next);
+                            setDraftNote("");
+                            setNoteTarget({
+                              lineId: l.lineId,
+                              name: l.name,
+                              note: "",
+                            });
                           }}
                           className="mt-0.5 self-start text-[12px] text-ink-dim hover:text-ink-muted"
                         >
@@ -353,6 +368,47 @@ export default function CartPage() {
               }}
             >
               Remove
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={noteTarget !== null}
+        onOpenChange={(open) => !open && setNoteTarget(null)}
+      >
+        <div className="p-5">
+          <h2 className="text-[17px] font-semibold text-ink">
+            {noteTarget?.note ? "Edit kitchen note" : "Add kitchen note"}
+          </h2>
+          <p className="mt-1.5 text-[13.5px] text-ink-muted">
+            {noteTarget?.name}
+          </p>
+          <label className="mt-4 flex flex-col gap-1.5">
+            <span className="text-[13px] font-semibold text-ink">Note</span>
+            <textarea
+              value={draftNote}
+              onChange={(e) => setDraftNote(e.target.value)}
+              rows={4}
+              maxLength={500}
+              autoFocus
+              placeholder="e.g. no onions, sauce on the side"
+              className="w-full resize-none rounded-lg border border-line bg-white px-3 py-2 text-[13px] text-ink outline-none transition-colors placeholder:text-ink-muted focus:border-ink"
+            />
+          </label>
+          <div className="mt-5 flex justify-end gap-2.5">
+            <Button variant="secondary" onPress={() => setNoteTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              onPress={() => {
+                if (noteTarget) {
+                  cart.updateNote(noteTarget.lineId, draftNote.trim());
+                }
+                setNoteTarget(null);
+              }}
+            >
+              Save note
             </Button>
           </div>
         </div>

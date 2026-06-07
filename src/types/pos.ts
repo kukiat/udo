@@ -10,6 +10,12 @@ export type PosSession = {
   subtotal: string;
   billStatus: "open" | "requested" | "paid";
   createdAt: string;
+  seatedAt: string;
+  partySize: number | null;
+  tableNote: string | null;
+  customerName: string | null;
+  customerPhone: string | null;
+  expectedLeaveAt: string | null;
 };
 
 export type Shift = {

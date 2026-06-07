@@ -2,6 +2,7 @@ import { asc, count, eq } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { parseBody, serverError } from "@/lib/api";
+import { makeTimer } from "@/lib/utils";
 import { branchCreateSchema } from "@/lib/validation";
 
 const DEFAULT_SETTINGS = {
@@ -28,20 +29,25 @@ export async function GET(req: Request) {
       : undefined;
     const offset = Math.max(0, Number(searchParams.get("offset")) || 0);
 
-    const rows = await db.query.branches.findMany({
-      where,
-      orderBy: [asc(schema.branches.name)],
-      with: withRestaurant
-        ? { restaurant: { columns: { id: true, name: true } } }
-        : undefined,
-      limit,
-      offset: hasLimit ? offset : undefined,
-    });
+    const timed = makeTimer(`branches GET ${crypto.randomUUID().slice(0, 8)}`);
 
-    const [{ value: total } = { value: 0 }] = await db
-      .select({ value: count() })
-      .from(schema.branches)
-      .where(where);
+    const rows = await timed("select branches", () =>
+      db.query.branches.findMany({
+        where,
+        orderBy: [asc(schema.branches.name)],
+        with: withRestaurant
+          ? { restaurant: { columns: { id: true, name: true } } }
+          : undefined,
+        limit,
+        offset: hasLimit ? offset : undefined,
+      }),
+    );
+
+    const [{ value: total } = { value: 0 }] = await timed(
+      "count branches",
+      () =>
+        db.select({ value: count() }).from(schema.branches).where(where),
+    );
 
     return Response.json({ branches: rows, total });
   } catch (err) {
@@ -55,30 +61,47 @@ export async function POST(req: Request) {
     const { data, error } = await parseBody(req, branchCreateSchema);
     if (error) return error;
 
+    const scope = `branches POST ${crypto.randomUUID().slice(0, 8)}`;
+    const timed = makeTimer(scope);
+    const txStart = performance.now();
     const created = await db.transaction(async (tx) => {
-      const [branch] = await tx
-        .insert(schema.branches)
-        .values({
-          restaurantId: data.restaurantId,
-          name: data.name,
-          address: data.address ?? null,
-          openingTime: data.openingTime ?? null,
-          closingTime: data.closingTime ?? null,
-          settings: data.settings ?? DEFAULT_SETTINGS,
-        })
-        .returning();
+      const [branch] = await timed("insert branch", () =>
+        tx
+          .insert(schema.branches)
+          .values({
+            restaurantId: data.restaurantId,
+            name: data.name,
+            address: data.address ?? null,
+            openingTime: data.openingTime ?? null,
+            closingTime: data.closingTime ?? null,
+            settings: data.settings ?? DEFAULT_SETTINGS,
+          })
+          .returning(),
+      );
 
       const numbers = Array.from(
         new Set((data.tables ?? []).map((n) => n.trim()).filter(Boolean)),
       );
       if (numbers.length > 0) {
-        await tx
-          .insert(schema.tables)
-          .values(numbers.map((tableNumber) => ({ branchId: branch.id, tableNumber })));
+        await timed("insert tables", () =>
+          tx
+            .insert(schema.tables)
+            .values(
+              numbers.map((tableNumber) => ({
+                branchId: branch.id,
+                tableNumber,
+              })),
+            ),
+        );
       }
 
       return branch;
     });
+    console.log(
+      `[${scope}] transaction total: ${(performance.now() - txStart).toFixed(
+        1,
+      )}ms`,
+    );
     return Response.json({ branch: created }, { status: 201 });
   } catch (err) {
     console.error("POST /api/branches", err);

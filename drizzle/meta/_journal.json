@@ -57,6 +57,13 @@
       "when": 1780765713054,
       "tag": "0007_stormy_thor_girl",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1780787133786,
+      "tag": "0008_giant_mother_askani",
+      "breakpoints": true
     }
   ]
 }
