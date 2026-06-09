@@ -16,10 +16,10 @@ Build the End User self-order and check bill, real-time KDS with Socket.IO and p
 
 - **Authentication & Authorization** -- cookie sessions, scrypt password hashing, role-based access (`requireAccess` guards + middleware)
 - **POS** -- cashier workflow, shift management (open/close + drawer reconciliation), cash/card/QR payment processing, printable receipts
-- **Reports** -- sales summaries & analytics dashboard (by day, category, top items, payment breakdown)
+- **Reports** -- sales summaries & analytics dashboard (by day, category, top items, payment breakdown, bill status, cashier/shift payment totals)
 - **Sub-categories** -- self-referential `parentId` on categories (nested hierarchy)
 - **Image upload** -- `POST /api/uploads` to `public/uploads`, reusable `ImageUpload` component (upload or URL)
-- **Waitstaff** -- floor-service role: view all branches, add tables, monitor per-table order status, mark `ready` orders served
+- **Waitstaff** -- floor-service role: view all branches, add tables, monitor per-table order and bill status, highlight requested checks, mark `ready` orders served
 
 ## To-Do List
 
@@ -324,7 +324,7 @@ rms/
 
 ### Reports (Phase 2)
 
-- **GET `/api/reports/sales?branchId=X&from=&to=`** -- Sales analytics (summary, by day, payment breakdown, by category, top items) from recorded payments
+- **GET `/api/reports/sales?branchId=X&from=&to=`** -- Sales analytics from recorded payments: summary totals, paid bills, discounts, VAT/service charge, active bill status, payment-method breakdown, cashier totals, shift payment totals, by day, by category, and top items
 
 ### Uploads (Phase 2)
 
@@ -370,7 +370,13 @@ rms/
 - On success, redirects to `/dashboard/:restaurantId` for the new restaurant
 
 ### 5b. Dashboard - Restaurant Overview (`/dashboard/:restaurantId`)
-- Edit the restaurant (name, logo); summary stats; quick links to branches/categories/menu
+- Edit the restaurant (name, logo); summary stats; current branch payment/bill snapshot (revenue today, paid bills, requested checks, open bills, average order value); quick links to branches/categories/menu/reports
+
+### 5b-i. Dashboard - Reports (`/dashboard/:restaurantId/reports`)
+- Date-range sales analytics for the selected branch
+- Shows payment-level metrics: total sales, paid bills, average ticket, discounts, VAT/service charge, payment methods, cashier totals, and shift payment totals
+- Shows bill workflow metrics: active open/requested/paid bills and active bill amount
+- Still includes sales by day, category breakdown, and top items
 
 ### 5c. Dashboard - Branch Management (`/dashboard/:restaurantId/branches`)
 - Inline create/edit/delete branches (name, address, settings: max KDS, VAT %, service %)
@@ -414,6 +420,12 @@ rms/
 - FIFO ordering -- orders sorted by creation time, oldest first
 - Overdue alert -- cards turn red + flash when order exceeds threshold (default 15 min)
 - Responsive -- optimized for tablet/large screen landscape mode
+
+### 10. Waitstaff Page (`/waitstaff/[branchId]`)
+- Floor map with occupied/available status, active orders, ready counts, overdue indicators, and check-request badges
+- Table detail panel shows session time, orders, rough table total, and whether the bill is open or requested
+- Bill alerts side queue lists requested checks with table total and a POS payment handoff link
+- Waitstaff can mark ready orders served; payment itself remains in POS
 
 ### Dashboard Routing & Context
 

@@ -909,6 +909,30 @@ input[type="number"] {
 }
 .dir-a .stat .num { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
 
+.dir-a .reports-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.dir-a .reports-total-stat {
+  min-width: min(100%, 280px);
+  min-height: 126px;
+}
+
+.dir-a .reports-total-num {
+  font-size: clamp(38px, 4vw, 44px);
+  white-space: nowrap;
+}
+
+@media (min-width: 760px) {
+  .dir-a .reports-total-stat {
+    grid-column: span 2;
+    padding: 22px;
+  }
+}
+
 /* Layout helpers */
 .dir-a .row { display: flex; align-items: center; }
 .dir-a .col { display: flex; flex-direction: column; }

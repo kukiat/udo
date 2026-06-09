@@ -26,7 +26,7 @@ import type {
   OrderItemDTO,
   OrderStatus,
 } from "@/types";
-import { CreditCardIcon, LinkIcon, TableIcon } from "lucide-react";
+import { CreditCardIcon, LinkIcon, PrinterIcon, TableIcon } from "lucide-react";
 
 // Local cart line for the menu picker drawer. Options aren't supported in this
 // quick-fire flow — staff can edit individual items later in POS if needed.
@@ -1896,23 +1896,124 @@ export default function WaitstaffPage() {
 
       <Modal
         isOpen={linkModal !== null}
-        onOpenChange={(open) => !open && setLinkModal(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setLinkModal(null);
+          }
+        }}
       >
         {linkModal && (
           <div className="p-5">
-            <h2 className="text-lg font-bold text-ink">
+            <style jsx global>{`
+              @media print {
+                @page {
+                  size: A5 portrait;
+                  margin: 10mm;
+                }
+
+                html,
+                body {
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  height: auto !important;
+                  overflow: hidden !important;
+                  background: #fff !important;
+                }
+
+                /* visibility:hidden still reserves layout — hide the rest of the page */
+                body > *:not(:has(.waitstaff-qr-print)) {
+                  display: none !important;
+                }
+
+                body > :has(.waitstaff-qr-print),
+                body > :has(.waitstaff-qr-print) * {
+                  visibility: visible !important;
+                }
+
+                body > :has(.waitstaff-qr-print) {
+                  position: static !important;
+                  inset: auto !important;
+                  display: block !important;
+                  width: 100% !important;
+                  max-width: none !important;
+                  max-height: none !important;
+                  height: auto !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  border: none !important;
+                  border-radius: 0 !important;
+                  box-shadow: none !important;
+                  background: #fff !important;
+                  overflow: visible !important;
+                }
+
+                .waitstaff-qr-print {
+                  position: static !important;
+                  display: flex !important;
+                  align-items: center;
+                  justify-content: center;
+                  width: 100%;
+                  min-height: 0 !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  background: #fff !important;
+                  color: #111 !important;
+                  page-break-after: avoid;
+                  page-break-inside: avoid;
+                  break-inside: avoid;
+                }
+
+                .waitstaff-qr-print-card {
+                  border-color: #222 !important;
+                  background: #fff !important;
+                  box-shadow: none !important;
+                  color: #111 !important;
+                  page-break-inside: avoid;
+                  break-inside: avoid;
+                }
+
+                .waitstaff-qr-print-card * {
+                  color: #111 !important;
+                }
+
+                .waitstaff-qr-no-print,
+                .waitstaff-qr-no-print * {
+                  display: none !important;
+                  visibility: hidden !important;
+                }
+
+                body > :has(.waitstaff-qr-print) button[aria-label="Close"] {
+                  display: none !important;
+                }
+              }
+            `}</style>
+            <h2 className="waitstaff-qr-no-print text-lg font-bold text-ink">
               Order link · Table {linkModal.tableNumber}
             </h2>
-            <p className="mt-1 text-sm text-ink-muted">
+            <p className="waitstaff-qr-no-print mt-1 text-sm text-ink-muted">
               Scan the QR code or share the link with the customer. It stays
               valid until the session is closed.
             </p>
-            <div className="mt-4 flex justify-center">
-              <div className="rounded-xl border border-line bg-white p-4">
-                <QRCodeSVG value={linkModal.url} size={192} level="M" />
+            <div className="waitstaff-qr-print mt-4 flex justify-center">
+              <div className="waitstaff-qr-print-card grid justify-items-center gap-3 rounded-xl border border-line bg-white p-5 text-center">
+                <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-muted">
+                  {branch?.restaurant?.name ?? "Restaurant"}
+                </div>
+                <div className="mono text-[32px] font-bold leading-none text-ink">
+                  Table {linkModal.tableNumber}
+                </div>
+                <QRCodeSVG
+                  value={linkModal.url}
+                  size={192}
+                  level="M"
+                  marginSize={2}
+                />
+                <div className="text-[16px] font-bold text-ink">
+                  Scan to order
+                </div>
               </div>
             </div>
-            <div className="mt-4 flex items-center gap-2 rounded-xl border border-line bg-sand p-2">
+            <div className="waitstaff-qr-no-print mt-4 flex items-center gap-2 rounded-xl border border-line bg-sand p-2">
               <a
                 href={linkModal.url}
                 target="_blank"
@@ -1963,9 +2064,19 @@ export default function WaitstaffPage() {
                 </Button>
               </span>
             </div>
-            <div className="mt-4 flex justify-end gap-2">
+            <div className="waitstaff-qr-no-print mt-4 flex justify-end gap-2">
               <PillButton
-                onPress={() => setLinkModal(null)}
+                tone="accent"
+                variant="outline"
+                onPress={() => window.print()}
+              >
+                <PrinterIcon className="w-4 h-4" />
+                Print QR
+              </PillButton>
+              <PillButton
+                onPress={() => {
+                  setLinkModal(null);
+                }}
               >
                 Close
               </PillButton>

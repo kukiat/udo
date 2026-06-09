@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 import {
   BranchFields,
@@ -21,7 +22,7 @@ import {
 } from "@/contexts/RestaurantContext";
 import { api } from "@/lib/fetcher";
 import { PillButton } from "@/components/ui/PillButton";
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { PencilIcon, PlusIcon, PrinterIcon } from "lucide-react";
 
 export default function BranchesPage() {
   const { restaurantId, branches, loading, refresh } = useRestaurant();
@@ -298,7 +299,8 @@ function BranchesTable({
   branches: BranchSummary[];
   onEdit: (b: BranchSummary) => void;
 }) {
-  const cols = "minmax(170px, 1.4fr) minmax(180px, 1.5fr) 120px 70px 70px 90px 80px";
+  const { restaurantId } = useRestaurant();
+  const cols = "minmax(170px, 1.4fr) minmax(180px, 1.5fr) 120px 70px 70px 90px 116px";
   return (
     <div
       style={{
@@ -450,6 +452,14 @@ function BranchesTable({
             >
               <PencilIcon className="w-4 h-4" />
             </button>
+            <Link
+              href={`/dashboard/${restaurantId}/branches/${b.id}/qr`}
+              aria-label={`Print QR codes for ${b.name}`}
+              title="Print QR codes"
+              style={{ ...btnRowStyle, width: 28, padding: 0, justifyContent: "center" }}
+            >
+              <PrinterIcon className="w-4 h-4" />
+            </Link>
           </div>
         </div>
       ))}

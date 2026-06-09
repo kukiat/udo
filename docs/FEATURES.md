@@ -50,6 +50,7 @@ role, sign-out) is shown in every authenticated area.
 
 ### 3. Menu Management (Dashboard)
 - Restaurants & branches CRUD (branch settings: max KDS, VAT %, service %)
+- Restaurant overview includes a current branch payment/bill snapshot: revenue today, paid bills, requested checks, open bills, and average order value
 - **Categories** with sort order and **sub-categories** (self-referential parent)
 - **Menu items** via dynamic form (React Hook Form + field arrays): nested option groups & option items added/removed inline, saved in one request
 - Status toggle (available / sold_out / hidden), soft delete
@@ -64,8 +65,9 @@ role, sign-out) is shown in every authenticated area.
 
 ### 5. Reports — *Phase 2*
 - Sales analytics at `/dashboard/:restaurantId/reports` (date range)
-- Summary cards (total sales, transactions, avg. ticket)
-- Sales by day (bar chart), payment-method breakdown, sales by category, top 10 items
+- Summary cards (total sales, paid bills, avg. ticket, discounts, VAT/service charge, requested checks)
+- Active bill status snapshot (open/requested/paid), active bill amount, payment-method breakdown, cashier totals, and shift payment totals
+- Sales by day (bar chart), sales by category, top 10 items
 - Derived from recorded payments + the order items behind each paid bill
 
 ### 6. Waitstaff (Floor Service) — *Phase 2*
@@ -73,6 +75,7 @@ role, sign-out) is shown in every authenticated area.
 - **View all branches** of the restaurant via a branch selector
 - **Add tables** to the selected branch
 - **Monitor tables**: per-table cards showing occupied/available status and every active order (pending/preparing/ready/served) with status badges, items, and total
+- **Bill awareness**: table cards, table detail, and the side queue highlight requested checks; waitstaff can see rough table totals and jump to POS for payment
 - **Mark served** on `ready` orders; board auto-refreshes (5s polling)
 
 ### 7. Authentication & RBAC — *Phase 2*
@@ -91,6 +94,7 @@ role, sign-out) is shown in every authenticated area.
 - `kds:screen-count` — live connected-screen count
 - `order:new` — new order broadcast to the branch KDS room
 - `order:status-update` — broadcast to branch KDS + the customer's table room
+- `bill:requested` / `bill:paid` - broadcast bill workflow updates to customer table and branch floor staff
 
 ## API Surface (high level)
 

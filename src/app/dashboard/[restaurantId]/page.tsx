@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useDashboardTheme } from "@/components/dashboard/DashboardShell";
 import { RestaurantFormModal } from "@/components/dashboard/RestaurantFormModal";
@@ -13,6 +13,14 @@ import { formatPrice } from "@/lib/utils";
 
 type SalesResponse = {
   summary: { totalSales: string; orderCount: number; avgTicket: string };
+  billSummary: {
+    activeOpen: number;
+    activeRequested: number;
+    activePaid: number;
+    activeTotal: number;
+    activeAmount: string;
+    paidInRange: number;
+  };
   byDay: { date: string; total: string }[];
   byCategory: { name: string; total: string; qty: number }[];
   topItems: { name: string; qty: number; total: string }[];
@@ -53,6 +61,75 @@ function markOf(name?: string | null): string {
   );
 }
 
+function useAnimatedNumber(value: number, duration = 900) {
+  const [displayValue, setDisplayValue] = useState(0);
+  const previousValueRef = useRef(0);
+  const displayValueRef = useRef(0);
+
+  useEffect(() => {
+    if (
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      value === previousValueRef.current
+    ) {
+      previousValueRef.current = value;
+      displayValueRef.current = value;
+      setDisplayValue(value);
+      return;
+    }
+
+    const startValue = displayValueRef.current;
+    const change = value - startValue;
+    let frame = 0;
+    let startTime: number | null = null;
+
+    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+    const tick = (time: number) => {
+      startTime ??= time;
+      const progress = Math.min((time - startTime) / duration, 1);
+      const nextValue = startValue + change * easeOutCubic(progress);
+      displayValueRef.current = nextValue;
+      setDisplayValue(nextValue);
+
+      if (progress < 1) {
+        frame = requestAnimationFrame(tick);
+        return;
+      }
+
+      previousValueRef.current = value;
+      displayValueRef.current = value;
+      setDisplayValue(value);
+    };
+
+    frame = requestAnimationFrame(tick);
+
+    return () => cancelAnimationFrame(frame);
+  }, [duration, value]);
+
+  return displayValue;
+}
+
+function AnimatedMoneyValue({ value }: { value: number }) {
+  const displayValue = useAnimatedNumber(value);
+  return <>{formatPrice(displayValue)}</>;
+}
+
+function AnimatedNumberValue({ value }: { value: number }) {
+  const displayValue = useAnimatedNumber(value);
+  return <>{Math.round(displayValue).toLocaleString("en-US")}</>;
+}
+
+function AnimatedCompactMoneyValue({ value }: { value: number }) {
+  const displayValue = useAnimatedNumber(value, 700);
+  return (
+    <>
+      {displayValue >= 1000
+        ? `฿${(displayValue / 1000).toFixed(1)}k`
+        : `฿${Math.round(displayValue)}`}
+    </>
+  );
+}
+
 // 4-up KPI tile. Mirrors the Stat primitive from the Marrow design.
 function Stat({
   label,
@@ -62,10 +139,10 @@ function Stat({
   sub,
 }: {
   label: string;
-  value: string;
+  value: React.ReactNode;
   delta?: string;
   deltaTone?: "olive" | "rose" | "neutral";
-  sub?: string;
+  sub?: React.ReactNode;
 }) {
   const toneClass =
     deltaTone === "olive"
@@ -81,7 +158,7 @@ function Stat({
       </div>
       <div className="mt-2 flex min-w-0 flex-wrap items-baseline gap-2.5">
         <div
-          className="tnum min-w-0 text-[30px] font-semibold text-ink"
+          className="tnum min-w-0 text-[30px] font-semibold text-ink transition-colors duration-300"
           style={{
             letterSpacing: "-0.025em",
             lineHeight: 1.05,
@@ -131,9 +208,7 @@ function RevenueChart({
                   color: isToday ? "var(--accent)" : "var(--ink-3)",
                 }}
               >
-                {d.total >= 1000
-                  ? `฿${(d.total / 1000).toFixed(1)}k`
-                  : `฿${Math.round(d.total)}`}
+                <AnimatedCompactMoneyValue value={d.total} />
               </div>
               <div
                 className="w-full transition-[height] duration-500"
@@ -208,7 +283,7 @@ function CardHead({
   action,
 }: {
   title: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   action?: React.ReactNode;
 }) {
   return (
@@ -239,7 +314,6 @@ export default function RestaurantOverviewPage() {
     branches,
     branchId,
     branchName,
-    settings,
     refresh,
   } = useRestaurant();
   const theme = useDashboardTheme();
@@ -336,7 +410,10 @@ export default function RestaurantOverviewPage() {
   if (error) return <ErrorState message={error} />;
 
   const todayRev = parseFloat(todaySales?.summary.totalSales ?? "0");
-  const todayOrders = todaySales?.summary.orderCount ?? 0;
+  const paidBillsToday =
+    todaySales?.billSummary.paidInRange ?? todaySales?.summary.orderCount ?? 0;
+  const requestedChecks = todaySales?.billSummary.activeRequested ?? 0;
+  const openBills = todaySales?.billSummary.activeOpen ?? 0;
   const aov = parseFloat(todaySales?.summary.avgTicket ?? "0");
   const revDelta =
     yesterdayTotal && yesterdayTotal > 0
@@ -344,8 +421,6 @@ export default function RestaurantOverviewPage() {
       : null;
   const topItems = (todaySales?.topItems ?? []).slice(0, 6);
   const topMaxQty = topItems[0]?.qty ?? 1;
-  const activeBranches = branches.length;
-  const vatPct = ((settings?.vatRate ?? 0) * 100).toFixed(0);
 
   return (
     <div className="mx-auto flex max-w-[1280px] flex-col">
@@ -379,10 +454,10 @@ export default function RestaurantOverviewPage() {
       />
 
       {/* KPI tiles */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <Stat
           label="Revenue, today"
-          value={formatPrice(todayRev)}
+          value={<AnimatedMoneyValue value={todayRev} />}
           delta={
             revDelta == null
               ? undefined
@@ -391,24 +466,39 @@ export default function RestaurantOverviewPage() {
           deltaTone={revDelta == null ? "neutral" : revDelta >= 0 ? "olive" : "rose"}
           sub={
             yesterdayTotal != null
-              ? `vs ${formatPrice(yesterdayTotal)} yesterday`
+              ? (
+                  <>
+                    vs <AnimatedMoneyValue value={yesterdayTotal} /> yesterday
+                  </>
+                )
               : "No payments yet today"
           }
         />
         <Stat
-          label="Orders"
-          value={String(todayOrders)}
-          sub={`${todayOrders} paid bills today`}
+          label="Paid bills"
+          value={<AnimatedNumberValue value={paidBillsToday} />}
+          sub="Completed payments today"
+        />
+        <Stat
+          label="Requested checks"
+          value={<AnimatedNumberValue value={requestedChecks} />}
+          delta={requestedChecks > 0 ? "Needs attention" : undefined}
+          deltaTone={requestedChecks > 0 ? "rose" : "neutral"}
+          sub="Tables waiting to pay"
+        />
+        <Stat
+          label="Open bills"
+          value={<AnimatedNumberValue value={openBills} />}
+          sub={
+            <AnimatedMoneyValue
+              value={parseFloat(todaySales?.billSummary.activeAmount ?? "0")}
+            />
+          }
         />
         <Stat
           label="Avg order value"
-          value={formatPrice(aov)}
+          value={<AnimatedMoneyValue value={aov} />}
           sub="Across paid orders"
-        />
-        <Stat
-          label="VAT rate"
-          value={`${vatPct}%`}
-          sub={`${activeBranches} branch${activeBranches === 1 ? "" : "es"}`}
         />
       </div>
 
@@ -417,9 +507,11 @@ export default function RestaurantOverviewPage() {
         <div className="flex min-h-[250px] flex-col rounded-card border border-line bg-white p-4 lg:col-span-2">
           <CardHead
             title="Revenue, 7-day"
-            subtitle={formatPrice(
-              weekDays.reduce((s, d) => s + d.total, 0),
-            )}
+            subtitle={
+              <AnimatedMoneyValue
+                value={weekDays.reduce((s, d) => s + d.total, 0)}
+              />
+            }
             action={
               <div className="flex gap-1.5">
                 <span className="inline-flex items-center rounded-full bg-ink px-2.5 py-[3px] text-[11px] font-medium text-white">
@@ -437,7 +529,11 @@ export default function RestaurantOverviewPage() {
         <div className="flex min-h-[250px] flex-col rounded-card border border-line bg-white p-4">
           <CardHead
             title="Top sellers, today"
-            subtitle={`${topItems.length} items · by qty`}
+            subtitle={
+              <>
+                <AnimatedNumberValue value={topItems.length} /> items · by qty
+              </>
+            }
             action={
               <Link
                 href={`/dashboard/${restaurantId}/reports`}
@@ -497,10 +593,10 @@ export default function RestaurantOverviewPage() {
                   </div>
                   <div className="text-right">
                     <div className="tnum text-[13px] font-semibold">
-                      {row.qty}
+                      <AnimatedNumberValue value={row.qty} />
                     </div>
                     <div className="tnum text-[11px] text-ink-muted">
-                      {formatPrice(parseFloat(row.total))}
+                      <AnimatedMoneyValue value={parseFloat(row.total)} />
                     </div>
                   </div>
                 </div>
@@ -515,7 +611,11 @@ export default function RestaurantOverviewPage() {
         <div className="flex min-h-0 flex-col rounded-card border border-line bg-white p-4">
           <CardHead
             title="Branches"
-            subtitle={`${branches.length} total`}
+            subtitle={
+              <>
+                <AnimatedNumberValue value={branches.length} /> total
+              </>
+            }
             action={
               <Link
                 href={`/dashboard/${restaurantId}/branches`}
@@ -558,7 +658,10 @@ export default function RestaurantOverviewPage() {
                   </div>
                   <div className="shrink-0 text-right">
                     <div className="tnum text-[13px] font-semibold">
-                      {((b.settings?.vatRate ?? 0) * 100).toFixed(0)}%
+                      <AnimatedNumberValue
+                        value={(b.settings?.vatRate ?? 0) * 100}
+                      />
+                      %
                     </div>
                     <div className="text-[11px] text-ink-muted">VAT</div>
                   </div>
@@ -628,11 +731,13 @@ export default function RestaurantOverviewPage() {
               </div>
               <div className="mono mt-1 text-[11px] text-ink-dim">
                 ฿ ·{" "}
-                {branches.length} {branches.length === 1 ? "branch" : "branches"}
+                <AnimatedNumberValue value={branches.length} />{" "}
+                {branches.length === 1 ? "branch" : "branches"}
                 {menuCount != null && (
                   <>
                     {" "}
-                    · {menuCount} item{menuCount === 1 ? "" : "s"}
+                    · <AnimatedNumberValue value={menuCount} /> item
+                    {menuCount === 1 ? "" : "s"}
                   </>
                 )}
               </div>

@@ -71,6 +71,7 @@ Owns menu, structure, and reporting for the restaurant; can also watch the kitch
 - **Menu items**: dynamic create/edit form (React Hook Form + field arrays) — nested option groups & option items added/removed inline, saved in one request; status toggle (available / sold_out / hidden); soft delete; KDS station assignment; image upload or URL
 - **Branch menu override**: per-branch availability toggle + price override (bulk save)
 - **Reports**: sales analytics (see role 7's feature list)
+- **Overview bill/payment snapshot**: revenue today, paid bills, requested checks, open bills, and average order value for the selected branch
 - Can also open **KDS** and **Waitstaff** views (read/monitor)
 
 **Pages** — `src/app/dashboard/[restaurantId]/`
@@ -125,6 +126,7 @@ Floor-service view across branches of the restaurant.
 - **View all branches** via a branch selector; `/waitstaff` resolves a default branch
 - **Add tables** to the selected branch
 - **Monitor tables**: per-table cards showing occupied/available status + every active order (pending/preparing/ready/served) with status badges, items, and total
+- **Bill awareness**: requested-check badges on the floor map, a Bill alerts queue, rough table totals, and a POS payment handoff
 - **Mark served** on `ready` orders; board auto-refreshes (5s polling)
 
 **Pages** — `src/app/waitstaff/page.tsx` (resolver) · `src/app/waitstaff/[branchId]/page.tsx`
@@ -138,8 +140,9 @@ Floor-service view across branches of the restaurant.
 Lives inside the dashboard but called out separately since it's a distinct capability.
 
 **Features** — `/dashboard/:restaurantId/reports` (date range)
-- Summary cards: total sales, transactions, avg. ticket
-- Sales by day (bar chart), payment-method breakdown, sales by category, top 10 items
+- Summary cards: total sales, paid bills, avg. ticket, discounts, VAT/service charge, requested checks
+- Active bill status snapshot, active bill amount, payment-method breakdown, cashier totals, and shift payment totals
+- Sales by day (bar chart), sales by category, top 10 items
 - Derived from recorded payments + the order items behind each paid bill
 
 **APIs** — `reports/sales?branchId=X&from=&to=`

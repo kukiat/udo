@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import {
   BarChart3,
   Building2,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   LayoutDashboard,
   ListTree,
   Store,
@@ -37,7 +39,7 @@ function NavToggle({
       className="inline-flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-full border border-line bg-white text-ink-muted transition-colors hover:bg-[var(--bg-sunken)] hover:text-[var(--ink)]"
     >
       <span aria-hidden style={{ fontSize: 12, lineHeight: 1 }}>
-        {collapsed ? ">" : "<"}
+        {collapsed ? <ChevronRightIcon size={12} /> : <ChevronLeftIcon size={12} />}
       </span>
     </button>
   );

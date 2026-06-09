@@ -10,9 +10,43 @@ import { formatPrice } from "@/lib/utils";
 
 type SalesReport = {
   range: { from: string; to: string };
-  summary: { totalSales: string; orderCount: number; avgTicket: string };
+  summary: {
+    totalSales: string;
+    orderCount: number;
+    avgTicket: string;
+    subtotal: string;
+    vat: string;
+    serviceCharge: string;
+    discount: string;
+  };
+  billSummary: {
+    activeOpen: number;
+    activeRequested: number;
+    activePaid: number;
+    activeTotal: number;
+    activeAmount: string;
+    paidInRange: number;
+  };
   byDay: { date: string; total: string }[];
   paymentBreakdown: { method: string; total: string; count: number }[];
+  cashierBreakdown: {
+    cashierId: string | null;
+    name: string;
+    total: string;
+    count: number;
+  }[];
+  shiftBreakdown: {
+    shiftId: string | null;
+    cashierName: string;
+    status: string | null;
+    openedAt: string | null;
+    closedAt: string | null;
+    total: string;
+    count: number;
+    cash: string;
+    card: string;
+    qr: string;
+  }[];
   byCategory: { name: string; total: string; qty: number }[];
   topItems: { name: string; qty: number; total: string }[];
 };
@@ -96,9 +130,9 @@ export default function ReportsPage() {
       ) : (
         <>
           {/* Big stats */}
-          <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(3, 1fr)", marginBottom: 18 }}>
+          <div className="reports-stat-grid">
             <div
-              className="stat"
+              className="stat reports-total-stat"
               style={{
                 background: "linear-gradient(135deg, oklch(0.3 0.1 130) 0%, var(--surface) 100%)",
                 borderColor: "var(--lime)",
@@ -107,21 +141,44 @@ export default function ReportsPage() {
               <div className="eyebrow">
                 Total sales
               </div>
-              <div className="num mono" style={{ color: "var(--lime)" }}>
+              <div className="num mono reports-total-num" style={{ color: "var(--lime)" }}>
                 {formatPrice(data.summary.totalSales)}
               </div>
             </div>
             <div className="stat">
               <div className="eyebrow">
-                Transactions
+                Paid bills
               </div>
-              <div className="num mono">{data.summary.orderCount}</div>
+              <div className="num mono">{data.billSummary.paidInRange}</div>
             </div>
             <div className="stat">
               <div className="eyebrow">
                 Average ticket
               </div>
               <div className="num mono">{formatPrice(data.summary.avgTicket)}</div>
+            </div>
+            <div className="stat">
+              <div className="eyebrow">
+                Discounts
+              </div>
+              <div className="num mono">{formatPrice(data.summary.discount)}</div>
+            </div>
+            <div className="stat">
+              <div className="eyebrow">
+                VAT + service
+              </div>
+              <div className="num mono">
+                {formatPrice(
+                  parseFloat(data.summary.vat) +
+                    parseFloat(data.summary.serviceCharge),
+                )}
+              </div>
+            </div>
+            <div className="stat">
+              <div className="eyebrow">
+                Requested checks
+              </div>
+              <div className="num mono">{data.billSummary.activeRequested}</div>
             </div>
           </div>
 
@@ -162,7 +219,55 @@ export default function ReportsPage() {
             )}
           </div>
 
-          <div className="grid gap-3.5" style={{ gridTemplateColumns: "1fr 1fr" }}>
+          <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
+            {/* Bill status */}
+            <div className="card" style={{ padding: 22 }}>
+              <div className="h-2" style={{ marginBottom: 4 }}>Bill status</div>
+              <div className="eyebrow" style={{ marginBottom: 18 }}>ACTIVE TABLES NOW</div>
+              <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+                <MiniStat label="Open" value={data.billSummary.activeOpen} />
+                <MiniStat label="Requested" value={data.billSummary.activeRequested} />
+                <MiniStat label="Paid" value={data.billSummary.activePaid} />
+              </div>
+              <div className="row" style={{ justifyContent: "space-between", marginTop: 16, fontSize: 13 }}>
+                <span style={{ color: "var(--text-2)" }}>Active bill amount</span>
+                <span className="mono" style={{ fontWeight: 700 }}>
+                  {formatPrice(data.billSummary.activeAmount)}
+                </span>
+              </div>
+            </div>
+
+            {/* Cashier totals */}
+            <div className="card" style={{ padding: 22 }}>
+              <div className="h-2" style={{ marginBottom: 4 }}>Cashier totals</div>
+              <div className="eyebrow" style={{ marginBottom: 14 }}>PAYMENT OWNERSHIP</div>
+              {data.cashierBreakdown.length === 0 ? (
+                <Empty />
+              ) : (
+                data.cashierBreakdown.slice(0, 5).map((c, i) => (
+                  <div
+                    key={c.cashierId ?? c.name}
+                    className="row"
+                    style={{
+                      gap: 12,
+                      padding: "8px 0",
+                      borderTop: i === 0 ? "none" : "1px dashed var(--border)",
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{c.name}</div>
+                      <div style={{ fontSize: 10, color: "var(--text-3)" }}>
+                        {c.count} payment{c.count === 1 ? "" : "s"}
+                      </div>
+                    </div>
+                    <span className="mono" style={{ fontSize: 13, fontWeight: 700 }}>
+                      {formatPrice(c.total)}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+
             {/* Payment methods */}
             <div className="card" style={{ padding: 22 }}>
               <div className="h-2" style={{ marginBottom: 4 }}>Payment methods</div>
@@ -215,6 +320,53 @@ export default function ReportsPage() {
             </div>
           </div>
 
+          {/* Shift totals */}
+          <div className="card" style={{ padding: 22, marginTop: 18 }}>
+            <div className="h-2" style={{ marginBottom: 4 }}>Shift payments</div>
+            <div className="eyebrow" style={{ marginBottom: 14 }}>CASHIER SHIFT TOTALS</div>
+            {data.shiftBreakdown.length === 0 ? (
+              <Empty />
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <div className="col" style={{ gap: 0, minWidth: 620 }}>
+                  {data.shiftBreakdown.slice(0, 8).map((s, i) => (
+                    <div
+                      key={s.shiftId ?? "no-shift"}
+                      className="grid"
+                      style={{
+                        gridTemplateColumns: "minmax(120px, 1fr) repeat(4, minmax(74px, auto))",
+                        gap: 12,
+                        alignItems: "center",
+                        padding: "10px 0",
+                        borderTop: i === 0 ? "none" : "1px dashed var(--border)",
+                        fontSize: 13,
+                      }}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 700 }}>{s.cashierName}</div>
+                        <div style={{ fontSize: 10, color: "var(--text-3)" }}>
+                          {s.status ?? "No shift"} - {s.count} payment{s.count === 1 ? "" : "s"}
+                        </div>
+                      </div>
+                      <span className="mono" style={{ fontWeight: 700 }}>
+                        {formatPrice(s.total)}
+                      </span>
+                      <span className="mono" style={{ color: "var(--text-2)" }}>
+                        Cash {formatPrice(s.cash)}
+                      </span>
+                      <span className="mono" style={{ color: "var(--text-2)" }}>
+                        Card {formatPrice(s.card)}
+                      </span>
+                      <span className="mono" style={{ color: "var(--text-2)" }}>
+                        QR {formatPrice(s.qr)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Top items */}
           <div className="card" style={{ padding: 22, marginTop: 18 }}>
             <div className="h-2" style={{ marginBottom: 4 }}>Top items</div>
@@ -248,6 +400,26 @@ export default function ReportsPage() {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div
+      style={{
+        border: "1px solid var(--border)",
+        borderRadius: 12,
+        padding: "12px 10px",
+        background: "var(--bg-elev)",
+      }}
+    >
+      <div className="eyebrow" style={{ marginBottom: 4 }}>
+        {label}
+      </div>
+      <div className="mono" style={{ fontSize: 22, fontWeight: 800 }}>
+        {value}
+      </div>
     </div>
   );
 }
