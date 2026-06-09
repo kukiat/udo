@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useTableOrders } from "@/hooks/useTableOrders";
+import { PlusIcon } from "lucide-react";
+import { PillButton } from "../ui/PillButton";
 
 export function OrderStatusModal({
   isOpen,
@@ -31,7 +33,7 @@ export function OrderStatusModal({
 
   return (
     <>
-    <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
+    <Modal isOpen={isOpen} onOpenChange={onOpenChange} className="order-modal-theme">
       <div className="border-b border-line px-4 py-4">
         <p className="text-xs text-ink-muted">Table {tableNo}</p>
         <h2 className="text-xl font-semibold text-ink">Your Orders</h2>
@@ -57,13 +59,13 @@ export function OrderStatusModal({
         )}
 
         {orders.length > 0 && (
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="block w-full pt-2 text-center text-sm text-clay-700 hover:underline"
+          <PillButton
+            onPress={() => onOpenChange(false)}
+            className="w-full"
           >
-            + Order more
-          </button>
+            <PlusIcon className="w-4 h-4" />
+            Order more
+          </PillButton>
         )}
       </div>
     </Modal>
@@ -73,6 +75,7 @@ export function OrderStatusModal({
       cancelling={cancelling}
       onConfirm={confirmCancel}
       onDismiss={dismissCancel}
+      theme="dark"
     />
     </>
   );

@@ -17,6 +17,8 @@ import { api } from "@/lib/fetcher";
 import { toMenuItemPayload } from "@/lib/menu-form";
 import { formatPrice } from "@/lib/utils";
 import type { MenuItemStatus } from "@/types";
+import { PillButton } from "@/components/ui/PillButton";
+import { PlusIcon } from "lucide-react";
 
 type MenuItem = {
   id: string;
@@ -292,9 +294,10 @@ export default function MenuListPage() {
             MENU ITEMS · {total} รายการ
           </div>
         </div>
-        <button className="btn btn-primary" onClick={() => setCreateOpen(true)}>
-          ＋ เพิ่มเมนู · CREATE NEW
-        </button>
+        <PillButton tone="accent" onClick={() => setCreateOpen(true)}>
+          <PlusIcon className="w-4 h-4" />
+          New menu
+        </PillButton>
       </div>
 
       {error && (
@@ -399,7 +402,7 @@ export default function MenuListPage() {
         className={`sm:max-w-2xl dir-a kds-theme${isDark ? " kds-dark" : ""}`}
         header={
           <h2 className="eyebrow" style={{ fontSize: 13, color: "var(--text)" }}>
-            เพิ่มเมนูใหม่ · CREATE MENU ITEM
+            New menu item
           </h2>
         }
       >
@@ -427,7 +430,7 @@ export default function MenuListPage() {
             className="eyebrow"
             style={{ fontSize: 13, color: "var(--text)" }}
           >
-            แก้ไขเมนู · EDIT MENU ITEM
+            Edit menu item
           </h2>
         }
       >

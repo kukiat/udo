@@ -21,6 +21,7 @@ import {
 } from "@/contexts/RestaurantContext";
 import { api } from "@/lib/fetcher";
 import { PillButton } from "@/components/ui/PillButton";
+import { PencilIcon, PlusIcon } from "lucide-react";
 
 export default function BranchesPage() {
   const { restaurantId, branches, loading, refresh } = useRestaurant();
@@ -128,13 +129,14 @@ export default function BranchesPage() {
       <div className="row" style={{ justifyContent: "space-between", marginBottom: 24 }}>
         <div>
           <div className="h-display" style={{ fontSize: 44 }}>
-            สาขา
+            Branches
           </div>
           <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 4 }}>
-            BRANCHES · จัดการสาขาของร้าน
+            Manage restaurant branches
           </div>
         </div>
-        <PillButton tone="accent" variant="outline" onClick={openCreate}>
+        <PillButton tone="accent" onClick={openCreate}>
+          <PlusIcon className="w-4 h-4" />
           New branch
         </PillButton>
       </div>
@@ -157,7 +159,7 @@ export default function BranchesPage() {
           style={{ padding: 24, background: "var(--surface)" }}
         >
           <div className="eyebrow" style={{ marginBottom: 16, fontSize: 13, color: "var(--text)" }}>
-            {editingId ? "แก้ไขสาขา · EDIT BRANCH" : "เพิ่มสาขา · NEW BRANCH"}
+            {editingId ? "Edit branch" : "New branch"}
           </div>
           {error && (
             <div style={{ marginBottom: 16 }}>
@@ -171,7 +173,7 @@ export default function BranchesPage() {
           >
             {editingId && (
               <div style={{ marginTop: 12 }}>
-                <span className="label">สถานะ · STATUS</span>
+                <span className="label">Status</span>
                 <div className="row" style={{ gap: 8 }}>
                   <StatusRadio
                     label="Active"
@@ -189,23 +191,23 @@ export default function BranchesPage() {
               </div>
             )}
           </BranchFields>
-          <div className="row" style={{ gap: 8, marginTop: 24 }}>
-            <button
-              className="btn btn-ghost grow"
+          <div className="flex gap-2 w-full justify-end mt-6">
+            <PillButton
+              variant="outline"
               onClick={() => {
                 resetForm();
                 setFormOpen(false);
               }}
             >
-              ยกเลิก
-            </button>
-            <button
-              className="btn btn-primary grow"
+              Cancel
+            </PillButton>
+            <PillButton
+              tone="accent"
               onClick={submit}
-              disabled={saving || !fields.name.trim()}
+              isDisabled={saving || !fields.name.trim()}
             >
-              {saving ? "กำลังบันทึก…" : editingId ? "บันทึก · UPDATE" : "＋ เพิ่ม · ADD"}
-            </button>
+              {saving ? "Saving..." : editingId ? "Save" : "Add"}
+            </PillButton>
           </div>
         </div>
       </Modal>
@@ -317,12 +319,12 @@ function BranchesTable({
           alignItems: "center",
         }}
       >
-        <HeaderLabel label="ชื่อ · NAME" />
-        <HeaderLabel label="ที่อยู่ · ADDRESS" />
-        <HeaderLabel label="เวลา · HOURS" />
+        <HeaderLabel label="Name" />
+        <HeaderLabel label="Address" />
+        <HeaderLabel label="Hours" />
         <HeaderLabel label="KDS" align="right" />
         <HeaderLabel label="VAT" align="right" />
-        <HeaderLabel label="บริการ" align="right" />
+        <HeaderLabel label="Service" align="right" />
         <HeaderLabel label="" align="right" />
       </div>
 
@@ -374,7 +376,7 @@ function BranchesTable({
                   background: "var(--line)",
                 }}
               >
-                ปิดใช้งาน · Inactive
+                Inactive
               </span>
             )}
           </div>
@@ -442,24 +444,11 @@ function BranchesTable({
           >
             <button
               onClick={() => onEdit(b)}
-              aria-label="แก้ไข · Edit"
-              title="แก้ไข · Edit"
+              aria-label="Edit branch"
+              title="Edit"
               style={{ ...btnRowStyle, width: 28, padding: 0, justifyContent: "center" }}
             >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M12 20h9" />
-                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
-              </svg>
+              <PencilIcon className="w-4 h-4" />
             </button>
           </div>
         </div>

@@ -26,6 +26,8 @@
   --amber-soft: #F7E9C9;
   --rose: #b83a3a;
   --rose-soft: #f7d9d9;
+  --blue: #2563eb;
+  --blue-soft: #dbeafe;
 
   --radius: 10px;
   --radius-sm: 6px;
@@ -270,6 +272,33 @@ body {
   --kds-item-border-alert: #3d2218;
   --kds-item-border-critical: #3d1818;
   --kds-item-border-ready: #1d3528;
+
+  /* Legacy dashboard aliases used by older report/menu helpers. */
+  --surface: var(--bg-elev);
+  --surface-2: var(--bg);
+  --border: var(--line);
+  --border-strong: var(--line-strong);
+  --text: var(--ink);
+  --text-2: var(--ink-2);
+  --text-3: var(--ink-3);
+  --coral: var(--accent);
+  --coral-soft: var(--accent-soft);
+  --lime: var(--olive);
+  --lime-soft: var(--olive-soft);
+  --butter: var(--amber);
+  --butter-soft: var(--amber-soft);
+  --berry: var(--rose);
+  --sky: var(--ink-3);
+  --status-new: var(--amber);
+  --status-prep: var(--accent);
+  --status-ready: var(--olive);
+  --status-urgent: var(--rose);
+}
+
+.kds-theme.kds-dark::selection,
+.kds-theme.kds-dark ::selection {
+  background: rgba(255, 106, 61, 0.34);
+  color: var(--ink);
 }
 
 /* ------------------------------------------------------------
@@ -374,6 +403,120 @@ body {
 }
 .kds-theme.kds-dark ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.26);
+}
+
+/* ============================================================
+   Customer order dark theme.
+   Scoped to the public order flow so dashboard, POS, and KDS keep
+   their existing theme behavior.
+   ============================================================ */
+.order-theme,
+.order-modal-theme {
+  --bg: #0f1012;
+  --bg-elev: #191a1d;
+  --bg-sunken: #0a0b0d;
+  --line: #272a31;
+  --line-strong: #3a3e49;
+  --ink: #f7f3ea;
+  --ink-2: #d5cfc1;
+  --ink-3: #9e9586;
+  --ink-4: #6f675b;
+  --accent: #ff7a45;
+  --accent-ink: #11100e;
+  --accent-soft: #2d1c14;
+  --olive: #66d18f;
+  --olive-soft: #12271b;
+  --amber: #f6b83f;
+  --amber-soft: #2d2311;
+  --rose: #ff6b6b;
+  --rose-soft: #2f1718;
+  --blue: #7db7ff;
+  --blue-soft: #10243d;
+  --shadow-1: 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 12px 34px -24px rgba(0, 0, 0, 0.8);
+  --shadow-2: 0 22px 55px -32px rgba(0, 0, 0, 0.9),
+    0 1px 0 rgba(255, 255, 255, 0.05) inset;
+  --shadow-pop: 0 28px 70px -28px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+
+  color: var(--ink);
+}
+
+.order-theme {
+  min-height: 100vh;
+  background:
+    radial-gradient(900px 520px at 8% -10%, rgba(255, 122, 69, 0.18), transparent 60%),
+    radial-gradient(780px 420px at 92% 4%, rgba(102, 209, 143, 0.10), transparent 55%),
+    linear-gradient(180deg, #111217 0%, var(--bg) 42%, #08090b 100%);
+}
+
+:where(.order-theme, .order-modal-theme) .bg-white { background-color: rgba(25, 26, 29, 0.92); }
+:where(.order-theme, .order-modal-theme) .bg-cream { background-color: transparent; }
+:where(.order-theme, .order-modal-theme) .bg-sand { background-color: var(--bg-sunken); }
+:where(.order-theme, .order-modal-theme) .bg-ink { background-color: var(--accent); }
+:where(.order-theme, .order-modal-theme) .bg-clay-50,
+:where(.order-theme, .order-modal-theme) .bg-clay-100,
+:where(.order-theme, .order-modal-theme) .bg-clay-300 { background-color: var(--accent-soft); }
+:where(.order-theme, .order-modal-theme) .bg-clay-500,
+:where(.order-theme, .order-modal-theme) .bg-clay-600 { background-color: var(--accent); }
+:where(.order-theme, .order-modal-theme) .bg-olive-soft { background-color: var(--olive-soft); }
+:where(.order-theme, .order-modal-theme) .bg-rose-soft { background-color: var(--rose-soft); }
+:where(.order-theme, .order-modal-theme) .bg-amber-soft { background-color: var(--amber-soft); }
+:where(.order-theme, .order-modal-theme) .bg-green-100 { background-color: var(--olive-soft); }
+:where(.order-theme, .order-modal-theme) .bg-red-100,
+:where(.order-theme, .order-modal-theme) .bg-red-50 { background-color: var(--rose-soft); }
+
+:where(.order-theme, .order-modal-theme) .text-ink { color: var(--ink); }
+:where(.order-theme, .order-modal-theme) .text-ink-soft { color: var(--ink-2); }
+:where(.order-theme, .order-modal-theme) .text-ink-muted { color: var(--ink-3); }
+:where(.order-theme, .order-modal-theme) .text-ink-dim { color: var(--ink-4); }
+:where(.order-theme, .order-modal-theme) .text-clay-500,
+:where(.order-theme, .order-modal-theme) .text-clay-600,
+:where(.order-theme, .order-modal-theme) .text-clay-700 { color: var(--accent); }
+:where(.order-theme, .order-modal-theme) .text-olive,
+:where(.order-theme, .order-modal-theme) .text-green-600 { color: var(--olive); }
+:where(.order-theme, .order-modal-theme) .text-rose,
+:where(.order-theme, .order-modal-theme) .text-red-600,
+:where(.order-theme, .order-modal-theme) .text-red-700 { color: var(--rose); }
+:where(.order-theme, .order-modal-theme) .text-amber,
+:where(.order-theme, .order-modal-theme) .text-amber-700 { color: var(--amber); }
+
+:where(.order-theme, .order-modal-theme) .border-line { border-color: var(--line); }
+:where(.order-theme, .order-modal-theme) .border-line-strong { border-color: var(--line-strong); }
+:where(.order-theme, .order-modal-theme) .border-ink { border-color: var(--accent); }
+:where(.order-theme, .order-modal-theme) .border-clay-500 { border-color: var(--accent); }
+:where(.order-theme, .order-modal-theme) .border-red-200 { border-color: var(--rose); }
+
+:where(.order-theme, .order-modal-theme) .shadow-card { box-shadow: var(--shadow-1); }
+:where(.order-theme, .order-modal-theme) .shadow-elev { box-shadow: var(--shadow-2); }
+:where(.order-theme, .order-modal-theme) .shadow-pop { box-shadow: var(--shadow-pop); }
+
+:where(.order-theme, .order-modal-theme) input[type="text"],
+:where(.order-theme, .order-modal-theme) input[type="search"],
+:where(.order-theme, .order-modal-theme) input[type="email"],
+:where(.order-theme, .order-modal-theme) input[type="password"],
+:where(.order-theme, .order-modal-theme) input[type="number"],
+:where(.order-theme, .order-modal-theme) input[type="url"],
+:where(.order-theme, .order-modal-theme) input[type="tel"],
+:where(.order-theme, .order-modal-theme) input:not([type]),
+:where(.order-theme, .order-modal-theme) textarea {
+  background: var(--bg-sunken);
+  color: var(--ink);
+}
+:where(.order-theme, .order-modal-theme) input::placeholder,
+:where(.order-theme, .order-modal-theme) textarea::placeholder {
+  color: var(--ink-4);
+}
+:where(.order-theme, .order-modal-theme) .hover\:bg-sand:hover,
+:where(.order-theme, .order-modal-theme) .hover\:bg-sand\/50:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+:where(.order-theme, .order-modal-theme) .hover\:bg-white\/60:hover {
+  background-color: rgba(255, 255, 255, 0.07);
+}
+:where(.order-theme, .order-modal-theme) ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: var(--bg);
 }
 
 /* ============================================================
@@ -590,7 +733,7 @@ input[type="number"] {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 2px 12px;
   border-radius: var(--radius-pill);
   font-size: 12px;
   font-weight: 600;

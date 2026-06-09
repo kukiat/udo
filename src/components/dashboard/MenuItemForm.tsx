@@ -1,5 +1,6 @@
 "use client";
 
+import { Trash2 } from "lucide-react";
 import {
   Controller,
   useForm,
@@ -10,6 +11,7 @@ import {
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import { Select } from "@/components/ui/Select";
 import { TextInput } from "@/components/ui/TextInput";
+import { PillButton } from "../ui/PillButton";
 
 export type MenuItemFormValues = {
   name: string;
@@ -29,6 +31,16 @@ export type MenuItemFormValues = {
 };
 
 type Option = { id: string; name: string };
+type MenuItemFormProps ={
+  defaultValues: MenuItemFormValues;
+  categories: Option[];
+  stations: Option[];
+  submitting: boolean;
+  onSubmit: (values: MenuItemFormValues) => void;
+  formId?: string;
+  hideSubmit?: boolean;
+  stickyFooter?: boolean;
+}
 
 export function MenuItemForm({
   defaultValues,
@@ -36,15 +48,10 @@ export function MenuItemForm({
   stations,
   submitting,
   onSubmit,
+  formId,
+  hideSubmit = false,
   stickyFooter = false,
-}: {
-  defaultValues: MenuItemFormValues;
-  categories: Option[];
-  stations: Option[];
-  submitting: boolean;
-  onSubmit: (values: MenuItemFormValues) => void;
-  stickyFooter?: boolean;
-}) {
+}: MenuItemFormProps) {
   const {
     control,
     handleSubmit,
@@ -61,13 +68,18 @@ export function MenuItemForm({
   });
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="col" style={{ gap: 16 }}>
+    <form
+      id={formId}
+      onSubmit={handleSubmit(onSubmit)}
+      className="col"
+      style={{ gap: 16 }}
+    >
       {/* Basic fields */}
       <section className="card" style={{ padding: 20 }}>
         <div className="eyebrow" style={{ marginBottom: 14 }}>
-          ① ข้อมูลเมนู · BASICS
+          Basics
         </div>
-        <Field label="ชื่อ · NAME" error={errors.name?.message}>
+        <Field label="Name" error={errors.name?.message}>
           <Controller
             control={control}
             name="name"
@@ -79,8 +91,8 @@ export function MenuItemForm({
                 icon={null}
                 type="text"
                 width="100%"
-                placeholder='เช่น "ผัดไทย"'
-                ariaLabel="ชื่อเมนู"
+                placeholder='e.g. "Pad Thai"'
+                ariaLabel="Menu item name"
                 invalid={!!errors.name}
               />
             )}
@@ -88,7 +100,7 @@ export function MenuItemForm({
         </Field>
 
         <div style={{ marginTop: 12 }}>
-          <Field label="คำอธิบาย · DESCRIPTION">
+          <Field label="Description">
             <Controller
               control={control}
               name="description"
@@ -100,8 +112,8 @@ export function MenuItemForm({
                   width="100%"
                   rows={3}
                   inputStyle={{ minHeight: 72 }}
-                  placeholder="คำอธิบายสั้นๆ"
-                  ariaLabel="คำอธิบาย"
+                  placeholder="Short description"
+                  ariaLabel="Description"
                 />
               )}
             />
@@ -110,11 +122,11 @@ export function MenuItemForm({
 
         <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr", marginTop: 12 }}>
           <ImageUpload
-            label="รูปภาพ · IMAGE"
+            label="Image"
             value={watch("image") || null}
             onChange={(url) => setValue("image", url ?? "")}
           />
-          <Field label="ราคา · PRICE" error={errors.price?.message}>
+          <Field label="Price" error={errors.price?.message}>
             <Controller
               control={control}
               name="price"
@@ -135,7 +147,7 @@ export function MenuItemForm({
                   inputMode="decimal"
                   width="100%"
                   placeholder="0.00"
-                  ariaLabel="ราคา"
+                  ariaLabel="Price"
                   invalid={!!errors.price}
                 />
               )}
@@ -152,8 +164,8 @@ export function MenuItemForm({
               <div>
                 <Select
                   dark
-                  label="หมวด · CATEGORY"
-                  placeholder="เลือก…"
+                  label="Category"
+                  placeholder="Select..."
                   options={categories.map((c) => ({ id: c.id, label: c.name }))}
                   selectedKey={field.value || null}
                   onSelectionChange={(k) => field.onChange(k ?? "")}
@@ -172,7 +184,7 @@ export function MenuItemForm({
             render={({ field }) => (
               <Select
                 dark
-                label="สถานี · KDS"
+                label="KDS station"
                 placeholder="None"
                 options={[
                   { id: "", label: "None" },
@@ -189,11 +201,11 @@ export function MenuItemForm({
             render={({ field }) => (
               <Select
                 dark
-                label="สถานะ · STATUS"
+                label="Status"
                 options={[
-                  { id: "available", label: "พร้อม · Available" },
-                  { id: "sold_out", label: "หมด · Sold out" },
-                  { id: "hidden", label: "ซ่อน · Hidden" },
+                  { id: "available", label: "Available" },
+                  { id: "sold_out", label: "Sold out" },
+                  { id: "hidden", label: "Hidden" },
                 ]}
                 selectedKey={field.value}
                 onSelectionChange={(k) => k && field.onChange(k)}
@@ -206,7 +218,7 @@ export function MenuItemForm({
       {/* Option groups */}
       <section className="card" style={{ padding: 20 }}>
         <div className="row" style={{ justifyContent: "space-between", marginBottom: 14 }}>
-          <div className="eyebrow">② ตัวเลือกเพิ่มเติม · OPTION GROUPS</div>
+          <div className="eyebrow">Option groups</div>
           <button
             type="button"
             className="btn btn-ghost"
@@ -221,7 +233,7 @@ export function MenuItemForm({
               })
             }
           >
-            ＋ เพิ่มกลุ่ม
+            Add group
           </button>
         </div>
 
@@ -236,10 +248,10 @@ export function MenuItemForm({
               fontSize: 13,
             }}
           >
-            ยังไม่มีกลุ่มตัวเลือก
+            No option groups
             <br />
             <span style={{ opacity: 0.7 }}>
-              No option groups · เพิ่มเพื่อให้ลูกค้าเลือก เช่น ขนาด ความเผ็ด
+              Add options for choices such as size or spice level.
             </span>
           </div>
         )}
@@ -260,8 +272,8 @@ export function MenuItemForm({
                         icon={null}
                         type="text"
                         width="100%"
-                        placeholder="ชื่อกลุ่ม (เช่น ขนาด)"
-                        ariaLabel="ชื่อกลุ่มตัวเลือก"
+                        placeholder="Group name (e.g. Size)"
+                        ariaLabel="Option group name"
                       />
                     )}
                   />
@@ -270,9 +282,20 @@ export function MenuItemForm({
                   type="button"
                   onClick={() => remove(index)}
                   className="pill pill-danger"
-                  style={{ cursor: "pointer", flexShrink: 0 }}
+                  style={{
+                    width: 34,
+                    height: 34,
+                    padding: 0,
+                    cursor: "pointer",
+                    flexShrink: 0,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  aria-label="Delete option group"
+                  title="Delete"
                 >
-                  ลบ
+                  <Trash2 className="w-4 h-4" />
                 </button>
               </div>
 
@@ -285,7 +308,7 @@ export function MenuItemForm({
                       setValue(`optionGroups.${index}.required`, e.target.checked)
                     }
                   />
-                  จำเป็น · Required
+                  Required
                 </label>
                 <div className="col" style={{ gap: 4, alignItems: "flex-start" }}>
                   <label className="row" style={{ gap: 6, fontSize: 13, color: "var(--text-2)" }}>
@@ -294,7 +317,7 @@ export function MenuItemForm({
                       control={control}
                       name={`optionGroups.${index}.minSelect`}
                       rules={{
-                        min: { value: 0, message: "Min must be ≥ 0" },
+                        min: { value: 0, message: "Min must be >= 0" },
                         validate: (value) =>
                           Number(value) <= Number(getValues(`optionGroups.${index}.maxSelect`)) ||
                           "Min must not be greater than Max",
@@ -330,7 +353,7 @@ export function MenuItemForm({
                       control={control}
                       name={`optionGroups.${index}.maxSelect`}
                       rules={{
-                        min: { value: 0, message: "Max must be ≥ 0" },
+                        min: { value: 0, message: "Max must be >= 0" },
                         validate: (value) =>
                           Number(value) >= Number(getValues(`optionGroups.${index}.minSelect`)) ||
                           "Max must not be less than Min",
@@ -367,27 +390,29 @@ export function MenuItemForm({
         </div>
       </section>
 
-      <div
-        className="row"
-        style={{
-          justifyContent: "flex-end",
-          gap: 12,
-          ...(stickyFooter
-            ? {
-                position: "sticky",
-                bottom: 0,
-                margin: "0 -20px -20px",
-                padding: "16px 20px",
-                borderTop: "1px solid var(--border)",
-                background: "var(--surface)",
-              }
-            : {}),
-        }}
-      >
-        <button type="submit" className="btn btn-primary" disabled={submitting}>
-          {submitting ? "กำลังบันทึก…" : "บันทึก · SAVE"}
-        </button>
-      </div>
+      {!hideSubmit && (
+        <div
+          className="row"
+          style={{
+            justifyContent: "flex-end",
+            gap: 12,
+            ...(stickyFooter
+              ? {
+                  position: "sticky",
+                  bottom: 0,
+                  margin: "0 -20px -20px",
+                  padding: "16px 20px",
+                  borderTop: "1px solid var(--border)",
+                  background: "var(--surface)",
+                }
+              : {}),
+          }}
+        >
+          <PillButton tone="accent" isDisabled={submitting} onClick={handleSubmit(onSubmit)}>
+            {submitting ? "Saving..." : "Save"}
+          </PillButton>
+        </div>
+      )}
     </form>
   );
 }
@@ -425,8 +450,8 @@ function OptionItemsField({
                     icon={null}
                     type="text"
                     width="100%"
-                    placeholder="ชื่อตัวเลือก (เช่น ใหญ่)"
-                    ariaLabel="ชื่อตัวเลือก"
+                    placeholder="Option name (e.g. Large)"
+                    ariaLabel="Option name"
                     invalid={!!fieldState.error}
                   />
                   {fieldState.error && (
@@ -451,8 +476,8 @@ function OptionItemsField({
                 type="text"
                 inputMode="decimal"
                 width={110}
-                placeholder="+ ราคา"
-                ariaLabel="ราคาตัวเลือก"
+                placeholder="+ Price"
+                ariaLabel="Option price"
               />
             )}
           />
@@ -480,7 +505,7 @@ function OptionItemsField({
           padding: 0,
         }}
       >
-        ＋ เพิ่มตัวเลือก
+        Add option
       </button>
     </div>
   );

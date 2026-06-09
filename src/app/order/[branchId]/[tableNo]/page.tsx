@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { MenuCard } from "@/components/menu/MenuCard";
 import { MenuItemDetail } from "@/components/menu/MenuItemDetail";
 import { OrderStatusModal } from "@/components/order/OrderStatusModal";
+import { PillButton } from "@/components/ui/PillButton";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
+import { TextInput } from "@/components/ui/TextInput";
 import { useCart } from "@/contexts/CartContext";
 import { api } from "@/lib/fetcher";
 import { useOrderLink } from "@/lib/order-link";
@@ -26,6 +28,7 @@ export default function MenuPage() {
   }>();
   const cart = useCart();
   const orderLink = useOrderLink();
+  const router = useRouter();
 
   const [categories, setCategories] = useState<CategoryWithItemsDTO[]>([]);
   const [brand, setBrand] = useState<{ name: string; branch: string } | null>(
@@ -157,16 +160,21 @@ export default function MenuPage() {
   const catList = [{ id: "all", name: "All" }, ...categories];
 
   return (
-    <div className="lg:-mb-28 lg:grid lg:min-h-screen lg:grid-cols-[220px_1fr]">
+    <div className="lg:-mb-28 lg:grid lg:min-h-screen lg:grid-cols-[248px_1fr]">
       {/* Left category rail — tablet / web only */}
-      <aside className="sticky top-0 hidden h-screen flex-col gap-1 border-r border-line bg-cream p-5 lg:flex">
+      <aside className="sticky top-0 hidden h-screen flex-col gap-1 border-r border-line bg-[rgba(10,11,13,0.72)] p-5 shadow-[inset_-1px_0_0_rgba(255,255,255,0.03)] backdrop-blur-xl lg:flex">
         {/* Marrow brand mark + role */}
-        <div className="mb-5 flex items-center gap-2.5">
-          <span className="relative inline-block h-5 w-5 rounded-full bg-ink">
-            <span className="absolute inset-[20%] rounded-full bg-clay-500" />
+        <div className="mb-6 flex items-center gap-3 rounded-card border border-line bg-white p-3 shadow-card">
+          <span className="relative inline-block h-9 w-9 rounded-full bg-[var(--ink)] shadow-[0_0_0_1px_rgba(255,255,255,0.08)_inset]">
+            <span className="absolute inset-[23%] rounded-full bg-clay-500" />
           </span>
-          <span className="text-[15px] font-semibold tracking-tight text-ink">
-            {brand?.name ?? "Menu"}
+          <span className="min-w-0">
+            <span className="block truncate text-[15px] font-semibold tracking-tight text-ink">
+              {brand?.name ?? "Menu"}
+            </span>
+            <span className="block truncate text-[11px] text-ink-muted">
+              {brand?.branch ?? "Self order"}
+            </span>
           </span>
         </div>
         <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
@@ -185,10 +193,10 @@ export default function MenuPage() {
                     key={c.id}
                     type="button"
                     onClick={() => pickCategory(c.id)}
-                    className={`flex items-center justify-between rounded-sm px-2.5 py-2 text-left text-[13px] transition-colors ${
+                    className={`flex items-center justify-between rounded-card px-3 py-2.5 text-left text-[13px] transition-colors ${
                       on
                         ? "bg-white font-semibold text-ink shadow-card"
-                        : "font-medium text-ink-soft hover:bg-white/60"
+                        : "font-medium text-ink-soft hover:bg-zinc-600/30 hover:text-white"
                     }`}
                   >
                     <span>{c.name}</span>
@@ -202,48 +210,56 @@ export default function MenuPage() {
           </>
         )}
         <div className="mt-auto flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={() => setStatusOpen(true)}
-            className="flex items-center justify-center gap-1.5 rounded-sm border border-line-strong bg-white px-3 py-2 text-[12.5px] font-medium text-ink hover:bg-sand"
+          <PillButton
+            size="lg"
+            className="w-full"
+            onPress={() => setStatusOpen(true)}
           >
             <StatusIcon />
             Order Status
-          </button>
-          <Link
-            href={orderLink(`/order/${branchId}/${tableNo}/bill`)}
-            className="flex items-center justify-center gap-1.5 rounded-sm border border-line-strong bg-white px-3 py-2 text-[12.5px] font-medium text-ink hover:bg-sand"
+          </PillButton>
+          <PillButton
+            size="lg"
+            className="w-full"
+            onPress={() =>
+              router.push(orderLink(`/order/${branchId}/${tableNo}/bill`))
+            }
           >
             <BillIcon />
             Bill
-          </Link>
+          </PillButton>
         </div>
       </aside>
 
       {/* Main column */}
       <div className="min-w-0">
-        <header className="sticky top-0 z-10 border-b border-line bg-white px-4 pb-3 pt-4">
+        <header className="sticky top-0 z-10 border-b border-line bg-[rgba(15,16,18,0.82)] px-4 pb-3 pt-4 shadow-[0_14px_40px_-28px_rgba(0,0,0,0.9)] backdrop-blur-xl">
           <div className="flex items-start justify-between gap-3 lg:hidden">
-            <div className="min-w-0">
-              <h1 className="truncate text-[24px] font-semibold leading-tight text-ink">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="relative inline-block h-9 w-9 flex-shrink-0 rounded-full bg-[var(--ink)] shadow-[0_0_0_1px_rgba(255,255,255,0.08)_inset]">
+                <span className="absolute inset-[23%] rounded-full bg-clay-500" />
+              </span>
+              <div className="min-w-0">
+                <h1 className="truncate text-[24px] font-semibold leading-tight text-ink">
                 {brand?.name ?? "Menu"}
-              </h1>
-              <p className="mt-1 text-[10px] tracking-wide text-ink-muted">
+                </h1>
+                <p className="mt-1 text-[10px] tracking-wide text-ink-muted">
                 {brand?.branch ? `${brand.branch} · ` : ""}Table {tableNo}
-              </p>
+                </p>
+              </div>
             </div>
             <div className="flex flex-shrink-0 gap-2">
               <button
                 type="button"
                 onClick={() => setStatusOpen(true)}
-                className="flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-[11.5px] font-semibold text-ink-soft hover:bg-sand"
+                className="flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-[11.5px] font-semibold text-ink-soft shadow-card transition-colors hover:bg-sand"
               >
                 <StatusIcon />
                 Order Status
               </button>
               <Link
                 href={orderLink(`/order/${branchId}/${tableNo}/bill`)}
-                className="flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-[11.5px] font-semibold text-ink-soft hover:bg-sand"
+                className="flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-[11.5px] font-semibold text-ink-soft shadow-card transition-colors hover:bg-sand"
               >
                 <BillIcon />
                 Bill
@@ -251,35 +267,30 @@ export default function MenuPage() {
             </div>
           </div>
 
-          <label className="mt-3 flex items-center gap-2 rounded-full border border-line bg-white px-3 py-2.5 text-ink-muted lg:mt-0">
-            <svg
-              viewBox="0 0 16 16"
-              width="14"
-              height="14"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-            >
-              <circle cx="7" cy="7" r="4.5" />
-              <path d="m11 11 3 3" strokeLinecap="round" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search the menu"
+          <div className="relative mt-3 lg:mt-0 lg:max-w-xl">
+            <TextInput
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none"
+              onChange={setSearch}
+              placeholder="Search the menu"
+              ariaLabel="Search the menu"
+              width="100%"
+              height={42}
+              inputStyle={{
+                borderRadius: 999,
+                paddingRight: search ? 40 : 12,
+              }}
             />
             {search && (
               <button
                 type="button"
                 onClick={() => setSearch("")}
-                className="text-base text-ink-muted hover:text-ink"
+                aria-label="Clear search"
+                className="absolute right-3 top-1/2 grid h-5 w-5 -translate-y-1/2 place-items-center rounded-full text-base text-ink-muted hover:bg-white/10 hover:text-ink"
               >
                 ×
               </button>
             )}
-          </label>
+          </div>
 
           {!q && categories.length > 0 && (
             <div className="-mb-1 mt-3 flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] lg:hidden [&::-webkit-scrollbar]:hidden">
@@ -292,7 +303,7 @@ export default function MenuPage() {
                     onClick={() => pickCategory(c.id)}
                     className={`flex-shrink-0 whitespace-nowrap rounded-full border px-3 py-2 text-[12px] font-semibold ${
                       on
-                        ? "border-ink bg-ink text-white"
+                        ? "border-clay-500 bg-clay-500 text-white shadow-card"
                         : "border-line bg-white text-ink-muted"
                     }`}
                   >
@@ -307,17 +318,22 @@ export default function MenuPage() {
         <main className="px-4 pb-4 pt-4 lg:px-10 lg:pb-28">
           {/* Marrow hero — tablet+ only */}
           {!q && sections.length > 0 && (
-            <div className="hidden pt-6 lg:block">
-              <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-ink-muted">
-                Today's menu · Table {tableNo}
+            <div className="hidden pt-8 lg:block">
+              <div className="relative overflow-hidden rounded-card border border-line bg-white px-7 py-6 shadow-card">
+                <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_70%_45%,rgba(255,122,69,0.22),transparent_42%)]" />
+                <div className="relative max-w-xl">
+                  <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-ink-muted">
+                    Today's menu · Table {tableNo}
+                  </div>
+                  <h1 className="mt-2 text-[40px] font-semibold leading-[1.05] text-ink">
+                    What sounds good?
+                  </h1>
+                  <p className="mt-2 text-sm leading-relaxed text-ink-muted">
+                    Tap a dish to customize options and add it to your order.
+                    Your kitchen will see it the moment you send.
+                  </p>
+                </div>
               </div>
-              <h1 className="mt-2 text-[40px] font-semibold leading-[1.05] tracking-[-0.03em] text-ink">
-                What sounds good?
-              </h1>
-              <p className="mt-2 max-w-md text-sm leading-relaxed text-ink-muted">
-                Tap a dish to customize options and add it to your order. Your
-                kitchen will see it the moment you send.
-              </p>
             </div>
           )}
 
@@ -348,11 +364,11 @@ export default function MenuPage() {
                   <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-ink lg:text-[24px]">
                     {c.name}
                   </h2>
-                  <span className="mono text-[10px] uppercase tracking-[0.04em] text-ink-dim">
+                  <span className="mono rounded-full border border-line bg-white px-2 py-1 text-[10px] uppercase tracking-[0.04em] text-ink-dim">
                     {c.items.length} items
                   </span>
                 </div>
-                <div className="grid grid-cols-1 gap-2 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] lg:gap-4">
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-[repeat(auto-fill,minmax(220px,1fr))] lg:gap-4">
                   {c.items.map((item) => (
                     <MenuCard key={item.id} item={item} onSelect={setSelected} />
                   ))}
@@ -377,7 +393,7 @@ export default function MenuPage() {
           type="button"
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           aria-label="Back to top"
-          className={`fixed right-4 z-30 grid h-11 w-11 place-items-center rounded-full border border-line bg-white text-ink shadow-[0_4px_16px_rgba(0,0,0,0.15)] hover:bg-sand ${
+          className={`fixed right-4 z-30 grid h-11 w-11 place-items-center rounded-full border border-line bg-white text-ink shadow-pop hover:bg-sand ${
             cart.itemCount > 0 ? "bottom-24" : "bottom-5"
           }`}
         >
@@ -397,12 +413,12 @@ export default function MenuPage() {
       )}
 
       {cart.itemCount > 0 && (
-        <div className="fixed inset-x-0 bottom-5 z-20 flex justify-center px-4 lg:left-[220px] lg:right-0">
+        <div className="fixed inset-x-0 bottom-5 z-20 flex justify-center px-4 lg:left-[248px] lg:right-0">
           <Link
             href={orderLink(`/order/${branchId}/${tableNo}/cart`)}
-            className="inline-flex animate-slide-up items-center gap-3.5 rounded-full bg-ink px-4 py-3 pl-3 text-white shadow-pop transition-colors hover:bg-ink-soft"
+            className="inline-flex animate-slide-up items-center gap-3.5 rounded-full border border-clay-500 bg-clay-500 px-4 py-3 pl-3 text-white shadow-pop transition-colors hover:bg-clay-600"
           >
-            <span className="grid h-7 min-w-7 place-items-center rounded-full bg-clay-500 px-2 text-xs font-semibold text-white">
+            <span className="grid h-7 min-w-7 place-items-center rounded-full bg-black/20 px-2 text-xs font-semibold text-white">
               {cart.itemCount}
             </span>
             <span className="text-sm font-medium">View order</span>

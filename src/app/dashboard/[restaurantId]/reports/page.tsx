@@ -21,10 +21,10 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
 const daysAgoISO = (n: number) =>
   new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
 
-const METHOD: Record<string, { th: string; en: string; color: string }> = {
-  qr: { th: "พร้อมเพย์ / QR", en: "PromptPay", color: "lime" },
-  cash: { th: "เงินสด", en: "Cash", color: "butter" },
-  card: { th: "บัตร", en: "Card", color: "coral" },
+const METHOD: Record<string, { label: string; color: string }> = {
+  qr: { label: "PromptPay", color: "lime" },
+  cash: { label: "Cash", color: "butter" },
+  card: { label: "Card", color: "coral" },
 };
 
 const CAT_HUES = [32, 18, 50, 95, 65, 110, 200, 300];
@@ -68,14 +68,14 @@ export default function ReportsPage() {
       <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
           <div className="h-display" style={{ fontSize: 44 }}>
-            รายงานยอดขาย
+            Sales Reports
           </div>
           <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 4 }}>
-            SALES REPORTS · {branchName ?? "—"}
+            SALES REPORTS - {branchName ?? "-"}
           </div>
         </div>
         <DateRangePicker
-          label="ช่วงเวลา · DATE RANGE"
+          label="Date range"
           value={{ from, to }}
           max={todayISO()}
           onChange={(r) => {
@@ -105,7 +105,7 @@ export default function ReportsPage() {
               }}
             >
               <div className="eyebrow">
-                ยอดขายรวม <span style={{ opacity: 0.6 }}>· TOTAL SALES</span>
+                Total sales
               </div>
               <div className="num mono" style={{ color: "var(--lime)" }}>
                 {formatPrice(data.summary.totalSales)}
@@ -113,13 +113,13 @@ export default function ReportsPage() {
             </div>
             <div className="stat">
               <div className="eyebrow">
-                รายการขาย <span style={{ opacity: 0.6 }}>· TRANSACTIONS</span>
+                Transactions
               </div>
               <div className="num mono">{data.summary.orderCount}</div>
             </div>
             <div className="stat">
               <div className="eyebrow">
-                เฉลี่ย/บิล <span style={{ opacity: 0.6 }}>· AVG TICKET</span>
+                Average ticket
               </div>
               <div className="num mono">{formatPrice(data.summary.avgTicket)}</div>
             </div>
@@ -128,8 +128,8 @@ export default function ReportsPage() {
           {/* Sales by day */}
           <div className="card" style={{ padding: 22, marginBottom: 18 }}>
             <div style={{ marginBottom: 16 }}>
-              <div className="h-2">ยอดขายรายวัน</div>
-              <div className="eyebrow">SALES BY DAY</div>
+              <div className="h-2">Sales by day</div>
+              <div className="eyebrow">DAILY TOTALS</div>
             </div>
             {data.byDay.length === 0 ? (
               <Empty />
@@ -165,19 +165,19 @@ export default function ReportsPage() {
           <div className="grid gap-3.5" style={{ gridTemplateColumns: "1fr 1fr" }}>
             {/* Payment methods */}
             <div className="card" style={{ padding: 22 }}>
-              <div className="h-2" style={{ marginBottom: 4 }}>วิธีชำระ</div>
-              <div className="eyebrow" style={{ marginBottom: 18 }}>PAYMENT METHODS</div>
+              <div className="h-2" style={{ marginBottom: 4 }}>Payment methods</div>
+              <div className="eyebrow" style={{ marginBottom: 18 }}>PAYMENT BREAKDOWN</div>
               {data.paymentBreakdown.length === 0 ? (
                 <Empty />
               ) : (
                 data.paymentBreakdown.map((p) => {
-                  const m = METHOD[p.method] ?? { th: p.method, en: p.method, color: "sky" };
+                  const m = METHOD[p.method] ?? { label: p.method, color: "sky" };
                   const pct = payTotal ? Math.round((parseFloat(p.total) / payTotal) * 100) : 0;
                   return (
                     <div key={p.method} style={{ marginBottom: 14 }}>
                       <div className="row" style={{ justifyContent: "space-between", marginBottom: 6 }}>
                         <span style={{ fontSize: 13 }}>
-                          {m.th} <span style={{ color: "var(--text-3)", fontSize: 11 }}>· {m.en}</span>
+                          {m.label}
                         </span>
                         <span className="mono" style={{ fontSize: 13, fontWeight: 700 }}>{pct}%</span>
                       </div>
@@ -192,8 +192,8 @@ export default function ReportsPage() {
 
             {/* Sales by category */}
             <div className="card" style={{ padding: 22 }}>
-              <div className="h-2" style={{ marginBottom: 4 }}>ยอดขายตามหมวด</div>
-              <div className="eyebrow" style={{ marginBottom: 18 }}>SALES BY CATEGORY</div>
+              <div className="h-2" style={{ marginBottom: 4 }}>Sales by category</div>
+              <div className="eyebrow" style={{ marginBottom: 18 }}>CATEGORY BREAKDOWN</div>
               {data.byCategory.length === 0 ? (
                 <Empty />
               ) : (
@@ -217,8 +217,8 @@ export default function ReportsPage() {
 
           {/* Top items */}
           <div className="card" style={{ padding: 22, marginTop: 18 }}>
-            <div className="h-2" style={{ marginBottom: 4 }}>เมนูขายดี</div>
-            <div className="eyebrow" style={{ marginBottom: 14 }}>TOP ITEMS</div>
+            <div className="h-2" style={{ marginBottom: 4 }}>Top items</div>
+            <div className="eyebrow" style={{ marginBottom: 14 }}>BEST SELLERS</div>
             {data.topItems.length === 0 ? (
               <Empty />
             ) : (
@@ -237,7 +237,7 @@ export default function ReportsPage() {
                   </span>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13, fontWeight: 600 }}>{it.name}</div>
-                    <div style={{ fontSize: 10, color: "var(--text-3)" }}>{it.qty} จาน · sold</div>
+                    <div style={{ fontSize: 10, color: "var(--text-3)" }}>{it.qty} sold</div>
                   </div>
                   <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: "var(--lime)" }}>
                     {formatPrice(it.total)}
@@ -255,7 +255,7 @@ export default function ReportsPage() {
 function Empty() {
   return (
     <p style={{ fontSize: 13, color: "var(--text-3)" }}>
-      ไม่มีข้อมูลในช่วงนี้ · No data in this range.
+      No data in this range.
     </p>
   );
 }

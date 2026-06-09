@@ -40,6 +40,7 @@ export type BillLineItem = {
   name: string;
   quantity: number;
   unitPrice: string;
+  note: string | null;
   options: { name: string; price: string }[];
 };
 

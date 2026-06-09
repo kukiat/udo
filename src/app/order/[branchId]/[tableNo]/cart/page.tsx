@@ -106,19 +106,24 @@ export default function CartPage() {
       <header className="px-4 pb-4 pt-5 lg:px-8 lg:pt-8">
         <Link
           href={orderLink(`/order/${branchId}/${tableNo}`)}
-          className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-ink transition-colors hover:text-ink-muted"
+          className="inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-[13px] font-semibold text-ink transition-colors hover:bg-sand"
         >
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
             <path d="M13 8H3M7 4 3 8l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           Back to menu
         </Link>
-        <h1 className="mt-4 text-[26px] font-semibold leading-[1.1] tracking-[-0.01em] text-ink lg:text-[28px]">
-          Your order
-        </h1>
-        <p className="mt-1.5 text-[13px] text-ink-muted">
-          Dine-in · Table {tableNo} · {itemCount} item{itemCount === 1 ? "" : "s"}
-        </p>
+        <div className="mt-4 rounded-card border border-line bg-white p-5 shadow-card">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
+            Dine-in · Table {tableNo}
+          </div>
+          <h1 className="mt-1.5 text-[28px] font-semibold leading-[1.1] text-ink lg:text-[32px]">
+            Your order
+          </h1>
+          <p className="mt-1.5 text-[13px] text-ink-muted">
+            {itemCount} item{itemCount === 1 ? "" : "s"} ready to send to the kitchen.
+          </p>
+        </div>
       </header>
 
       <main className="px-4 pb-8 lg:px-8">
@@ -144,9 +149,9 @@ export default function CartPage() {
                 return (
                   <li
                     key={l.lineId}
-                    className="flex items-center gap-4 border-b border-line px-4 py-4 last:border-b-0 lg:px-5"
+                    className="flex items-center gap-3 border-b border-line px-4 py-4 last:border-b-0 sm:gap-4 lg:px-5"
                   >
-                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl">
+                    <div className="h-16 w-16 shrink-0 overflow-hidden rounded-card bg-[var(--bg-sunken)]">
                       <ItemSwatch
                         id={l.menuItemId}
                         name={l.name}
@@ -204,7 +209,7 @@ export default function CartPage() {
                         </button>
                       )}
                     </div>
-                    <div className="inline-flex h-9 shrink-0 items-center rounded-lg border border-line bg-white">
+                    <div className="inline-flex h-9 shrink-0 items-center rounded-lg border border-line bg-[var(--bg-sunken)]">
                       <button
                         onClick={() =>
                           l.quantity === 1
@@ -273,7 +278,7 @@ export default function CartPage() {
           <div className="mx-auto flex max-w-3xl items-stretch gap-4">
             <Link
               href={orderLink(`/order/${branchId}/${tableNo}`)}
-              className="inline-flex flex-1 items-center justify-center gap-1.5 text-[14px] font-semibold text-ink transition-colors hover:text-ink-muted"
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-line bg-white px-4 py-3 text-[14px] font-semibold text-ink transition-colors hover:bg-sand"
             >
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
                 <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -284,7 +289,7 @@ export default function CartPage() {
               type="button"
               disabled={submitting || !tableId}
               onClick={placeOrder}
-              className="inline-flex flex-[2] items-center justify-center gap-2 rounded-xl bg-clay-500 px-5 py-3.5 text-[14.5px] font-semibold text-white shadow-card transition-colors hover:bg-clay-600 disabled:cursor-not-allowed disabled:bg-sand disabled:text-ink-muted"
+              className="inline-flex flex-[2] items-center justify-center gap-2 rounded-xl bg-clay-500 px-5 py-3.5 text-[14.5px] font-semibold text-white shadow-pop transition-colors hover:bg-clay-600 disabled:cursor-not-allowed disabled:bg-sand disabled:text-ink-muted"
             >
               {submitting
                 ? "Placing order…"
@@ -304,6 +309,7 @@ export default function CartPage() {
 
       <Modal
         isOpen={success}
+        className="order-modal-theme"
         onOpenChange={(open) => {
           if (!open) router.push(orderLink(`/order/${branchId}/${tableNo}`));
         }}
@@ -329,6 +335,7 @@ export default function CartPage() {
 
       <Modal
         isOpen={error !== null}
+        className="order-modal-theme"
         onOpenChange={(open) => !open && setError(null)}
       >
         <div className="p-5 text-center">
@@ -350,6 +357,7 @@ export default function CartPage() {
 
       <Modal
         isOpen={removeTarget !== null}
+        className="order-modal-theme"
         onOpenChange={(open) => !open && setRemoveTarget(null)}
       >
         <div className="p-5">
@@ -375,6 +383,7 @@ export default function CartPage() {
 
       <Modal
         isOpen={noteTarget !== null}
+        className="order-modal-theme"
         onOpenChange={(open) => !open && setNoteTarget(null)}
       >
         <div className="p-5">

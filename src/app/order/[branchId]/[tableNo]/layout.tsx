@@ -11,9 +11,11 @@ export default async function OrderLayout({
   const { branchId, tableNo } = await params;
   return (
     <CartProvider branchId={branchId} tableNo={tableNo}>
-      <div className="mx-auto min-h-screen max-w-2xl bg-cream pb-28 lg:max-w-none">
+      <div className="order-theme min-h-screen bg-[var(--bg)] text-[var(--ink)]">
         <OrderAccessGate branchId={branchId} tableNo={tableNo}>
-          {children}
+          <div className="mx-auto min-h-screen max-w-2xl pb-28 lg:max-w-none">
+            {children}
+          </div>
         </OrderAccessGate>
       </div>
     </CartProvider>

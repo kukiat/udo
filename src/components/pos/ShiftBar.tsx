@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 
-import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { PillButton } from "@/components/ui/PillButton";
+import { TextInput } from "@/components/ui/TextInput";
 import { api } from "@/lib/fetcher";
 import { formatPrice } from "@/lib/utils";
 import type { Shift } from "@/types/pos";
@@ -73,53 +74,98 @@ export function ShiftBar({
               Expected cash: {formatPrice(shift.expectedCash)}
             </span>
           </div>
-          <Button variant="danger" size="sm" onPress={() => setShowClose(true)}>
+          <PillButton tone="accent" variant="outline" onPress={() => setShowClose(true)}>
             Close shift
-          </Button>
+          </PillButton>
         </>
       ) : (
         <>
           <span className="text-sm text-ink-muted">
             No open shift — open one to take payments.
           </span>
-          <Button size="sm" onPress={() => setShowOpen(true)}>
+          <PillButton tone="accent"  onPress={() => setShowOpen(true)}>
             Open shift
-          </Button>
+          </PillButton>
         </>
       )}
 
       <Modal isOpen={showOpen} onOpenChange={setShowOpen}>
-        <div className="p-5">
-          <h2 className="text-lg font-bold text-ink">Open shift</h2>
-          <label className="mt-4 flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-ink-soft">
+        <div className="flex flex-col gap-4 p-5">
+          <div>
+            <h2
+              className="text-lg font-semibold"
+              style={{ color: "var(--ink)" }}
+            >
+              Open shift
+            </h2>
+            <p className="mt-1 text-sm" style={{ color: "var(--ink-3)" }}>
+              Enter the starting cash in the drawer.
+            </p>
+          </div>
+
+          <label className="flex flex-col gap-1.5">
+            <span
+              className="text-[13px] font-semibold"
+              style={{ color: "var(--ink)" }}
+            >
               Opening cash float
             </span>
-            <input
+            <TextInput
               type="number"
-              min="0"
+              min={0}
               value={openFloat}
-              onChange={(e) => setOpenFloat(e.target.value)}
-              className="w-40 rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-clay-300 focus:ring-2 focus:ring-clay-100"
+              onChange={setOpenFloat}
+              icon={null}
+              width="100%"
+              ariaLabel="Opening cash float"
             />
           </label>
-          {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-          <div className="mt-6 flex gap-2">
-            <Button variant="ghost" className="flex-1" onPress={() => setShowOpen(false)}>
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
+
+          <div className="flex gap-2">
+            <PillButton
+              tone="neutral"
+              isDisabled={busy}
+              onPress={() => setShowOpen(false)}
+              className="flex-1"
+            >
               Cancel
-            </Button>
-            <Button className="flex-1" isDisabled={busy} onPress={openShift}>
+            </PillButton>
+            <PillButton
+              tone="accent"
+              isDisabled={busy}
+              onPress={openShift}
+              className="flex-1"
+            >
               Open
-            </Button>
+            </PillButton>
           </div>
         </div>
       </Modal>
 
       <Modal isOpen={showClose} onOpenChange={setShowClose}>
-        <div className="p-5">
-          <h2 className="text-lg font-bold text-ink">Close shift</h2>
+        <div className="flex flex-col gap-4 p-5">
+          <div>
+            <h2
+              className="text-lg font-semibold"
+              style={{ color: "var(--ink)" }}
+            >
+              Close shift
+            </h2>
+            <p className="mt-1 text-sm" style={{ color: "var(--ink-3)" }}>
+              Count the cash in the drawer and enter the total.
+            </p>
+          </div>
+
           {shift && (
-            <div className="mt-3 rounded-xl bg-sand p-3 text-sm text-ink-soft">
+            <div
+              className="rounded-lg p-3 text-sm"
+              style={{
+                background: "var(--bg-subtle, var(--bg-elev))",
+                color: "var(--ink-3)",
+              }}
+            >
               <div className="flex justify-between">
                 <span>Opening float</span>
                 <span>{formatPrice(shift.openingFloat)}</span>
@@ -128,45 +174,65 @@ export function ShiftBar({
                 <span>Cash sales</span>
                 <span>{formatPrice(shift.cashTotal)}</span>
               </div>
-              <div className="mt-1 flex justify-between border-t border-line pt-1 font-semibold text-ink">
+              <div
+                className="mt-1 flex justify-between border-t pt-1 font-semibold"
+                style={{
+                  borderColor: "var(--line-strong)",
+                  color: "var(--ink)",
+                }}
+              >
                 <span>Expected in drawer</span>
                 <span>{formatPrice(shift.expectedCash)}</span>
               </div>
             </div>
           )}
-          <label className="mt-4 flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-ink-soft">
+
+          <label className="flex flex-col gap-1.5">
+            <span
+              className="text-[13px] font-semibold"
+              style={{ color: "var(--ink)" }}
+            >
               Counted cash
             </span>
-            <input
+            <TextInput
               type="number"
-              min="0"
+              min={0}
               value={counted}
-              onChange={(e) => setCounted(e.target.value)}
-              className="w-40 rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-clay-300 focus:ring-2 focus:ring-clay-100"
+              onChange={setCounted}
+              icon={null}
+              width="100%"
+              ariaLabel="Counted cash"
             />
           </label>
+
           {shift && counted !== "" && (
-            <p className="mt-2 text-sm text-ink-soft">
+            <p className="text-sm" style={{ color: "var(--ink-3)" }}>
               Variance:{" "}
               {formatPrice(
                 parseFloat(counted) - parseFloat(shift.expectedCash),
               )}
             </p>
           )}
-          {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-          <div className="mt-6 flex gap-2">
-            <Button variant="ghost" className="flex-1" onPress={() => setShowClose(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="danger"
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
+
+          <div className="flex gap-2">
+            <PillButton
+              tone="neutral"
+              isDisabled={busy}
+              onPress={() => setShowClose(false)}
               className="flex-1"
+            >
+              Cancel
+            </PillButton>
+            <PillButton
+              tone="accent"
               isDisabled={busy}
               onPress={closeShift}
+              className="flex-1"
             >
               Close shift
-            </Button>
+            </PillButton>
           </div>
         </div>
       </Modal>

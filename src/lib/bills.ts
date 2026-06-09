@@ -8,6 +8,7 @@ export type BillLineItem = {
   name: string;
   quantity: number;
   unitPrice: string;
+  note: string | null;
   options: { name: string; price: string }[];
 };
 
@@ -74,6 +75,7 @@ export async function computeSessionBill(
       name: it.menuItem.name,
       quantity: it.quantity,
       unitPrice: it.unitPrice,
+      note: it.note,
       options: it.options.map((op) => ({
         name: op.optionItem.name,
         price: op.price,

@@ -107,13 +107,13 @@ export default function EditMenuItemPage() {
   return (
     <div className="max-w-3xl">
       <Link href={menuHref} style={{ fontSize: 12, color: "var(--text-3)" }}>
-        ← กลับเมนู · BACK TO MENU
+        Back to menu
       </Link>
       <div className="h-display" style={{ fontSize: 44, marginTop: 6 }}>
-        แก้ไขเมนู
+        Edit menu item
       </div>
       <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 4, marginBottom: 20 }}>
-        EDIT MENU ITEM
+        Edit menu item
       </div>
       {error && (
         <div className="mb-4">

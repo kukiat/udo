@@ -1,16 +1,17 @@
 "use client";
 
-import { useParams, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 
+import { TopBar } from "@/components/dashboard/TopBar";
 import { PaymentModal } from "@/components/pos/PaymentModal";
 import { Receipt } from "@/components/pos/Receipt";
 import { ShiftBar } from "@/components/pos/ShiftBar";
-import { AccountMenu } from "@/components/ui/AccountMenu";
-import { HomeLink } from "@/components/ui/HomeLink";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { PillButton } from "@/components/ui/PillButton";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/cn";
@@ -36,10 +37,14 @@ type BillResponse = {
   lineItems: BillLineItem[];
 };
 
+type Branch = { id: string; name: string };
+type BranchInfo = { id: string; name: string; restaurant: { name: string } };
+
 const billStatusTone = (s: string) =>
   s === "paid" ? "green" : s === "requested" ? "amber" : "neutral";
 
 const THEME_KEY = "rms.pos.theme";
+const POS_ACTION_BUTTON = "!h-[34px] min-h-[34px] px-5";
 
 const formatClock = (iso: string) =>
   new Date(iso).toLocaleTimeString([], {
@@ -49,6 +54,7 @@ const formatClock = (iso: string) =>
 
 function PosPageInner() {
   const { branchId } = useParams<{ branchId: string }>();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const requestedSessionId = searchParams.get("session");
   const { user } = useAuth();
@@ -64,6 +70,8 @@ function PosPageInner() {
 
   const [sessions, setSessions] = useState<PosSession[]>([]);
   const [shift, setShift] = useState<Shift | null>(null);
+  const [branch, setBranch] = useState<BranchInfo | null>(null);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [selected, setSelected] = useState<PosSession | null>(null);
   const [bill, setBill] = useState<BillResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -109,12 +117,26 @@ function PosPageInner() {
     setShift(d.shifts.find((s) => s.cashierId === user?.id) ?? null);
   }, [branchId, user?.id]);
 
+  const loadBranch = useCallback(async () => {
+    const d = await api<{ branch: BranchInfo }>(`/api/branches/${branchId}`);
+    setBranch(d.branch);
+  }, [branchId]);
+
+  useEffect(() => {
+    if (!user) return;
+    api<{ branches: Branch[] }>(
+      `/api/branches?restaurantId=${user.restaurantId}`,
+    )
+      .then((d) => setBranches(d.branches))
+      .catch(() => setBranches([]));
+  }, [user]);
+
   useEffect(() => {
     setLoading(true);
-    Promise.all([loadSessions(), loadShift()])
+    Promise.all([loadSessions(), loadShift(), loadBranch()])
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"))
       .finally(() => setLoading(false));
-  }, [loadSessions, loadShift]);
+  }, [loadSessions, loadShift, loadBranch]);
 
   const selectSession = useCallback(async (s: PosSession) => {
     setSelected(s);
@@ -200,29 +222,34 @@ function PosPageInner() {
       className={cn("kds-theme min-h-screen", theme === "dark" && "kds-dark")}
       style={{ background: "var(--bg)", color: "var(--ink)" }}
     >
-      <div className="mx-auto max-w-6xl p-5 md:p-7">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
-        <div className="flex items-center gap-4">
-          <HomeLink />
-          <span aria-hidden className="h-6 w-px bg-line-strong/60" />
-          <div className="flex items-baseline gap-3">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
-              Point of Sale
-            </span>
-            <span className="mono text-[11px] text-ink-dim">Cashier · register</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <ThemeToggle theme={theme} onToggle={toggleTheme} />
-          <AccountMenu compact />
-        </div>
-      </div>
-
-      <ShiftBar
-        branchId={branchId}
-        shift={shift}
-        onChange={() => loadShift()}
+      <TopBar
+        role="Staff Terminal"
+        showLive={false}
+        left={
+          <PosBranchSwitcher
+            branches={branches}
+            branchId={branchId}
+            restaurantName={branch?.restaurant?.name ?? null}
+            activeBranchName={branch?.name ?? null}
+            onChange={(id) => router.push(`/pos/${id}`)}
+          />
+        }
+        right={
+          <>
+            <Link href={`/waitstaff/${branchId}`}>
+              <PillButton className={POS_ACTION_BUTTON}>Waitstaff</PillButton>
+            </Link>
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
+          </>
+        }
       />
+
+      <div className="mx-auto max-w-6xl p-5 md:p-7">
+        <ShiftBar
+          branchId={branchId}
+          shift={shift}
+          onChange={() => loadShift()}
+        />
 
       {error && (
         <div className="mt-4">
@@ -431,16 +458,128 @@ function ThemeToggle({
       onClick={onToggle}
       aria-label={`Switch to ${nextLabel} theme`}
       title={`Switch to ${nextLabel} theme`}
-      className="btn-quiet h-9 rounded-full px-3 text-[12px] font-medium"
+      className="btn-quiet flex items-center gap-[6px] rounded-[8px] px-[10px] py-[6px] text-[12px] tracking-[0.02em] text-[var(--ink-2)]"
     >
-      <span
-        aria-hidden
-        className={cn(
-          "h-2 w-2 rounded-full",
-          theme === "light" ? "bg-ink-muted" : "bg-clay-500",
-        )}
-      />
+      <span aria-hidden className="text-[13px] leading-none">
+        {theme === "light" ? "◐" : "○"}
+      </span>
       {nextLabel}
     </button>
+  );
+}
+
+function PosBranchSwitcher({
+  branches,
+  branchId,
+  restaurantName,
+  activeBranchName,
+  onChange,
+}: {
+  branches: { id: string; name: string }[];
+  branchId: string | null;
+  restaurantName: string | null;
+  activeBranchName: string | null;
+  onChange: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const label = `${restaurantName ?? "-"} · ${activeBranchName ?? ""}`;
+
+  if (branches.length <= 1) {
+    return (
+      <span className="mono text-[11px] text-[var(--ink-4)]">
+        {label}
+      </span>
+    );
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="true"
+        aria-expanded={open}
+        className={cn(
+          "mono inline-flex items-center gap-1.5 rounded-md border border-transparent px-1.5 py-0.5 text-[11px] transition-colors",
+          open
+            ? "bg-[var(--bg-sunken)] text-[var(--ink-2)]"
+            : "bg-transparent text-[var(--ink-4)] hover:bg-[var(--bg-sunken)] hover:text-[var(--ink-2)]",
+        )}
+      >
+        <span className="max-w-[280px] truncate">{label}</span>
+        <span
+          aria-hidden
+          className={cn(
+            "text-[9px] opacity-70 transition-transform",
+            open && "rotate-180",
+          )}
+        >
+          ▾
+        </span>
+      </button>
+
+      {open && (
+        <div className="absolute left-0 z-[95] mt-2 w-[288px] animate-slide-up rounded-[16px] border border-line bg-white p-2 shadow-pop">
+          <div className="px-2.5 pb-2 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-muted">
+            Switch branch
+          </div>
+          <div className="flex flex-col gap-0.5">
+            {branches.map((b) => {
+              const isActive = b.id === branchId;
+              return (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => {
+                    onChange(b.id);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "flex w-full items-center gap-2.5 rounded-md border-0 px-2.5 py-2 text-left transition-colors hover:bg-[var(--bg-sunken)]",
+                    isActive && "bg-[var(--bg-sunken)]",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-md text-[14px]",
+                      isActive
+                        ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                        : "bg-[var(--bg-sunken)] text-[var(--ink-3)]",
+                    )}
+                    aria-hidden
+                  >
+                    ⌂
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-semibold tracking-[-0.01em]">
+                      {b.name}
+                    </span>
+                  </span>
+                  {isActive && (
+                    <span
+                      aria-hidden
+                      className="flex-shrink-0 text-[14px] text-clay-500"
+                    >
+                      ✓
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

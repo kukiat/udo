@@ -75,14 +75,18 @@ function Stat({
         : "bg-sand text-ink-muted";
   const arrow = deltaTone === "rose" ? "▼" : "▲";
   return (
-    <div className="rounded-card border border-line bg-white p-5">
+    <div className="min-w-0 rounded-card border border-line bg-white p-5">
       <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-muted">
         {label}
       </div>
-      <div className="mt-2 flex items-baseline gap-2.5">
+      <div className="mt-2 flex min-w-0 flex-wrap items-baseline gap-2.5">
         <div
-          className="tnum text-[30px] font-semibold text-ink"
-          style={{ letterSpacing: "-0.025em", lineHeight: 1 }}
+          className="tnum min-w-0 text-[30px] font-semibold text-ink"
+          style={{
+            letterSpacing: "-0.025em",
+            lineHeight: 1.05,
+            overflowWrap: "anywhere",
+          }}
         >
           {value}
         </div>
@@ -97,9 +101,7 @@ function Stat({
           </span>
         )}
       </div>
-      {sub && (
-        <div className="mt-1.5 text-[12px] text-ink-muted">{sub}</div>
-      )}
+      {sub && <div className="mt-1.5 text-[12px] text-ink-muted">{sub}</div>}
     </div>
   );
 }
@@ -178,7 +180,7 @@ function SectionHead({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mb-4 flex items-end justify-between gap-4">
+    <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0 flex-1">
         {overline && (
           <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
@@ -195,7 +197,7 @@ function SectionHead({
           <div className="mt-1 text-[13px] text-ink-muted">{subtitle}</div>
         )}
       </div>
-      {action && <div>{action}</div>}
+      {action && <div className="shrink-0">{action}</div>}
     </div>
   );
 }
@@ -210,7 +212,7 @@ function CardHead({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mb-3 flex items-end justify-between gap-4">
+    <div className="mb-3 flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
         <div
           className="text-[16px] font-semibold text-ink"
@@ -222,7 +224,7 @@ function CardHead({
           <div className="mt-0.5 text-[12px] text-ink-muted">{subtitle}</div>
         )}
       </div>
-      {action && <div>{action}</div>}
+      {action && <div className="shrink-0">{action}</div>}
     </div>
   );
 }
@@ -346,7 +348,7 @@ export default function RestaurantOverviewPage() {
   const vatPct = ((settings?.vatRate ?? 0) * 100).toFixed(0);
 
   return (
-    <div className="mx-auto flex h-full max-w-[1280px] flex-col">
+    <div className="mx-auto flex max-w-[1280px] flex-col">
       <SectionHead
         overline={todayHeader}
         title="Overview"
@@ -411,8 +413,8 @@ export default function RestaurantOverviewPage() {
       </div>
 
       {/* Revenue chart + Top sellers */}
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-3 lg:[grid-template-rows:minmax(0,1fr)]">
-        <div className="flex min-h-0 flex-col rounded-card border border-line bg-white p-4 lg:col-span-2">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="flex min-h-[250px] flex-col rounded-card border border-line bg-white p-4 lg:col-span-2">
           <CardHead
             title="Revenue, 7-day"
             subtitle={formatPrice(
@@ -432,7 +434,7 @@ export default function RestaurantOverviewPage() {
           <RevenueChart days={weekDays} />
         </div>
 
-        <div className="flex min-h-0 flex-col rounded-card border border-line bg-white p-4">
+        <div className="flex min-h-[250px] flex-col rounded-card border border-line bg-white p-4">
           <CardHead
             title="Top sellers, today"
             subtitle={`${topItems.length} items · by qty`}
@@ -510,7 +512,7 @@ export default function RestaurantOverviewPage() {
 
       {/* Branches + Brand */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="rounded-card border border-line bg-white p-4">
+        <div className="flex min-h-0 flex-col rounded-card border border-line bg-white p-4">
           <CardHead
             title="Branches"
             subtitle={`${branches.length} total`}
@@ -523,7 +525,7 @@ export default function RestaurantOverviewPage() {
               </Link>
             }
           />
-          <div className="flex flex-col gap-2">
+          <div className="flex max-h-[360px] min-h-0 flex-col gap-2 overflow-y-auto pr-1">
             {branches.length === 0 && (
               <div className="py-6 text-center text-[12px] text-ink-muted">
                 No branches yet.
@@ -539,12 +541,12 @@ export default function RestaurantOverviewPage() {
                 >
                   <div className="min-w-0">
                     <div
-                      className="flex items-center gap-2 truncate text-[13px] font-semibold"
+                      className="flex min-w-0 flex-wrap items-center gap-2 text-[13px] font-semibold"
                       style={{ letterSpacing: "-0.005em" }}
                     >
-                      {b.name}
+                      <span className="min-w-0 truncate">{b.name}</span>
                       {isActive && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-clay-100 px-2 py-0.5 text-[10px] font-semibold text-clay-500">
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-clay-100 px-2 py-0.5 text-[10px] font-semibold text-clay-500">
                           <span className="h-1 w-1 rounded-full bg-clay-500" />
                           Active
                         </span>
@@ -554,7 +556,7 @@ export default function RestaurantOverviewPage() {
                       {b.address ?? "—"}
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="shrink-0 text-right">
                     <div className="tnum text-[13px] font-semibold">
                       {((b.settings?.vatRate ?? 0) * 100).toFixed(0)}%
                     </div>

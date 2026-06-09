@@ -139,19 +139,19 @@ export function RestaurantFormModal(props: Props) {
   };
 
   const eyebrow = mode === "edit" ? "Edit restaurant" : "New restaurant";
-  const heading = mode === "edit" ? (name || "Untitled") : "ร้านใหม่";
+  const heading = mode === "edit" ? (name || "Untitled") : "New restaurant";
   const subheading =
     mode === "edit"
-      ? "อัปเดตข้อมูลร้าน · Update restaurant details"
-      : "ต้องมีอย่างน้อย 1 สาขา · At least one branch required";
+      ? "Update restaurant details"
+      : "At least one branch required";
   const submitLabel =
     mode === "edit"
       ? submitting
-        ? "กำลังบันทึก…"
-        : "บันทึก · SAVE"
+        ? "Saving..."
+        : "Save"
       : submitting
-        ? "กำลังสร้าง…"
-        : "สร้างร้าน · CREATE";
+        ? "Creating..."
+        : "Create restaurant";
 
   return (
     <Modal
@@ -221,35 +221,35 @@ export function RestaurantFormModal(props: Props) {
         <section style={{ ...cardStyle }}>
           <div style={{ ...eyebrowStyle, marginBottom: 14 }}>
             {mode === "edit"
-              ? "ข้อมูลร้าน · RESTAURANT"
-              : "① ข้อมูลร้าน · RESTAURANT"}
+              ? "Restaurant details"
+              : "Restaurant details"}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <ImageUpload
               ref={logoRef}
               deferred
-              label="โลโก้ · LOGO (optional)"
+              label="Logo (optional)"
               uploadLabel="Upload logo"
-              hint="PNG, JPG or WEBP · square works best"
+              hint="PNG, JPG or WEBP - square works best"
               value={logo || null}
               onChange={(u) => setLogo(u ?? "")}
             />
             <label style={{ display: "block" }}>
-              <span style={labelStyle}>ชื่อร้าน · NAME</span>
+              <span style={labelStyle}>Restaurant name</span>
               <TextInput
                 value={name}
                 onChange={setName}
-                placeholder="ชื่อร้าน"
+                placeholder="Restaurant name"
                 width="100%"
                 icon={null}
                 type="text"
-                ariaLabel="ชื่อร้าน"
+                ariaLabel="Restaurant name"
               />
             </label>
           </div>
         </section>
 
-        {/* Branches section — only when creating. Existing branches are managed
+        {/* Branches section - only when creating. Existing branches are managed
             from the dedicated branches page. */}
         {mode === "create" && (
         <section style={{ marginTop: 18 }}>
@@ -263,7 +263,7 @@ export function RestaurantFormModal(props: Props) {
             }}
           >
             <div style={eyebrowStyle}>
-              ② สาขา · BRANCHES ({branches.length})
+              Branches ({branches.length})
             </div>
             <div
               style={{ display: "flex", alignItems: "center", gap: 8 }}
@@ -272,7 +272,7 @@ export function RestaurantFormModal(props: Props) {
                 <TextInput
                   value={branchQuery}
                   onChange={setBranchQuery}
-                  placeholder="ค้นหาสาขา · Search branches"
+                  placeholder="Search branches"
                   width={220}
                   height={32}
                 />
@@ -288,7 +288,7 @@ export function RestaurantFormModal(props: Props) {
                   fontSize: 12,
                 }}
               >
-                ＋ เพิ่มสาขา
+                Add branch
               </button>
             </div>
           </div>
@@ -317,7 +317,7 @@ export function RestaurantFormModal(props: Props) {
                       color: "var(--ink-3)",
                     }}
                   >
-                    ไม่พบสาขาที่ตรงกับ &ldquo;{branchQuery}&rdquo;
+                    No branches match &ldquo;{branchQuery}&rdquo;
                   </div>
                 );
               }
@@ -329,13 +329,13 @@ export function RestaurantFormModal(props: Props) {
                   idSuffix={i + 1}
                   header={
                     <>
-                      <span style={eyebrowStyle}>สาขา · BRANCH {i + 1}</span>
+                      <span style={eyebrowStyle}>Branch {i + 1}</span>
                       {branches.length > 1 && (
                         <button
                           type="button"
                           onClick={() => removeBranch(i)}
-                          aria-label={`ลบสาขา ${i + 1}`}
-                          title="ลบสาขา"
+                          aria-label={`Remove branch ${i + 1}`}
+                          title="Remove branch"
                           style={iconDangerStyle}
                         >
                           <svg
@@ -389,7 +389,7 @@ export function RestaurantFormModal(props: Props) {
               cursor: submitting ? "not-allowed" : "pointer",
             }}
           >
-            ยกเลิก
+            Cancel
           </button>
           <button
             onClick={submit}

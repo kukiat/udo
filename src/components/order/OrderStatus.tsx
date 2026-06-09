@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/Button";
+import { PillButton } from "@/components/ui/PillButton";
 import { cn } from "@/lib/cn";
 import { formatPrice } from "@/lib/utils";
 import type { OrderDTO, OrderStatus as Status } from "@/types";
@@ -91,8 +91,8 @@ export function OrderStatusCard({
                     done
                       ? "border-clay-500 bg-clay-500 text-white"
                       : current
-                        ? "animate-pulse-ring border-clay-500 bg-white text-clay-500"
-                        : "border-line-strong bg-white text-ink-dim",
+                        ? "animate-pulse-ring border-clay-500 bg-[var(--accent-soft)] text-clay-500"
+                        : "border-line-strong bg-[var(--bg-sunken)] text-ink-dim",
                   )}
                   aria-current={current ? "step" : undefined}
                 >
@@ -145,52 +145,73 @@ export function OrderStatusCard({
       </ul>
 
       {/* Total */}
-      <div className="mt-3 flex items-baseline justify-between border-t border-line pt-3 text-sm">
+      <div className="mt-3 flex items-baseline justify-between border-t border-line pt-3 text-sm mb-3">
         <span className="font-semibold text-ink">Total</span>
-        <span
-          className={cn(
-            "mono text-[16px] font-semibold tabular-nums",
-            cancelled ? "text-ink-muted line-through" : "text-ink",
-          )}
-        >
+        <span className="mono text-[16px] font-semibold tabular-nums">
           {formatPrice(order.totalAmount)}
         </span>
       </div>
 
       {onCancel && order.status === "pending" && (
-        <Button
-          variant="danger"
-          size="sm"
-          className="mt-4 w-full"
+        <PillButton
+        className="w-full"
+          tone="danger"
+          variant="outline"
           isDisabled={cancelling}
           onPress={() => onCancel(order)}
         >
-          {cancelling ? "Cancelling…" : "Cancel order"}
-        </Button>
+          {cancelling ? "Cancelling..." : "Cancel order"}
+        </PillButton>
       )}
     </div>
   );
 }
 
 function StatusPill({ status }: { status: Status }) {
-  const palette: Record<Status, { bg: string; fg: string }> = {
-    pending: { bg: "bg-sand", fg: "text-ink-soft" },
-    preparing: { bg: "bg-amber-soft", fg: "text-amber" },
-    ready: { bg: "bg-olive-soft", fg: "text-olive" },
-    served: { bg: "bg-olive-soft", fg: "text-olive" },
-    completed: { bg: "bg-sand", fg: "text-ink-muted" },
-    cancelled: { bg: "bg-rose-soft", fg: "text-rose" },
+  const palette: Record<Status, { pill: string; dot: string; pulse?: boolean }> = {
+    pending: {
+      pill: "border-[color:var(--accent)] bg-clay-100 text-clay-500",
+      dot: "bg-clay-500",
+      pulse: true,
+    },
+    preparing: {
+      pill: "border-[color:var(--amber)] bg-amber-soft text-amber",
+      dot: "bg-amber",
+      pulse: true,
+    },
+    ready: {
+      pill: "border-[color:var(--olive)] bg-olive-soft text-olive",
+      dot: "bg-olive",
+      pulse: true,
+    },
+    served: {
+      pill: "border-[color:var(--blue)] bg-[var(--blue-soft)] text-[color:var(--blue)]",
+      dot: "bg-[var(--blue)]",
+    },
+    completed: {
+      pill: "border-line bg-sand text-ink-muted",
+      dot: "bg-ink-dim",
+    },
+    cancelled: {
+      pill: "border-[color:var(--rose)] bg-rose-soft text-rose",
+      dot: "bg-rose",
+    },
   };
   const p = palette[status];
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.04em]",
-        p.bg,
-        p.fg,
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+        p.pill,
       )}
     >
-      <span className={cn("h-1.5 w-1.5 rounded-full bg-current", status === "preparing" && "animate-marrow-blink")} />
+      <span
+        className={cn(
+          "h-1.5 w-1.5 rounded-full",
+          p.dot,
+          p.pulse && "animate-marrow-blink",
+        )}
+      />
       {labels[status]}
     </span>
   );

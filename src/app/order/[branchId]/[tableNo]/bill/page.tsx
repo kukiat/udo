@@ -143,7 +143,7 @@ export default function BillPage() {
 
   return (
     <div className="lg:mx-auto lg:max-w-2xl">
-      <header className="border-b border-line bg-cream px-4 pb-5 pt-5 lg:px-8 lg:pt-10">
+      <header className="px-4 pb-5 pt-5 lg:px-8 lg:pt-10">
         <Link
           href={orderLink(`/order/${branchId}/${tableNo}`)}
           className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-muted transition-colors hover:text-ink"
@@ -153,16 +153,18 @@ export default function BillPage() {
           </svg>
           Back to menu
         </Link>
-        <div className="mt-3 text-[10px] font-medium uppercase tracking-[0.12em] text-ink-muted">
-          Bill · Table {tableNo}
+        <div className="mt-4 rounded-card border border-line bg-white p-5 shadow-card">
+          <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-ink-muted">
+            Bill · Table {tableNo}
+          </div>
+          <h1 className="mt-1.5 text-[32px] font-semibold leading-[1.1] text-ink lg:text-[40px]">
+            Check, please
+          </h1>
+          <p className="mt-2 text-[13px] text-ink-muted">
+            Review all orders from this table. A server will come over once you
+            request the check.
+          </p>
         </div>
-        <h1 className="mt-1.5 text-[32px] font-semibold leading-[1.1] tracking-[-0.02em] text-ink lg:text-[40px]">
-          Check, please
-        </h1>
-        <p className="mt-2 text-[13px] text-ink-muted">
-          Review all orders from this table. A server will come over once you
-          request the check.
-        </p>
       </header>
 
       <main className="px-4 py-5 lg:px-8">
@@ -213,7 +215,7 @@ export default function BillPage() {
                 ))}
               </ul>
 
-              <dl className="space-y-2 border-t border-line bg-sand/40 p-5 text-sm tabular-nums">
+              <dl className="space-y-2 border-t border-line-strong bg-[var(--bg-sunken)] p-5 text-sm tabular-nums">
                 <Row label="Subtotal" value={formatPrice(data.bill.subtotal)} />
                 {parseFloat(data.bill.serviceCharge) > 0 && (
                   <Row
@@ -243,7 +245,7 @@ export default function BillPage() {
               type="button"
               disabled={requesting || data.bill.status !== "open"}
               onClick={requestCheck}
-              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-sm bg-clay-500 px-4 py-3.5 text-sm font-semibold text-white shadow-card transition-colors hover:bg-clay-600 disabled:cursor-not-allowed disabled:bg-sand disabled:text-ink-muted"
+              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-clay-500 px-4 py-3.5 text-sm font-semibold text-white shadow-pop transition-colors hover:bg-clay-600 disabled:cursor-not-allowed disabled:bg-sand disabled:text-ink-muted"
             >
               {data.bill.status === "open"
                 ? requesting
@@ -260,7 +262,7 @@ export default function BillPage() {
         onOpenChange={(open) => {
           if (!open) setCompleted(false);
         }}
-        className="sm:max-w-sm"
+        className="order-modal-theme sm:max-w-sm"
       >
         <div className="p-6 text-center">
           <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-green-100 text-2xl text-green-600">

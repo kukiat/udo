@@ -25,6 +25,7 @@ import type {
   OrderItemDTO,
   OrderStatus,
 } from "@/types";
+import { CreditCardIcon, LinkIcon, TableIcon } from "lucide-react";
 
 // Local cart line for the menu picker drawer. Options aren't supported in this
 // quick-fire flow — staff can edit individual items later in POS if needed.
@@ -430,7 +431,7 @@ export default function WaitstaffPage() {
         url: orderLink(table.tableNumber, session.id),
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to open session");
+      setError(e instanceof Error ? e.message : "Failed to open table");
     } finally {
       setOpeningTableId(null);
     }
@@ -960,11 +961,11 @@ export default function WaitstaffPage() {
         right={
           <>
             <WaitLivePill connected={connected} latency={latency} />
-            <Link href={`/pos/${branchId}`}>
+            {/* <Link href={`/pos/${branchId}`}>
               <PillButton className={WAITSTAFF_ACTION_BUTTON}>
-                Cashier / POS
+                Pay
               </PillButton>
-            </Link>
+            </Link> */}
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
           </>
         }
@@ -1349,19 +1350,16 @@ export default function WaitstaffPage() {
                             rel="noopener noreferrer"
                             className="flex-1 sm:flex-none"
                           >
-                            <PillButton
-                              className={cn(
-                                WAITSTAFF_ACTION_BUTTON,
-                                "!w-full sm:!w-auto",
-                              )}
-                            >
-                              Cashier / POS
+                            <PillButton tone="success">
+                              <CreditCardIcon className="w-4 h-4" />
+                              Pay
                             </PillButton>
                           </Link>
                           <PillButton
                             onPress={() => showLink(selectedTable)}
                             className={cn(WAITSTAFF_ACTION_BUTTON, "flex-1 sm:flex-none")}
                           >
+                            <LinkIcon className="w-4 h-4" />
                             Order link
                           </PillButton>
                         </>
@@ -1372,9 +1370,10 @@ export default function WaitstaffPage() {
                           onPress={() => setOpeningTable(selectedTable)}
                           className={cn(WAITSTAFF_ACTION_BUTTON, "flex-1 sm:flex-none")}
                         >
+                          <TableIcon className="w-4 h-4" />
                           {openingTableId === selectedTable.id
                             ? "Opening…"
-                            : "Open session"}
+                            : "Open table"}
                         </PillButton>
                       )}
                     </div>
@@ -2548,7 +2547,9 @@ function BillRequestQueue({
                 rel="noopener noreferrer"
                 className="self-center"
               >
-                <PillButton className={WAITSTAFF_ACTION_BUTTON}>POS</PillButton>
+                <PillButton tone="success" className={WAITSTAFF_ACTION_BUTTON}>
+                  Pay
+                </PillButton>
               </Link>
             </div>
           ))}

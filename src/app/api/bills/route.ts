@@ -86,6 +86,7 @@ export async function GET(req: Request) {
         name: it.menuItem.name,
         quantity: it.quantity,
         unitPrice: it.unitPrice,
+        note: it.note,
         options: it.options.map((op) => ({
           name: op.optionItem.name,
           price: op.price,

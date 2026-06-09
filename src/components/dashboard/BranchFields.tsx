@@ -1,6 +1,7 @@
 "use client";
 
 import { TextInput } from "@/components/ui/TextInput";
+import { TimePicker } from "@/components/ui/TimePicker";
 
 /** Editable shape of a single branch's form fields. */
 export type BranchFieldsValue = {
@@ -112,54 +113,48 @@ export function BranchFields({
 
       <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr" }}>
         <label style={{ display: "block" }}>
-          <span style={labelStyle}>ชื่อสาขา · NAME</span>
+          <span style={labelStyle}>Branch name</span>
           <TextInput
             value={value.name}
             onChange={(v) => onChange({ name: v })}
-            placeholder="ชื่อสาขา"
+            placeholder="Branch name"
             width="100%"
             icon={null}
             type="text"
-            ariaLabel={`ชื่อสาขา${suffix}`}
+            ariaLabel={`Branch name${suffix}`}
           />
         </label>
         <label style={{ display: "block" }}>
-          <span style={labelStyle}>ที่อยู่ · ADDRESS</span>
+          <span style={labelStyle}>Address</span>
           <TextInput
             value={value.address}
             onChange={(v) => onChange({ address: v })}
-            placeholder="ไม่บังคับ"
+            placeholder="Optional"
             width="100%"
             icon={null}
             type="text"
-            ariaLabel={`ที่อยู่สาขา${suffix}`}
+            ariaLabel={`Branch address${suffix}`}
           />
         </label>
       </div>
 
       <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr", marginTop: 12 }}>
         <label style={{ display: "block" }}>
-          <span style={labelStyle}>เวลาเปิด · OPEN</span>
-          <TextInput
+          <span style={labelStyle}>Opening time</span>
+          <TimePicker
             value={value.openingTime}
             onChange={(v) => onChange({ openingTime: v })}
-            type="time"
-            mono
-            icon={null}
             width="100%"
-            ariaLabel={`เวลาเปิดสาขา${suffix}`}
+            ariaLabel={`Branch opening time${suffix}`}
           />
         </label>
         <label style={{ display: "block" }}>
-          <span style={labelStyle}>เวลาปิด · CLOSE</span>
-          <TextInput
+          <span style={labelStyle}>Closing time</span>
+          <TimePicker
             value={value.closingTime}
             onChange={(v) => onChange({ closingTime: v })}
-            type="time"
-            mono
-            icon={null}
             width="100%"
-            ariaLabel={`เวลาปิดสาขา${suffix}`}
+            ariaLabel={`Branch closing time${suffix}`}
           />
         </label>
       </div>
@@ -173,7 +168,7 @@ export function BranchFields({
         }}
       >
         <label style={{ display: "block" }}>
-          <span style={labelStyle}>KDS สูงสุด</span>
+          <span style={labelStyle}>Max KDS screens</span>
           <TextInput
             value={value.maxKds}
             onChange={(v) => onChange({ maxKds: v })}
@@ -182,7 +177,7 @@ export function BranchFields({
             mono
             icon={null}
             width="100%"
-            ariaLabel={`KDS สูงสุดสาขา${suffix}`}
+            ariaLabel={`Max KDS screens${suffix}`}
           />
         </label>
         <label style={{ display: "block" }}>
@@ -195,11 +190,11 @@ export function BranchFields({
             mono
             icon={null}
             width="100%"
-            ariaLabel={`VAT % สาขา${suffix}`}
+            ariaLabel={`Branch VAT %${suffix}`}
           />
         </label>
         <label style={{ display: "block" }}>
-          <span style={labelStyle}>บริการ %</span>
+          <span style={labelStyle}>Service %</span>
           <TextInput
             value={value.service}
             onChange={(v) => onChange({ service: v })}
@@ -208,16 +203,16 @@ export function BranchFields({
             mono
             icon={null}
             width="100%"
-            ariaLabel={`บริการ % สาขา${suffix}`}
+            ariaLabel={`Branch service %${suffix}`}
           />
         </label>
       </div>
 
       <div style={{ marginTop: 12 }}>
         <span style={labelStyle}>
-          โต๊ะ · TABLES{" "}
+          Tables{" "}
           <span style={{ color: "var(--ink-4)", fontWeight: 400 }}>
-            ({min}–{TABLES_MAX})
+            ({min}-{TABLES_MAX})
           </span>
         </span>
         <div style={stepperStyle}>
@@ -225,7 +220,7 @@ export function BranchFields({
             type="button"
             onClick={() => onChange({ tables: Math.max(min, value.tables - 1) })}
             disabled={value.tables <= min}
-            aria-label={`ลดจำนวนโต๊ะสาขา${suffix}`}
+            aria-label={`Decrease table count${suffix}`}
             style={{
               ...stepperBtnStyle,
               opacity: value.tables <= min ? 0.4 : 1,
@@ -258,7 +253,7 @@ export function BranchFields({
                 : min;
               if (clamped !== value.tables) onChange({ tables: clamped });
             }}
-            aria-label={`จำนวนโต๊ะสาขา${suffix}`}
+            aria-label={`Table count${suffix}`}
             style={stepperInputStyle}
           />
           <button
@@ -267,7 +262,7 @@ export function BranchFields({
               onChange({ tables: Math.min(TABLES_MAX, value.tables + 1) })
             }
             disabled={value.tables >= TABLES_MAX}
-            aria-label={`เพิ่มจำนวนโต๊ะสาขา${suffix}`}
+            aria-label={`Increase table count${suffix}`}
             style={{
               ...stepperBtnStyle,
               opacity: value.tables >= TABLES_MAX ? 0.4 : 1,

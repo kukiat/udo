@@ -12,6 +12,8 @@ import { TextInput } from "@/components/ui/TextInput";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useRestaurant } from "@/contexts/RestaurantContext";
 import { api } from "@/lib/fetcher";
+import { PillButton } from "@/components/ui/PillButton";
+import { PlusIcon } from "lucide-react";
 
 type Category = {
   id: string;
@@ -143,15 +145,16 @@ export default function CategoriesPage() {
       <div className="row" style={{ justifyContent: "space-between", marginBottom: 24 }}>
         <div>
           <div className="h-display" style={{ fontSize: 44 }}>
-            หมวดหมู่
+            Categories
           </div>
           <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 4 }}>
-            CATEGORIES · ใช้กับเมนู และจัดเรียงในลูกค้า
+            Organize menu items and storefront display order
           </div>
         </div>
-        <button className="btn btn-primary" onClick={openCreate}>
-          ＋ หมวดใหม่ · NEW CATEGORY
-        </button>
+        <PillButton tone="accent" onClick={openCreate}>
+          <PlusIcon className="w-4 h-4" />
+          New category
+        </PillButton>
       </div>
 
       <Modal
@@ -169,7 +172,7 @@ export default function CategoriesPage() {
           style={{ padding: 24, background: "var(--surface)" }}
         >
           <div className="eyebrow" style={{ marginBottom: 16, fontSize: 13, color: "var(--text)" }}>
-            {editingId ? "แก้ไขหมวด · EDIT CATEGORY" : "เพิ่มหมวด · NEW CATEGORY"}
+            {editingId ? "Edit category" : "New category"}
           </div>
           {error && (
             <div style={{ marginBottom: 16 }}>
@@ -178,19 +181,19 @@ export default function CategoriesPage() {
           )}
           <div className="grid gap-3" style={{ gridTemplateColumns: "1.6fr 100px" }}>
             <div>
-              <span className="label">ชื่อ · NAME</span>
+              <span className="label">Name</span>
               <TextInput
                 value={name}
                 onChange={setName}
-                placeholder="ชื่อหมวดหมู่"
+                placeholder="Category name"
                 icon={null}
                 type="text"
                 width="100%"
-                ariaLabel="ชื่อหมวดหมู่"
+                ariaLabel="Category name"
               />
             </div>
             <div>
-              <span className="label">ลำดับ · SORT</span>
+              <span className="label">Sort</span>
               <TextInput
                 value={sortOrder}
                 onChange={setSortOrder}
@@ -198,16 +201,16 @@ export default function CategoriesPage() {
                 mono
                 icon={null}
                 width="100%"
-                ariaLabel="ลำดับ"
+                ariaLabel="Sort order"
               />
             </div>
           </div>
           <div style={{ marginTop: 12 }}>
             <Select
               dark={isDark}
-              label="หมวดแม่ · PARENT"
+              label="Parent"
               options={[
-                { id: "", label: "— Top level —" },
+                { id: "", label: "- Top level -" },
                 ...parentOptions.map((c) => ({ id: c.id, label: c.name })),
               ]}
               selectedKey={parentId ?? ""}
@@ -217,7 +220,7 @@ export default function CategoriesPage() {
           </div>
           <div style={{ marginTop: 12 }}>
             <ImageUpload
-              label="รูปภาพ · IMAGE (optional)"
+              label="Image (optional)"
               value={image}
               onChange={setImage}
             />
@@ -241,23 +244,23 @@ export default function CategoriesPage() {
               </div>
             </div>
           )}
-          <div className="row" style={{ gap: 8, marginTop: 24 }}>
-            <button
-              className="btn btn-ghost grow"
+          <div className="flex gap-2 w-full justify-end mt-6">
+            <PillButton
+              variant="outline"
               onClick={() => {
                 resetForm();
                 setFormOpen(false);
               }}
             >
-              ยกเลิก
-            </button>
-            <button
-              className="btn btn-primary grow"
+              Cancel
+            </PillButton>
+            <PillButton
+              tone="accent"
               onClick={submit}
-              disabled={saving || !name.trim()}
+              isDisabled={saving || !name.trim()}
             >
-              {saving ? "กำลังบันทึก…" : editingId ? "บันทึก · UPDATE" : "＋ เพิ่ม · ADD"}
-            </button>
+              {saving ? "Saving..." : editingId ? "Save" : "Add"}
+            </PillButton>
           </div>
         </div>
       </Modal>
@@ -274,7 +277,7 @@ export default function CategoriesPage() {
           description="Create your first category to get started."
           action={
             <button className="btn btn-primary" onClick={openCreate}>
-              ＋ หมวดใหม่ · NEW CATEGORY
+              New category
             </button>
           }
         />
@@ -284,10 +287,10 @@ export default function CategoriesPage() {
             <thead>
               <tr>
                 <th style={{ width: 60 }} />
-                <th>หมวด · CATEGORY</th>
-                <th>หมวดแม่ · PARENT</th>
+                <th>Category</th>
+                <th>Parent</th>
                 <th style={{ textAlign: "center" }}>ACTIVE</th>
-                <th style={{ textAlign: "right" }}>ลำดับ · SORT</th>
+                <th style={{ textAlign: "right" }}>Sort</th>
                 <th style={{ textAlign: "right" }} />
               </tr>
             </thead>
@@ -300,7 +303,7 @@ export default function CategoriesPage() {
                       name={c.name}
                       image={c.image}
                       size="xs"
-                      className="rounded-lg"
+                      className="rounded-xl"
                     />
                   </td>
                   <td style={{ fontWeight: 700 }}>
@@ -309,7 +312,7 @@ export default function CategoriesPage() {
                   </td>
                   <td>
                     <span className="pill" style={{ fontSize: 11 }}>
-                      {c.parentId ? (nameById.get(c.parentId) ?? "—") : "หมวดหลัก"}
+                      {c.parentId ? (nameById.get(c.parentId) ?? "-") : "Top level"}
                     </span>
                   </td>
                   <td style={{ textAlign: "center" }}>

@@ -7,12 +7,15 @@ import { cn } from "@/lib/cn";
 
 type PillButtonTone = "neutral" | "accent" | "danger" | "success";
 type PillButtonVariant = "solid" | "outline";
+type PillButtonSize = "sm" | "lg";
 
 // Pill button matching the dashboard's "Edit restaurant" look.
 // Uses CSS vars so the surface, border, and ink colors swap automatically
 // between the KDS light and dark themes.
-const PILL_BTN_COMMON =
-  "!h-[34px] !rounded-md !border !px-3.5 !text-[13px] !font-medium";
+const PILL_BTN_SIZES: Record<PillButtonSize, string> = {
+  sm: "!h-[34px] !rounded-md !border !px-3.5 !text-[13px] !font-medium",
+  lg: "!h-[42px] !rounded-md !border !px-4 !text-[13px] !font-medium",
+};
 
 const SOLID: Record<PillButtonTone, string> = {
   neutral:
@@ -45,18 +48,20 @@ export function PillButton({
   className,
   tone = "neutral",
   variant = "solid",
+  size = "sm",
   ...props
 }: ButtonProps & {
   className?: string;
   tone?: PillButtonTone;
   variant?: PillButtonVariant;
+  size?: PillButtonSize;
 }) {
   return (
     <Button
       variant="secondary"
-      size="sm"
+      size={size === "lg" ? "lg" : "sm"}
       {...props}
-      className={cn(PILL_BTN_COMMON, styles[variant][tone], className)}
+      className={cn(PILL_BTN_SIZES[size], styles[variant][tone], className)}
     />
   );
 }

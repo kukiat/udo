@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { ItemSwatch } from "@/components/menu/ItemSwatch";
 import { Modal } from "@/components/ui/Modal";
+import { TextInput } from "@/components/ui/TextInput";
 import { useCart } from "@/contexts/CartContext";
 import { cn } from "@/lib/cn";
 import { formatPrice } from "@/lib/utils";
@@ -90,26 +91,34 @@ export function MenuItemDetail({
   };
 
   return (
-    <Modal isOpen={Boolean(item)} onOpenChange={(o) => !o && onClose()} showClose={false}>
-      <div className="flex max-h-[92vh] flex-col">
-        <div className="relative h-[200px] flex-shrink-0">
+    <Modal
+      isOpen={Boolean(item)}
+      onOpenChange={(o) => !o && onClose()}
+      showClose={false}
+      className="order-theme !min-h-0 sm:max-w-xl"
+    >
+      <div className="flex max-h-[92dvh] flex-col overflow-hidden">
+        <div className="relative h-[220px] flex-shrink-0 bg-[var(--bg-sunken)]">
           <ItemSwatch
             id={item.id}
             name={item.name}
             image={item.image}
             size="lg"
           />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[var(--bg-elev)] via-transparent to-black/15" />
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="absolute right-3.5 top-3.5 grid h-8 w-8 place-items-center rounded-full bg-black/55 text-white"
+            className="absolute right-3.5 top-3.5 grid h-9 w-9 place-items-center rounded-full border border-white/15 bg-black/55 text-white backdrop-blur transition-colors hover:bg-black/75"
           >
-            ✕
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
           </button>
         </div>
 
-        <div className="flex flex-1 flex-col gap-3.5 overflow-y-auto px-[18px] py-4">
+        <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-[18px] py-4">
           <h2 className="text-[28px] font-semibold leading-tight tracking-tight text-ink">
             {item.name}
           </h2>
@@ -120,7 +129,7 @@ export function MenuItemDetail({
           )}
 
           {existingLines.length > 0 && (
-            <section className="flex flex-col gap-2 rounded-xl border border-line bg-sand/40 p-3">
+            <section className="flex flex-col gap-2 rounded-card border border-line bg-[var(--bg-sunken)] p-3">
               <div className="text-[13px] font-bold tracking-tight text-ink">
                 In your order
               </div>
@@ -203,7 +212,7 @@ export function MenuItemDetail({
                         className={cn(
                           "grid grid-cols-[20px_1fr_auto] items-center gap-3 rounded-[10px] border px-3 py-2.5 text-left text-[13px] transition-colors",
                           on
-                            ? "border-clay-500 bg-white"
+                            ? "border-clay-500 bg-[var(--accent-soft)]"
                             : "border-line bg-white hover:bg-sand/50",
                         )}
                       >
@@ -248,18 +257,21 @@ export function MenuItemDetail({
                 Tell the kitchen anything · optional
               </div>
             </div>
-            <textarea
+            <TextInput
               value={note}
-              onChange={(e) => setNote(e.target.value)}
+              onChange={setNote}
               placeholder="e.g. nut allergy, well-done, hold the cilantro"
+              ariaLabel="Special instructions"
+              width="100%"
+              multiline
               rows={2}
-              className="w-full resize-none rounded-lg border border-line bg-white px-2.5 py-2 text-[13px] text-ink outline-none focus:border-ink"
+              inputStyle={{ resize: "none" }}
             />
           </section>
         </div>
 
         <div className="grid flex-shrink-0 grid-cols-[auto_1fr] items-center gap-3 border-t border-line bg-white px-4 py-3">
-          <div className="inline-flex items-center rounded-full border border-line p-0.5">
+          <div className="inline-flex items-center rounded-full border border-line bg-[var(--bg-sunken)] p-0.5">
             <button
               type="button"
               onClick={() => setQuantity((q) => Math.max(1, q - 1))}
@@ -287,7 +299,7 @@ export function MenuItemDetail({
             className={cn(
               "inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-colors",
               canAdd
-                ? "bg-clay-500 text-white hover:bg-clay-600"
+                ? "bg-clay-500 text-white shadow-card hover:bg-clay-600"
                 : "cursor-not-allowed bg-sand text-ink-muted",
             )}
           >

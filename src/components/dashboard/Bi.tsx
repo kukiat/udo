@@ -1,36 +1,28 @@
-// Bilingual TH/EN helpers for the Neon Diner dashboard.
-// Thai is primary (larger), English secondary (smaller, uppercase, dimmer).
+// English label helpers for the dashboard.
 
 export function Bi({
-  th,
   en,
   className,
 }: {
-  th: string;
+  th?: string;
   en: string;
   className?: string;
 }) {
   return (
     <span className={`bi ${className ?? ""}`}>
-      <span className="bi-th">{th}</span>
-      <span className="bi-en">{en}</span>
+      <span className="bi-th">{en}</span>
     </span>
   );
 }
 
-// Inline form: "ไทย · ENGLISH" — used in body copy, tables, chips.
+// Inline form labels used in body copy, tables, and chips.
 export function BiInline({
-  th,
   en,
   className,
 }: {
-  th: string;
+  th?: string;
   en: string;
   className?: string;
 }) {
-  return (
-    <span className={className}>
-      {th} <span style={{ color: "var(--text-3)" }}>· {en}</span>
-    </span>
-  );
+  return <span className={className}>{en}</span>;
 }

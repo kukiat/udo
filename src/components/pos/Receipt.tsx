@@ -31,15 +31,43 @@ export function Receipt({
           <p className="text-xs text-ink-muted">Table {receipt.tableNumber}</p>
         </div>
         <hr className="my-3 border-line" />
-        <div className="flex flex-col gap-1">
-          {receipt.lineItems.map((li, i) => (
-            <div key={i} className="flex justify-between gap-2">
-              <span>
-                {li.quantity}× {li.name}
-              </span>
-              <span>{formatPrice(parseFloat(li.unitPrice) * li.quantity)}</span>
+        <div className="flex flex-col gap-2">
+          {receipt.lineItems.map((li, i) => {
+            const optionTotal = li.options.reduce(
+              (sum, option) => sum + parseFloat(option.price),
+              0,
+            );
+            const lineTotal = li.quantity * (parseFloat(li.unitPrice) + optionTotal);
+
+            return (
+              <div key={`${li.orderNumber}-${li.name}-${i}`} className="space-y-0.5">
+                <div className="flex justify-between gap-2">
+                  <span>
+                    {li.quantity}x {li.name}
+                  </span>
+                  <span>{formatPrice(lineTotal)}</span>
+                </div>
+                <div className="pl-3 text-xs text-ink-muted">
+                  <p>{li.orderNumber}</p>
+                  {li.options.map((option, optionIndex) => (
+                    <div
+                      key={`${option.name}-${optionIndex}`}
+                      className="flex justify-between gap-2"
+                    >
+                      <span>+ {option.name}</span>
+                      <span>{formatPrice(parseFloat(option.price) * li.quantity)}</span>
+                    </div>
+                  ))}
+                  {li.note && <p>Note: {li.note}</p>}
+                </div>
+              </div>
+            );
+          })}
+          {receipt.lineItems.length === 0 && (
+            <div className="text-center text-xs text-ink-muted">
+              No order items recorded.
             </div>
-          ))}
+          )}
         </div>
         <hr className="my-3 border-line" />
         <div className="flex flex-col gap-1">
@@ -62,13 +90,9 @@ export function Receipt({
           {receipt.tendered !== null && (
             <Row label="Tendered" value={receipt.tendered} />
           )}
-          {receipt.change !== null && (
-            <Row label="Change" value={receipt.change} />
-          )}
+          {receipt.change !== null && <Row label="Change" value={receipt.change} />}
         </div>
-        <p className="mt-4 text-center text-xs text-ink-muted">
-          Thank you!
-        </p>
+        <p className="mt-4 text-center text-xs text-ink-muted">Thank you!</p>
       </div>
 
       <div className="mt-5 flex gap-2 print:hidden">
