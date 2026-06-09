@@ -85,8 +85,10 @@ function PosPageInner() {
     root.classList.add("kds-theme");
     if (theme === "dark") root.classList.add("kds-dark");
     else root.classList.remove("kds-dark");
+    root.style.colorScheme = theme;
     return () => {
       root.classList.remove("kds-theme", "kds-dark");
+      root.style.removeProperty("color-scheme");
     };
   }, [theme]);
 

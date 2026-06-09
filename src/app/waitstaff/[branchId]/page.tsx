@@ -17,6 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/cn";
 import { api } from "@/lib/fetcher";
 import { getSocket } from "@/lib/socket-client";
+import { readThemePreference, writeThemePreference } from "@/lib/theme";
 import { formatPrice } from "@/lib/utils";
 import type {
   CategoryWithItemsDTO,
@@ -287,32 +288,24 @@ export default function WaitstaffPage() {
   const router = useRouter();
   const { user } = useAuth();
 
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(THEME_KEY);
-      if (stored === "light" || stored === "dark") setTheme(stored);
-    } catch {
-      /* ignore */
-    }
-  }, []);
+  const [theme, setTheme] = useState<"light" | "dark">(() =>
+    readThemePreference(THEME_KEY),
+  );
   useEffect(() => {
     const root = document.documentElement;
     root.classList.add("kds-theme");
     if (theme === "dark") root.classList.add("kds-dark");
     else root.classList.remove("kds-dark");
+    root.style.colorScheme = theme;
     return () => {
       root.classList.remove("kds-theme", "kds-dark");
+      root.style.removeProperty("color-scheme");
     };
   }, [theme]);
   const toggleTheme = () => {
     setTheme((prev) => {
       const next = prev === "light" ? "dark" : "light";
-      try {
-        localStorage.setItem(THEME_KEY, next);
-      } catch {
-        /* ignore */
-      }
+      writeThemePreference(THEME_KEY, next);
       return next;
     });
   };

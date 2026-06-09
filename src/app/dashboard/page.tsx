@@ -14,6 +14,9 @@ import { Modal } from "@/components/ui/Modal";
 import { TextInput } from "@/components/ui/TextInput";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { api } from "@/lib/fetcher";
+import { readThemePreference, writeThemePreference } from "@/lib/theme";
+
+const THEME_KEY = "rms.dashboard.theme";
 
 function markOf(name: string): string {
   return (
@@ -46,33 +49,26 @@ export default function DashboardHome() {
   const [deleting, setDeleting] = useState<Restaurant | null>(null);
   const [removing, setRemoving] = useState(false);
 
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("rms.dashboard.theme");
-      if (stored === "light" || stored === "dark") setTheme(stored);
-    } catch {
-      /* ignore */
-    }
-  }, []);
+  const [theme, setTheme] = useState<"light" | "dark">(() =>
+    readThemePreference(THEME_KEY),
+  );
 
   useEffect(() => {
     const root = document.documentElement;
     root.classList.add("kds-theme");
     if (theme === "dark") root.classList.add("kds-dark");
     else root.classList.remove("kds-dark");
+    root.style.colorScheme = theme;
     return () => {
       root.classList.remove("kds-theme", "kds-dark");
+      root.style.removeProperty("color-scheme");
     };
   }, [theme]);
   
   const toggleTheme = () => {
     setTheme((prev) => {
       const next = prev === "light" ? "dark" : "light";
-      try {
-        localStorage.setItem("rms.dashboard.theme", next);
-      } catch {}
+      writeThemePreference(THEME_KEY, next);
       return next;
     });
   };

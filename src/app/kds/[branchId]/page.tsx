@@ -155,8 +155,10 @@ export default function KdsPage() {
     const root = document.documentElement;
     if (theme === "dark") root.classList.add("kds-theme", "kds-dark");
     else root.classList.remove("kds-theme", "kds-dark");
+    root.style.colorScheme = theme;
     return () => {
       root.classList.remove("kds-theme", "kds-dark");
+      root.style.removeProperty("color-scheme");
     };
   }, [theme]);
 

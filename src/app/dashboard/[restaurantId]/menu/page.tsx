@@ -288,10 +288,10 @@ export default function MenuListPage() {
       <div className="row" style={{ justifyContent: "space-between", marginBottom: 18 }}>
         <div>
           <div className="h-display" style={{ fontSize: 44 }}>
-            รายการเมนู
+            Menu Items
           </div>
           <div style={{ fontSize: 13, color: "var(--text-2)", marginTop: 4 }}>
-            MENU ITEMS · {total} รายการ
+            MENU ITEMS - {total} items
           </div>
         </div>
         <PillButton tone="accent" onClick={() => setCreateOpen(true)}>
@@ -312,7 +312,7 @@ export default function MenuListPage() {
           description="Create your first menu item to get started."
           action={
             <button className="btn btn-primary" onClick={() => setCreateOpen(true)}>
-              ＋ เพิ่มเมนู · CREATE NEW
+              Create new
             </button>
           }
         />
@@ -322,10 +322,10 @@ export default function MenuListPage() {
             <thead>
               <tr>
                 <th style={{ width: 96 }} />
-                <th>เมนู · ITEM</th>
-                <th>หมวด · CAT</th>
-                <th>สถานะ · STATUS</th>
-                <th style={{ textAlign: "right" }}>ราคา · PRICE</th>
+                <th>Item</th>
+                <th>Category</th>
+                <th>Status</th>
+                <th style={{ textAlign: "right" }}>Price</th>
                 <th style={{ textAlign: "right" }} />
               </tr>
             </thead>
@@ -366,8 +366,8 @@ export default function MenuListPage() {
                       className="pill"
                       style={iconButtonStyle}
                       onClick={() => openEdit(it.id)}
-                      aria-label={`แก้ไขเมนู ${it.name}`}
-                      title="แก้ไข · Edit"
+                      aria-label={`Edit menu item ${it.name}`}
+                      title="Edit"
                     >
                       <EditIcon />
                     </button>
@@ -375,8 +375,8 @@ export default function MenuListPage() {
                       className="pill pill-danger"
                       style={iconDangerButtonStyle}
                       onClick={() => setDeleteItem(it)}
-                      aria-label={`ลบเมนู ${it.name}`}
-                      title="ลบ · Delete"
+                      aria-label={`Delete menu item ${it.name}`}
+                      title="Delete"
                     >
                       <TrashIcon />
                     </button>
@@ -463,7 +463,7 @@ export default function MenuListPage() {
           style={{ gap: 16, padding: 20, background: "var(--surface)" }}
         >
           <div>
-            <h2 className="h-2">ลบเมนู? · Delete menu item?</h2>
+            <h2 className="h-2">Delete menu item?</h2>
             <p style={{ marginTop: 4, fontSize: 13, color: "var(--text-3)" }}>
               {deleteItem
                 ? `“${deleteItem.name}” will be deleted. This can't be undone.`
@@ -476,14 +476,14 @@ export default function MenuListPage() {
               disabled={deleting}
               onClick={() => setDeleteItem(null)}
             >
-              ยกเลิก
+              Cancel
             </button>
             <button
               className="btn btn-danger grow"
               disabled={deleting}
               onClick={confirmRemove}
             >
-              {deleting ? "กำลังลบ…" : "ลบ · Delete"}
+              {deleting ? "Deleting..." : "Delete"}
             </button>
           </div>
         </div>

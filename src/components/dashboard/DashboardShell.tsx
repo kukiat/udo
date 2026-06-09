@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { RestaurantTopBar } from "@/components/dashboard/TopBar";
+import { readThemePreference, writeThemePreference } from "@/lib/theme";
 
 const THEME_KEY = "rms.dashboard.theme";
 
@@ -19,35 +20,26 @@ export function DashboardShell({
   restaurantId: string;
   children: React.ReactNode;
 }) {
-  const [theme, setTheme] = useState<DashboardTheme>("light");
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(THEME_KEY);
-      if (stored === "light" || stored === "dark") setTheme(stored);
-    } catch {
-      /* ignore */
-    }
-  }, []);
+  const [theme, setTheme] = useState<DashboardTheme>(() =>
+    readThemePreference(THEME_KEY),
+  );
 
   useEffect(() => {
     const root = document.documentElement;
     root.classList.add("kds-theme");
     if (theme === "dark") root.classList.add("kds-dark");
     else root.classList.remove("kds-dark");
+    root.style.colorScheme = theme;
     return () => {
       root.classList.remove("kds-theme", "kds-dark");
+      root.style.removeProperty("color-scheme");
     };
   }, [theme]);
 
   const toggleTheme = () => {
     setTheme((prev) => {
       const next = prev === "light" ? "dark" : "light";
-      try {
-        localStorage.setItem(THEME_KEY, next);
-      } catch {
-        /* ignore */
-      }
+      writeThemePreference(THEME_KEY, next);
       return next;
     });
   };
