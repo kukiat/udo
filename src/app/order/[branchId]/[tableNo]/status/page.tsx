@@ -7,6 +7,7 @@ import { CancelOrderDialog } from "@/components/order/CancelOrderDialog";
 import { OrderStatusCard } from "@/components/order/OrderStatus";
 import { Button } from "@/components/ui/Button";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useTableOrders } from "@/hooks/useTableOrders";
 import { useOrderLink } from "@/lib/order-link";
 
@@ -16,6 +17,7 @@ export default function OrderStatusPage() {
     tableNo: string;
   }>();
   const orderLink = useOrderLink();
+  usePageTitle(`Order status — Table ${tableNo}`);
 
   const {
     orders,

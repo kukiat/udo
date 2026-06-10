@@ -1,40 +1,10 @@
 "use client";
-
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { AccountMenu } from "@/components/ui/AccountMenu";
+import { AppLogo } from "@/components/ui/AppLogo";
 import { Select } from "@/components/ui/Select";
 import { useRestaurant } from "@/contexts/RestaurantContext";
-
-// Marrow brand mark: ink ring with a coral inner dot, followed by the
-// "Marrow" wordmark. Sized to match the KDS header brand mark.
-function MarrowBrand() {
-  return (
-    <Link
-      href="/"
-      aria-label="Go to home"
-      className="flex items-center gap-2.5 rounded-md transition-opacity hover:opacity-80"
-    >
-      <span
-        className="relative inline-block h-[22px] w-[22px] rounded-full bg-[var(--ink)]"
-      >
-        <span
-          className="absolute inset-[20%] rounded-full bg-[var(--accent)]"
-        />
-      </span>
-      <span
-        className="text-[17px] font-semibold tracking-[-0.02em] text-[var(--ink)]"
-      >
-        Marrow
-      </span>
-    </Link>
-  );
-}
-
-const VDivider = () => (
-  <span aria-hidden className="h-6 w-px bg-line" />
-);
 
 export function TopBar({
   role,
@@ -57,7 +27,7 @@ export function TopBar({
       className="sticky top-0 z-20 flex items-center justify-between h-[64px] px-[20px] bg-[var(--bg-elev)] border-b border-[var(--line,var(--border))]"
     >
       <div className="flex min-w-0 items-center gap-4">
-        <MarrowBrand />
+        <AppLogo wordmarkClassName="tracking-[-0.02em]" />
         {(role || left) && (
           <>
             <span
@@ -233,7 +203,7 @@ function BranchSwitcher() {
 }
 
 // Standalone branch pill — used outside the dashboard scope (e.g. waitstaff)
-// where the RestaurantContext isn't available. Mirrors the Marrow
+// where the RestaurantContext isn't available. Mirrors the Udo
 // BranchSwitcher in the dashboard but takes branches/branchId/onChange props.
 export function BranchPill({
   branches,
@@ -370,7 +340,7 @@ export function BranchPill({
 
 // Backwards-compatible alias — older callers passed `label` instead of `role`
 // and didn't want the Live pill rendered automatically.
-export function MarrowTopBar({
+export function UdoTopBar({
   label,
   right,
 }: {
@@ -403,7 +373,7 @@ function ThemeToggle({
   );
 }
 
-// Per-restaurant topbar — Marrow design, KDS-aligned. Brand + divider +
+// Per-restaurant topbar — Udo design, KDS-aligned. Brand + divider +
 // "Management" section label with mono "Restaurant · Branch" subtext (the
 // subtext is the branch switcher trigger). Mirrors the KDS header layout.
 export function RestaurantTopBar({

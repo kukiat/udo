@@ -18,8 +18,16 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Marrow — RMS",
+  title: {
+    default: "Udo — RMS",
+    template: "%s · Udo",
+  },
   description: "Self-Order, KDS & Menu Management",
+  icons: {
+    icon: [{ url: "/uploads/favicon.ico", type: "image/x-icon" }],
+    shortcut: [{ url: "/uploads/favicon.ico", type: "image/x-icon" }],
+    apple: [{ url: "/uploads/favicon.ico", type: "image/x-icon" }],
+  },
 };
 
 // Runs before hydration so the persisted theme is applied to <html> on first

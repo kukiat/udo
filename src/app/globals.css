@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* ============================================================
-   Marrow design tokens — modern bistro / cafe.
+   Udo design tokens — modern bistro / cafe.
    Clean & minimal, lots of whitespace, neutral tones with a
    terracotta accent. Mirrors the prototype's :root scale.
    ============================================================ */
@@ -302,7 +302,7 @@ body {
 }
 
 /* ------------------------------------------------------------
-   KDS-dark: remap Marrow Tailwind utility classes onto the KDS
+   KDS-dark: remap Udo Tailwind utility classes onto the KDS
    dark-theme CSS variables. Mirrors the admin-dark mappings so
    the waitstaff page (which uses bg-white, text-ink, border-line
    etc.) renders with KDS dark surfaces.
@@ -520,7 +520,7 @@ body {
 }
 
 /* ============================================================
-   Marrow keyframes (CSS-only; Tailwind has matching names too)
+   Udo keyframes (CSS-only; Tailwind has matching names too)
    ============================================================ */
 @keyframes pulseRing {
   0% {
@@ -578,10 +578,10 @@ input[type="number"] {
 }
 
 /* ============================================================
-   Dashboard scope (.dir-a) — retuned to the Marrow palette.
+   Dashboard scope (.dir-a) — retuned to the Udo palette.
    Inherits the structural classes from the original Neon Diner
    theme (.card, .btn, .pill, .stat, .sidebar, .topbar) but the
-   tokens now produce the warm, terracotta-accented Marrow look.
+   tokens now produce the warm, terracotta-accented Udo look.
    ============================================================ */
 .dir-a {
   --font-display: var(--font-sans, "Inter", ui-sans-serif, system-ui,
@@ -589,7 +589,7 @@ input[type="number"] {
   --font-mono: var(--font-mono, "JetBrains Mono", ui-monospace, "SF Mono",
     Menlo, monospace);
 
-  /* Surfaces (Marrow light) — mirror the root tokens so components that read
+  /* Surfaces (Udo light) — mirror the root tokens so components that read
      --bg-elev render on white (not sunken cream) inside the dashboard scope. */
   --bg: #fafaf7;
   --bg-elev: #ffffff;
@@ -618,7 +618,7 @@ input[type="number"] {
   --text-2: var(--ink-2);
   --text-3: var(--ink-3);
 
-  /* Accents → Marrow palette mappings */
+  /* Accents → Udo palette mappings */
   --coral: #d9542b; /* primary accent (terracotta) */
   --coral-soft: #f6e2d8;
   --lime: #2a6f4e; /* olive substitute for "success" */
@@ -633,7 +633,7 @@ input[type="number"] {
   --status-ready: var(--lime);
   --status-urgent: var(--berry);
 
-  /* Tighter Marrow radii */
+  /* Tighter Udo radii */
   --radius-xs: 6px;
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -756,7 +756,7 @@ input[type="number"] {
 .dir-a .dot-ready { background: var(--status-ready); }
 .dir-a .dot-urgent { background: var(--status-urgent); }
 
-/* Type scale — Marrow-tuned (slimmer weights, tighter letter-spacing) */
+/* Type scale — Udo-tuned (slimmer weights, tighter letter-spacing) */
 .dir-a .h-display { font-size: 44px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; }
 .dir-a .h-1 { height: auto; font-size: 28px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.05; }
 .dir-a .h-2 { height: auto; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; }
@@ -816,7 +816,7 @@ input[type="number"] {
   font-size: 16px;
   letter-spacing: -0.02em;
 }
-/* Marrow brand mark: ink ring + accent dot. The mark's inner text (initials)
+/* Udo brand mark: ink ring + accent dot. The mark's inner text (initials)
    becomes the accent dot via the ::after pseudo-element. */
 .dir-a .brand-mark {
   width: 22px;

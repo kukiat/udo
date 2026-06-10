@@ -6,6 +6,7 @@ import { Suspense, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { api } from "@/lib/fetcher";
 import type { AuthUser } from "@/lib/auth";
 
@@ -94,6 +95,7 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
+  usePageTitle("Sign in");
   return (
     <Suspense>
       <LoginForm />

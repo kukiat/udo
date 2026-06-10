@@ -1,10 +1,13 @@
 "use client";
 
+import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { ReportsAgentChat } from "@/components/dashboard/ReportsAgentChat";
 import { DateRangePicker } from "@/components/ui/DateRangePicker";
 import { ErrorState, Loading } from "@/components/ui/States";
 import { useRestaurant } from "@/contexts/RestaurantContext";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { api } from "@/lib/fetcher";
 import { formatPrice } from "@/lib/utils";
 
@@ -51,9 +54,18 @@ type SalesReport = {
   topItems: { name: string; qty: number; total: string }[];
 };
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
-const daysAgoISO = (n: number) =>
-  new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+// Local-timezone date strings (YYYY-MM-DD) — timestamps are stored in UTC,
+// but day boundaries follow the viewer's local timezone.
+const localISO = (d: Date) => {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
+const todayISO = () => localISO(new Date());
+const daysAgoISO = (n: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return localISO(d);
+};
 
 const METHOD: Record<string, { label: string; color: string }> = {
   qr: { label: "PromptPay", color: "lime" },
@@ -62,21 +74,26 @@ const METHOD: Record<string, { label: string; color: string }> = {
 };
 
 const CAT_HUES = [32, 18, 50, 95, 65, 110, 200, 300];
+const ENABLE_POS_SHIFT_WORKFLOW = false;
 
 export default function ReportsPage() {
+  const params = useParams();
+  const restaurantId = String(params.restaurantId);
   const { branchId, branchName, loading: ctxLoading } = useRestaurant();
+  usePageTitle(branchName ? `Reports — ${branchName}` : "Reports");
   const [from, setFrom] = useState(daysAgoISO(29));
   const [to, setTo] = useState(todayISO());
   const [data, setData] = useState<SalesReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [chatOpen, setChatOpen] = useState(true);
 
   const load = useCallback(() => {
     if (!branchId) return;
     setLoading(true);
     setError(null);
     api<SalesReport>(
-      `/api/reports/sales?branchId=${branchId}&from=${from}&to=${to}`,
+      `/api/reports/sales?branchId=${branchId}&from=${from}&to=${to}&tz=${new Date().getTimezoneOffset()}`,
     )
       .then(setData)
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"))
@@ -98,7 +115,8 @@ export default function ReportsPage() {
     : 0;
 
   return (
-    <div className="max-w-5xl">
+    <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
+      <div className="min-w-0 flex-1 xl:max-w-5xl">
       <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
           <div className="h-display" style={{ fontSize: 44 }}>
@@ -108,15 +126,35 @@ export default function ReportsPage() {
             SALES REPORTS - {branchName ?? "-"}
           </div>
         </div>
-        <DateRangePicker
-          label="Date range"
-          value={{ from, to }}
-          max={todayISO()}
-          onChange={(r) => {
-            setFrom(r.from);
-            setTo(r.to);
-          }}
-        />
+        <div className="row" style={{ gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
+          <DateRangePicker
+            label="Date range"
+            value={{ from, to }}
+            max={todayISO()}
+            onChange={(r) => {
+              setFrom(r.from);
+              setTo(r.to);
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => setChatOpen((v) => !v)}
+            aria-pressed={chatOpen}
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              padding: "9px 14px",
+              borderRadius: 12,
+              border: "1px solid var(--border)",
+              background: chatOpen ? "var(--bg-elev)" : "var(--clay-500, var(--coral))",
+              color: chatOpen ? "var(--text)" : "#fff",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {chatOpen ? "Hide chat" : "Ask agent"}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -320,52 +358,53 @@ export default function ReportsPage() {
             </div>
           </div>
 
-          {/* Shift totals */}
-          <div className="card" style={{ padding: 22, marginTop: 18 }}>
-            <div className="h-2" style={{ marginBottom: 4 }}>Shift payments</div>
-            <div className="eyebrow" style={{ marginBottom: 14 }}>CASHIER SHIFT TOTALS</div>
-            {data.shiftBreakdown.length === 0 ? (
-              <Empty />
-            ) : (
-              <div style={{ overflowX: "auto" }}>
-                <div className="col" style={{ gap: 0, minWidth: 620 }}>
-                  {data.shiftBreakdown.slice(0, 8).map((s, i) => (
-                    <div
-                      key={s.shiftId ?? "no-shift"}
-                      className="grid"
-                      style={{
-                        gridTemplateColumns: "minmax(120px, 1fr) repeat(4, minmax(74px, auto))",
-                        gap: 12,
-                        alignItems: "center",
-                        padding: "10px 0",
-                        borderTop: i === 0 ? "none" : "1px dashed var(--border)",
-                        fontSize: 13,
-                      }}
-                    >
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 700 }}>{s.cashierName}</div>
-                        <div style={{ fontSize: 10, color: "var(--text-3)" }}>
-                          {s.status ?? "No shift"} - {s.count} payment{s.count === 1 ? "" : "s"}
+          {ENABLE_POS_SHIFT_WORKFLOW && (
+            <div className="card" style={{ padding: 22, marginTop: 18 }}>
+              <div className="h-2" style={{ marginBottom: 4 }}>Shift payments</div>
+              <div className="eyebrow" style={{ marginBottom: 14 }}>CASHIER SHIFT TOTALS</div>
+              {data.shiftBreakdown.length === 0 ? (
+                <Empty />
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <div className="col" style={{ gap: 0, minWidth: 620 }}>
+                    {data.shiftBreakdown.slice(0, 8).map((s, i) => (
+                      <div
+                        key={s.shiftId ?? "no-shift"}
+                        className="grid"
+                        style={{
+                          gridTemplateColumns: "minmax(120px, 1fr) repeat(4, minmax(74px, auto))",
+                          gap: 12,
+                          alignItems: "center",
+                          padding: "10px 0",
+                          borderTop: i === 0 ? "none" : "1px dashed var(--border)",
+                          fontSize: 13,
+                        }}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 700 }}>{s.cashierName}</div>
+                          <div style={{ fontSize: 10, color: "var(--text-3)" }}>
+                            {s.status ?? "No shift"} - {s.count} payment{s.count === 1 ? "" : "s"}
+                          </div>
                         </div>
+                        <span className="mono" style={{ fontWeight: 700 }}>
+                          {formatPrice(s.total)}
+                        </span>
+                        <span className="mono" style={{ color: "var(--text-2)" }}>
+                          Cash {formatPrice(s.cash)}
+                        </span>
+                        <span className="mono" style={{ color: "var(--text-2)" }}>
+                          Card {formatPrice(s.card)}
+                        </span>
+                        <span className="mono" style={{ color: "var(--text-2)" }}>
+                          QR {formatPrice(s.qr)}
+                        </span>
                       </div>
-                      <span className="mono" style={{ fontWeight: 700 }}>
-                        {formatPrice(s.total)}
-                      </span>
-                      <span className="mono" style={{ color: "var(--text-2)" }}>
-                        Cash {formatPrice(s.cash)}
-                      </span>
-                      <span className="mono" style={{ color: "var(--text-2)" }}>
-                        Card {formatPrice(s.card)}
-                      </span>
-                      <span className="mono" style={{ color: "var(--text-2)" }}>
-                        QR {formatPrice(s.qr)}
-                      </span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* Top items */}
           <div className="card" style={{ padding: 22, marginTop: 18 }}>
@@ -399,6 +438,19 @@ export default function ReportsPage() {
             )}
           </div>
         </>
+      )}
+      </div>
+
+      {chatOpen && (
+        <aside className="w-full xl:min-w-[380px] xl:flex-1">
+          <ReportsAgentChat
+            restaurantId={restaurantId}
+            branchName={branchName}
+            range={{ from, to }}
+            report={data}
+            onClose={() => setChatOpen(false)}
+          />
+        </aside>
       )}
     </div>
   );

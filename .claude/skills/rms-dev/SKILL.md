@@ -1,6 +1,6 @@
 ---
 name: rms-dev
-description: Run, seed, and work with the RMS (Restaurant Management System) app — a Next.js 15 + Socket.IO + Drizzle/Postgres full-stack project covering Self-Order, KDS, POS, Reports, Waitstaff, and Menu Management. Use whenever asked to start/run the app, reset or seed the database, log in with demo accounts, exercise the customer/KDS/dashboard flows, or run migrations.
+description: Run, seed, and work with the RMS (Restaurant Management System) app — a Next.js 15 + Socket.IO + Drizzle/Postgres full-stack project covering Self-Order, KDS, POS, Reports (incl. the Claude-powered "Ask agent" report chat), Waitstaff, and Menu Management. Use whenever asked to start/run the app, reset or seed the database, log in with demo accounts, exercise the customer/KDS/dashboard flows, work on the reports agent, or run migrations.
 ---
 
 # RMS Dev
@@ -29,7 +29,8 @@ Access is defined in `AREA_ROLES` (`src/lib/auth.ts`), enforced by `requireAcces
 - **Kitchen Display (KDS)** — real-time per-branch board, FIFO; station filter tabs (All/Hot/Cold/Drinks); advance `pending → preparing → ready → served`; cancel with reason; overdue alerts (~15 min); per-branch screen limit (`maxKdsScreens`, default 3) with live "Screen N of M" count + rejection screen.
 - **Menu Management (Dashboard)** — restaurants & branches CRUD (settings: max KDS, VAT %, service %); categories with sort order + sub-categories; menu items via dynamic form (nested option groups/items inline, one request); status toggle (available/sold_out/hidden), soft delete, KDS station assignment, image upload; per-branch availability + price override (bulk save).
 - **POS** — cashier workspace; shifts (open with float, close with counted cash + drawer variance); open-tables worklist with running totals; payment cash/card/QR with discount + change — recomputes bill, marks paid, closes session, frees table, attributes to shift; printable receipt.
-- **Reports** — sales analytics over a date range: summary cards (total sales, transactions, avg. ticket), sales by day, payment-method breakdown, by category, top 10 items — derived from recorded payments.
+- **Reports** — sales analytics over a date range: summary cards (total sales, transactions, avg. ticket), sales by day, payment-method breakdown, by category, top 10 items — derived from recorded payments. Day buckets follow the viewer's local timezone (the client passes `&tz=<getTimezoneOffset()>` to `GET /api/reports/sales`).
+- **Reports Agent ("Ask agent")** — chat panel on the reports page (`ReportsAgentChat`, toggled by the "Ask agent" button) that answers questions about the report currently on screen. `POST /api/reports/agent` streams plain text from the Claude API (`@anthropic-ai/sdk`), grounding the model with the already-fetched report JSON; reports-area roles only; history persists in localStorage per restaurant (`rms.reports.chat.<restaurantId>`). Requires `ANTHROPIC_API_KEY` — returns 503 `AGENT_NOT_CONFIGURED` without it.
 - **Waitstaff** — view all branches via selector; add tables; monitor per-table cards (occupied/available + active orders with status/items/total); mark `ready` orders served; 5s polling refresh.
 - **Cross-cutting** — auth/RBAC (`/api/auth/*`, `/forbidden`, account menu); image upload (`POST /api/uploads` → `public/uploads`, ≤5 MB); real-time Socket.IO rooms (per-branch KDS, per-table status).
 
@@ -38,6 +39,7 @@ Access is defined in `AREA_ROLES` (`src/lib/auth.ts`), enforced by `requireAcces
 - Node + npm, and a `.env` file (copy `.env.example`). Two connection strings are required:
   - `DATABASE_URL` — pooled connection (port 6543), used by the app at runtime (`src/db/index.ts`).
   - `DIRECT_URL` — direct connection (port 5432), used by migrations and seed.
+- `ANTHROPIC_API_KEY` (optional) — enables the reports "Ask agent" chat. Server-side only; everything else works without it.
 - Run `npm install` once.
 
 ## Run the app
@@ -91,9 +93,11 @@ Server logic is in `server.ts` + `src/lib/socket.ts`; the client helper is `src/
 
 ## Conventions
 
-- Money is `numeric(10,2)`; IDs are UUIDs. VAT/service-charge rates live in `Branch.settings` (jsonb).
+- Money is `numeric(10,2)`; IDs are UUIDs. VAT/service-charge rates live in `Branch.settings` (jsonb); branches also have `openingTime`/`closingTime` columns — closing earlier than opening means overnight hours (shown as "+1 day", see `isOvernight` in `src/components/dashboard/BranchFields.tsx`).
 - API list endpoints support `?page=&limit=` (max 100) and return errors as `{ "error": { "code", "message", "details" } }`.
 - Order status transitions are validated: `pending → preparing → ready → served → completed`; cancel only from `pending`/`preparing`.
+- Timestamps are stored in UTC; date math for "a day" in reports/dashboard happens in the client's local timezone (UI builds local `YYYY-MM-DD` strings and sends its `tz` offset to the sales API).
+- Waitstaff's "Pay" shortcut to POS appears only after the customer requests the check (`selectedBillRequested`).
 
 ## Verifying a change
 

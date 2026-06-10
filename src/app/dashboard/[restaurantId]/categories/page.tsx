@@ -11,6 +11,7 @@ import { Select } from "@/components/ui/Select";
 import { TextInput } from "@/components/ui/TextInput";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useRestaurant } from "@/contexts/RestaurantContext";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { api } from "@/lib/fetcher";
 import { PillButton } from "@/components/ui/PillButton";
 import { PlusIcon } from "lucide-react";
@@ -25,6 +26,7 @@ type Category = {
 };
 
 export default function CategoriesPage() {
+  usePageTitle("Categories");
   const { restaurantId, loading: ctxLoading } = useRestaurant();
   const theme = useDashboardTheme();
   const isDark = theme === "dark";

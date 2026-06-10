@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { api } from "@/lib/fetcher";
 import { readThemePreference, writeThemePreference } from "@/lib/theme";
 
@@ -58,6 +59,7 @@ function slugTag(name: string): string {
 // Entry point for KDS: list the restaurant's branches together with each
 // branch's tables, and let the user pick one to open its kitchen display.
 export default function KdsIndex() {
+  usePageTitle("KDS");
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { useId } from "react";
+
 import {
   Dialog,
   Modal as AriaModal,
@@ -17,6 +19,7 @@ export function Modal({
   showClose = true,
   header,
   footer,
+  ariaLabel,
 }: {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
@@ -24,6 +27,8 @@ export function Modal({
   className?: string;
   /** Hide the built-in top-right close icon (e.g. when the content renders its own). */
   showClose?: boolean;
+  /** Accessible dialog name; falls back to the `header` content, then "Dialog". */
+  ariaLabel?: string;
   /**
    * Sticky header content. When provided, the modal switches to a fixed
    * header + scrollable body layout — the header (and footer) stay put while
@@ -34,6 +39,15 @@ export function Modal({
   footer?: React.ReactNode;
 }) {
   const structured = header != null || footer != null;
+  const headerId = useId();
+  // React Aria requires every Dialog to have an accessible name; label by the
+  // header when one is rendered, otherwise fall back to a plain aria-label.
+  const labelProps =
+    ariaLabel != null
+      ? { "aria-label": ariaLabel }
+      : header != null
+        ? { "aria-labelledby": headerId }
+        : { "aria-label": "Dialog" };
 
   return (
     <ModalOverlay
@@ -55,13 +69,18 @@ export function Modal({
         )}
       >
         {structured ? (
-          <Dialog className="flex min-h-0 flex-1 flex-col outline-none">
+          <Dialog
+            {...labelProps}
+            className="flex min-h-0 flex-1 flex-col outline-none"
+          >
             {header != null && (
               <div
                 className="flex flex-shrink-0 items-start justify-between gap-3 px-5 py-4"
                 style={{ borderBottom: "1px solid var(--line)" }}
               >
-                <div className="min-w-0 flex-1">{header}</div>
+                <div id={headerId} className="min-w-0 flex-1">
+                  {header}
+                </div>
                 {showClose && (
                   <CloseButton
                     onPress={() => onOpenChange(false)}
@@ -95,7 +114,7 @@ export function Modal({
             )}
           </Dialog>
         ) : (
-          <Dialog className="outline-none">
+          <Dialog {...labelProps} className="outline-none">
             {showClose && (
               // Zero-height sticky wrapper keeps the icon pinned to the modal's
               // top-right even while the body scrolls.

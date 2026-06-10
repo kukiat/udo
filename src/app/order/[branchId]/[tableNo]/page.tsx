@@ -7,10 +7,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { MenuCard } from "@/components/menu/MenuCard";
 import { MenuItemDetail } from "@/components/menu/MenuItemDetail";
 import { OrderStatusModal } from "@/components/order/OrderStatusModal";
+import { AppLogo } from "@/components/ui/AppLogo";
 import { PillButton } from "@/components/ui/PillButton";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { TextInput } from "@/components/ui/TextInput";
 import { useCart } from "@/contexts/CartContext";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { api } from "@/lib/fetcher";
 import { useOrderLink } from "@/lib/order-link";
 import { formatPrice } from "@/lib/utils";
@@ -29,6 +31,7 @@ export default function MenuPage() {
   const cart = useCart();
   const orderLink = useOrderLink();
   const router = useRouter();
+  usePageTitle(`Menu — Table ${tableNo}`);
 
   const [categories, setCategories] = useState<CategoryWithItemsDTO[]>([]);
   const [brand, setBrand] = useState<{ name: string; branch: string } | null>(
@@ -163,11 +166,12 @@ export default function MenuPage() {
     <div className="lg:-mb-28 lg:grid lg:min-h-screen lg:grid-cols-[248px_1fr]">
       {/* Left category rail — tablet / web only */}
       <aside className="sticky top-0 hidden h-screen flex-col gap-1 border-r border-line bg-[rgba(10,11,13,0.72)] p-5 shadow-[inset_-1px_0_0_rgba(255,255,255,0.03)] backdrop-blur-xl lg:flex">
-        {/* Marrow brand mark + role */}
+        {/* App brand mark + restaurant context */}
         <div className="mb-6 flex items-center gap-3 rounded-card border border-line bg-white p-3 shadow-card">
-          <span className="relative inline-block h-9 w-9 rounded-full bg-[var(--ink)] shadow-[0_0_0_1px_rgba(255,255,255,0.08)_inset]">
-            <span className="absolute inset-[23%] rounded-full bg-clay-500" />
-          </span>
+          <AppLogo
+            showWordmark={false}
+            markClassName="h-9 w-9 rounded-card shadow-[0_0_0_1px_rgba(255,255,255,0.08)_inset]"
+          />
           <span className="min-w-0">
             <span className="block truncate text-[15px] font-semibold tracking-tight text-ink">
               {brand?.name ?? "Menu"}
@@ -236,9 +240,10 @@ export default function MenuPage() {
         <header className="sticky top-0 z-10 border-b border-line bg-[rgba(15,16,18,0.82)] px-4 pb-3 pt-4 shadow-[0_14px_40px_-28px_rgba(0,0,0,0.9)] backdrop-blur-xl">
           <div className="flex items-start justify-between gap-3 lg:hidden">
             <div className="flex min-w-0 items-center gap-3">
-              <span className="relative inline-block h-9 w-9 flex-shrink-0 rounded-full bg-[var(--ink)] shadow-[0_0_0_1px_rgba(255,255,255,0.08)_inset]">
-                <span className="absolute inset-[23%] rounded-full bg-clay-500" />
-              </span>
+              <AppLogo
+                showWordmark={false}
+                markClassName="h-9 w-9 rounded-card shadow-[0_0_0_1px_rgba(255,255,255,0.08)_inset]"
+              />
               <div className="min-w-0">
                 <h1 className="truncate text-[24px] font-semibold leading-tight text-ink">
                 {brand?.name ?? "Menu"}
@@ -316,7 +321,7 @@ export default function MenuPage() {
         </header>
 
         <main className="px-4 pb-4 pt-4 lg:px-10 lg:pb-28">
-          {/* Marrow hero — tablet+ only */}
+          {/* Udo hero — tablet+ only */}
           {!q && sections.length > 0 && (
             <div className="hidden pt-8 lg:block">
               <div className="relative overflow-hidden rounded-card border border-line bg-white px-7 py-6 shadow-card">

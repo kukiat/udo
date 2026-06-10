@@ -1,6 +1,4 @@
 "use client";
-
-import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
@@ -13,8 +11,10 @@ import {
 
 import { KdsOrderCard, stationStyle } from "@/components/kds/KdsOrderCard";
 import { CancelOrderDialog } from "@/components/order/CancelOrderDialog";
+import { AppLogo } from "@/components/ui/AppLogo";
 import { AccountMenu } from "@/components/ui/AccountMenu";
 import { ErrorState, Loading } from "@/components/ui/States";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { cn } from "@/lib/cn";
 import { api } from "@/lib/fetcher";
 import { getSocket } from "@/lib/socket-client";
@@ -35,7 +35,7 @@ type BranchResponse = {
 const ALERT_MS = 10 * 60 * 1000;
 const CRITICAL_MS = 15 * 60 * 1000;
 
-// Marrow lane definitions — map onto the existing OrderStatus values.
+// Udo lane definitions — map onto the existing OrderStatus values.
 const LANES: {
   status: OrderStatus;
   label: string;
@@ -131,6 +131,7 @@ export default function KdsPage() {
   const [branchInfo, setBranchInfo] = useState<BranchResponse["branch"] | null>(
     null,
   );
+  usePageTitle(branchInfo ? `KDS — ${branchInfo.name}` : "KDS");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rejected, setRejected] = useState<string | null>(null);
@@ -384,7 +385,7 @@ export default function KdsPage() {
     }
   };
 
-  // Live counters — Marrow header strip.
+  // Live counters — Udo header strip.
   const activeCount = orders.length;
   const longestMs = orders.reduce(
     (max, o) => Math.max(max, now - new Date(o.createdAt).getTime()),
@@ -497,7 +498,7 @@ export default function KdsPage() {
         }}
       >
         <div className="flex items-center gap-4">
-          <BrandMark />
+          <AppLogo wordmarkClassName="tracking-[-0.02em]" />
           <div style={{ width: 1, height: 24, background: "var(--line)" }} />
           <div className="flex items-baseline gap-3">
             <span
@@ -808,47 +809,7 @@ function laneEmpty(status: OrderStatus): string {
   return "Nothing waiting.";
 }
 
-// ============== Marrow header pieces ==============
-
-function BrandMark() {
-  return (
-    <Link
-      href="/"
-      aria-label="Go to home"
-      className="inline-flex items-center gap-2.5 transition-opacity hover:opacity-80"
-    >
-      <span
-        style={{
-          width: 22,
-          height: 22,
-          borderRadius: "50%",
-          background: "var(--ink)",
-          position: "relative",
-          display: "inline-block",
-        }}
-      >
-        <span
-          style={{
-            position: "absolute",
-            inset: "20%",
-            background: "var(--accent)",
-            borderRadius: "50%",
-          }}
-        />
-      </span>
-      <span
-        style={{
-          fontSize: 17,
-          fontWeight: 600,
-          letterSpacing: "-0.02em",
-          color: "var(--ink)",
-        }}
-      >
-        Marrow
-      </span>
-    </Link>
-  );
-}
+// ============== Header pieces ==============
 
 function KdsCounter({
   label,

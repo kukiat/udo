@@ -3,7 +3,7 @@ import { cn } from "@/lib/cn";
 import { formatPrice } from "@/lib/utils";
 import type { OrderDTO, OrderStatus as Status } from "@/types";
 
-// Marrow customer-side stages (cancelled/completed get their own treatment).
+// Udo customer-side stages (cancelled/completed get their own treatment).
 const STAGES: { id: Status; label: string; blurb: string }[] = [
   { id: "pending", label: "Received", blurb: "Sent to the kitchen" },
   { id: "preparing", label: "Preparing", blurb: "Chefs are on it" },
@@ -64,7 +64,7 @@ export function OrderStatusCard({
         </p>
       )}
 
-      {/* Marrow stage tracker — only while order is in motion */}
+      {/* Udo stage tracker — only while order is in motion */}
       {!cancelled && !served && (
         <div className="mt-5 flex gap-0">
           {STAGES.map((s, i) => {
@@ -209,7 +209,7 @@ function StatusPill({ status }: { status: Status }) {
         className={cn(
           "h-1.5 w-1.5 rounded-full",
           p.dot,
-          p.pulse && "animate-marrow-blink",
+          p.pulse && "animate-udo-blink",
         )}
       />
       {labels[status]}

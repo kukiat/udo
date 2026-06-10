@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { ItemSwatch } from "@/components/menu/ItemSwatch";
 import { Modal } from "@/components/ui/Modal";
+import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { TextInput } from "@/components/ui/TextInput";
 import { useCart } from "@/contexts/CartContext";
 import { cn } from "@/lib/cn";
@@ -270,28 +271,13 @@ export function MenuItemDetail({
           </section>
         </div>
 
+        {/* Quantity selector section */}
         <div className="grid flex-shrink-0 grid-cols-[auto_1fr] items-center gap-3 border-t border-line bg-white px-4 py-3">
-          <div className="inline-flex items-center rounded-full border border-line bg-[var(--bg-sunken)] p-0.5">
-            <button
-              type="button"
-              onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-              aria-label="Decrease"
-              className="grid h-9 w-9 place-items-center rounded-full text-lg text-ink hover:bg-sand"
-            >
-              −
-            </button>
-            <span className="min-w-7 text-center text-[15px] font-semibold tabular-nums">
-              {quantity}
-            </span>
-            <button
-              type="button"
-              onClick={() => setQuantity((q) => q + 1)}
-              aria-label="Increase"
-              className="grid h-9 w-9 place-items-center rounded-full text-lg text-ink hover:bg-sand"
-            >
-              +
-            </button>
-          </div>
+          <QuantityStepper
+            value={quantity}
+            onDecrease={() => setQuantity((q) => Math.max(1, q - 1))}
+            onIncrease={() => setQuantity((q) => q + 1)}
+          />
           <button
             type="button"
             disabled={!canAdd}

@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { api } from "@/lib/fetcher";
 import { readThemePreference, writeThemePreference } from "@/lib/theme";
 
@@ -50,6 +51,7 @@ function slugTag(name: string): string {
 }
 
 export default function WaitstaffIndex() {
+  usePageTitle("Waitstaff");
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 

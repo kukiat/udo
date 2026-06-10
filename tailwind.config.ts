@@ -8,10 +8,10 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Marrow palette — warm neutral surfaces, terracotta accent, with
+        // Udo palette — warm neutral surfaces, terracotta accent, with
         // olive / amber / rose for status. Token names match the existing
         // codebase so prior usages (bg-cream, text-ink, border-line, …) keep
-        // working but render the Marrow look automatically.
+        // working but render the Udo look automatically.
         cream: "#FAFAF7", // --bg
         sand: "#F2F0EA", // --bg-sunken
         ink: {
@@ -47,7 +47,7 @@ export default {
         },
       },
       borderRadius: {
-        // Marrow radius scale: 6 / 10 / 16
+        // Udo radius scale: 6 / 10 / 16
         sm: "6px",
         DEFAULT: "10px",
         card: "10px",
@@ -81,10 +81,10 @@ export default {
         lg: ["1.125rem", { lineHeight: "1.75rem" }],
       },
       fontFeatureSettings: {
-        marrow: '"ss01", "cv11"',
+        udo: '"ss01", "cv11"',
       },
       boxShadow: {
-        // Marrow shadow tiers
+        // Udo shadow tiers
         card: "0 1px 0 rgba(22,21,18,0.04), 0 1px 2px rgba(22,21,18,0.04)",
         elev: "0 8px 24px -8px rgba(22,21,18,0.12), 0 2px 6px rgba(22,21,18,0.04)",
         pop: "0 20px 48px -16px rgba(22,21,18,0.24), 0 4px 12px rgba(22,21,18,0.06)",
@@ -99,7 +99,7 @@ export default {
           "70%": { boxShadow: "0 0 0 14px rgba(217,84,43,0)" },
           "100%": { boxShadow: "0 0 0 0 rgba(217,84,43,0)" },
         },
-        "marrow-blink": {
+        "udo-blink": {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.35" },
         },
@@ -115,7 +115,7 @@ export default {
       animation: {
         "border-blink": "border-blink 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
         "pulse-ring": "pulse-ring 1.4s ease",
-        "marrow-blink": "marrow-blink 1s ease-in-out infinite",
+        "udo-blink": "udo-blink 1s ease-in-out infinite",
         "slide-up": "slide-up 0.22s cubic-bezier(.2,.7,.2,1)",
         "fade-in": "fade-in 0.18s ease",
       },

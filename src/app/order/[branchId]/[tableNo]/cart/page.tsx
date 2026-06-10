@@ -7,8 +7,10 @@ import { useEffect, useState } from "react";
 import { ItemSwatch } from "@/components/menu/ItemSwatch";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { EmptyState, Loading } from "@/components/ui/States";
 import { useCart } from "@/contexts/CartContext";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { api } from "@/lib/fetcher";
 import { useOrderLink } from "@/lib/order-link";
 import { calcTotals, formatPrice, type BranchSettings } from "@/lib/utils";
@@ -34,6 +36,7 @@ export default function CartPage() {
   const router = useRouter();
   const cart = useCart();
   const orderLink = useOrderLink();
+  usePageTitle(`Cart — Table ${tableNo}`);
 
   const [settings, setSettings] = useState<BranchSettings | null>(null);
   const [tableId, setTableId] = useState<string | null>(null);
@@ -209,31 +212,18 @@ export default function CartPage() {
                         </button>
                       )}
                     </div>
-                    <div className="inline-flex h-9 shrink-0 items-center rounded-lg border border-line bg-[var(--bg-sunken)]">
-                      <button
-                        onClick={() =>
-                          l.quantity === 1
-                            ? setRemoveTarget({ lineId: l.lineId, name: l.name })
-                            : cart.updateQuantity(l.lineId, l.quantity - 1)
-                        }
-                        aria-label="Decrease"
-                        className="grid h-9 w-9 place-items-center rounded-l-lg text-[16px] leading-none text-ink hover:bg-sand"
-                      >
-                        −
-                      </button>
-                      <span className="min-w-[28px] text-center text-[13.5px] font-semibold tabular-nums">
-                        {l.quantity}
-                      </span>
-                      <button
-                        onClick={() =>
-                          cart.updateQuantity(l.lineId, l.quantity + 1)
-                        }
-                        aria-label="Increase"
-                        className="grid h-9 w-9 place-items-center rounded-r-lg text-[16px] leading-none text-ink hover:bg-sand"
-                      >
-                        +
-                      </button>
-                    </div>
+                    <QuantityStepper
+                      shape="rounded"
+                      value={l.quantity}
+                      onDecrease={() =>
+                        l.quantity === 1
+                          ? setRemoveTarget({ lineId: l.lineId, name: l.name })
+                          : cart.updateQuantity(l.lineId, l.quantity - 1)
+                      }
+                      onIncrease={() =>
+                        cart.updateQuantity(l.lineId, l.quantity + 1)
+                      }
+                    />
                     <div className="w-[68px] shrink-0 text-right text-[15px] font-semibold tabular-nums text-ink">
                       {formatPrice(lineTotal)}
                     </div>

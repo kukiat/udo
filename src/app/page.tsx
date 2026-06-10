@@ -9,6 +9,7 @@ import {
 import Link from "next/link";
 
 import { TopBar } from "@/components/dashboard/TopBar";
+import { usePageTitle } from "@/hooks/usePageTitle";
 
 const MENU_ITEMS = [
   {
@@ -53,6 +54,7 @@ const TONE_COLOR: Record<(typeof MENU_ITEMS)[number]["tone"], string> = {
 };
 
 export default function Home() {
+  usePageTitle("Home");
   return (
     <div
       className="kds-theme kds-dark min-h-screen"
@@ -90,7 +92,7 @@ export default function Home() {
               marginBottom: 10,
             }}
           >
-            <span style={{ color: "var(--ink-2)" }}>Marrow</span>
+            <span style={{ color: "var(--ink-2)" }}>Udo</span>
             <span style={{ margin: "0 8px", color: "var(--ink-4)" }}>/</span>
             <span>Restaurant Management System</span>
           </div>

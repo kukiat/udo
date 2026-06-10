@@ -13,8 +13,8 @@ type PillButtonSize = "sm" | "lg";
 // Uses CSS vars so the surface, border, and ink colors swap automatically
 // between the KDS light and dark themes.
 const PILL_BTN_SIZES: Record<PillButtonSize, string> = {
-  sm: "!h-[34px] !rounded-md !border !px-3.5 !text-[13px] !font-medium",
-  lg: "!h-[42px] !rounded-md !border !px-4 !text-[13px] !font-medium",
+  sm: "!h-[34px] !rounded-xl !border !px-3.5 !text-[13px] !font-medium",
+  lg: "!h-[42px] !rounded-xl !border !px-4 !text-[13px] !font-medium",
 };
 
 const SOLID: Record<PillButtonTone, string> = {

@@ -9,6 +9,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { PillButton } from "@/components/ui/PillButton";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useRestaurant } from "@/contexts/RestaurantContext";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { api } from "@/lib/fetcher";
 
 type TableRow = {
@@ -24,6 +25,7 @@ export default function BranchQrPrintPage() {
   const params = useParams<{ restaurantId: string; branchId: string }>();
   const { restaurantId, restaurantName, branches, loading: restaurantLoading } =
     useRestaurant();
+  usePageTitle("Table QR codes");
   const [tables, setTables] = useState<TableRow[]>([]);
   const [origin, setOrigin] = useState("");
   const [loading, setLoading] = useState(true);

@@ -13,7 +13,7 @@ const NEXT: Partial<Record<OrderStatus, OrderStatus>> = {
   ready: "served",
 };
 
-// Marrow urgency tiers (minutes): ok <5, warn 5-10, alert 10-15, critical 15+.
+// Udo urgency tiers (minutes): ok <5, warn 5-10, alert 10-15, critical 15+.
 const WARN_MS = 5 * 60 * 1000;
 const ALERT_MS = 10 * 60 * 1000;
 const CRITICAL_MS = 15 * 60 * 1000;
@@ -23,7 +23,7 @@ type Tier = "ok" | "warn" | "alert" | "critical";
 const TIER: Record<
   Tier,
   {
-    bar: string; // top urgency stripe (Marrow color)
+    bar: string; // top urgency stripe (Udo color)
     border: string;
     bg: string;
     timerFg: string;
@@ -74,7 +74,7 @@ const READY_TONE = {
   itemBorder: "var(--kds-item-border-ready)",
 };
 
-// Marrow station accents — keyed by name fragment.
+// Udo station accents — keyed by name fragment.
 function stationAccent(name: string | undefined): string {
   const n = (name ?? "").toUpperCase();
   if (n.includes("GRILL") || n.includes("HOT")) return "#D9542B";

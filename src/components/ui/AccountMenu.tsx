@@ -179,7 +179,7 @@ function DetailRow({
   );
 }
 
-// Marrow ProfileMenu — replaces the old AccountMenu. Avatar pill trigger →
+// Udo ProfileMenu — replaces the old AccountMenu. Avatar pill trigger →
 // popover with quick stats + actions → full detail modal. Compact mode strips
 // the name/role labels for narrow headers (KDS, mobile).
 //

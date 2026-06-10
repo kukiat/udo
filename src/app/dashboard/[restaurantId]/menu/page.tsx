@@ -13,6 +13,7 @@ import { ItemSwatch } from "@/components/menu/ItemSwatch";
 import { Modal } from "@/components/ui/Modal";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useRestaurant } from "@/contexts/RestaurantContext";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { api } from "@/lib/fetcher";
 import { toMenuItemPayload } from "@/lib/menu-form";
 import { formatPrice } from "@/lib/utils";
@@ -144,6 +145,7 @@ function TrashIcon() {
 }
 
 export default function MenuListPage() {
+  usePageTitle("Menu items");
   const { restaurantId, stations, loading: ctxLoading } = useRestaurant();
   const theme = useDashboardTheme();
   const isDark = theme === "dark";

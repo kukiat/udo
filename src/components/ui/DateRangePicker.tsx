@@ -89,7 +89,7 @@ export function DateRangePicker({
         className="rounded-2xl border border-[oklch(0.34_0.025_270)] bg-[oklch(0.16_0.018_270)] p-4 shadow-xl entering:animate-in entering:fade-in"
         offset={6}
       >
-        <Dialog className="outline-none">
+        <Dialog aria-label="Select date range" className="outline-none">
           <RangeCalendar className="flex flex-col gap-3 text-[oklch(0.92_0.01_90)]">
             <header className="flex items-center justify-between gap-2">
               <Button

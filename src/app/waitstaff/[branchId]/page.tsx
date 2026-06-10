@@ -14,6 +14,7 @@ import { Modal } from "@/components/ui/Modal";
 import { PillButton } from "@/components/ui/PillButton";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { cn } from "@/lib/cn";
 import { api } from "@/lib/fetcher";
 import { getSocket } from "@/lib/socket-client";
@@ -312,6 +313,7 @@ export default function WaitstaffPage() {
 
   const [branch, setBranch] = useState<BranchInfo | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
+  usePageTitle(branch ? `Waitstaff — ${branch.name}` : "Waitstaff");
   const [orders, setOrders] = useState<OrderDTO[]>([]);
   const [tables, setTables] = useState<TableRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1011,19 +1013,19 @@ export default function WaitstaffPage() {
                   ).length;
                   const flashing = tableOrders.some((o) => flashIds.has(o.id));
 
-                  // Marrow tile palette: status drives bg + dot color. Overdue and
+                  // Udo tile palette: status drives bg + dot color. Overdue and
                   // check-requested override with attention-grabbing accents.
                   const visual = checkRequested
                     ? {
                       bg: "bg-clay-100 border-clay-500",
                       fg: "text-clay-700",
-                      dot: "bg-clay-500 animate-marrow-blink",
+                      dot: "bg-clay-500 animate-udo-blink",
                     }
                     : overdue > 0
                       ? {
                         bg: "bg-rose-soft border-rose",
                         fg: "text-rose",
-                        dot: "bg-rose animate-marrow-blink",
+                        dot: "bg-rose animate-udo-blink",
                       }
                       : flashing
                         ? {
@@ -1140,7 +1142,7 @@ export default function WaitstaffPage() {
         {/* ============ Right: TablePanel ============ */}
         <main className="flex min-w-0 flex-col bg-sand lg:h-[calc(100vh-3.5rem)] lg:min-h-0 lg:overflow-hidden">
           <section className="shrink-0 border-b border-line bg-sand p-3 sm:p-4">
-            <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-3 2xl:grid-cols-5">
+            <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4 2xl:grid-cols-4">
               <StatCard
                 label="Tables"
                 value={`${occupiedCount}/${tables.length}`}
@@ -1164,12 +1166,6 @@ export default function WaitstaffPage() {
                 value={checkRequestedCount}
                 sub="requested checks"
                 tone="amber"
-              />
-              <StatCard
-                label="Realtime"
-                value={connected ? "Live" : "Off"}
-                sub={latency != null ? `${latency}ms latency` : "branch room"}
-                tone={connected ? "green" : "neutral"}
               />
             </div>
 
@@ -1249,7 +1245,7 @@ export default function WaitstaffPage() {
                       </div>
                       {selectedBillRequested && (
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-clay-500 px-2.5 py-[3px] text-[11px] font-semibold text-white">
-                          <span className="h-1.5 w-1.5 animate-marrow-blink rounded-full bg-white" />
+                          <span className="h-1.5 w-1.5 animate-udo-blink rounded-full bg-white" />
                           Check requested
                         </span>
                       )}
@@ -1337,17 +1333,19 @@ export default function WaitstaffPage() {
                             </svg>
                             New order
                           </PillButton>
-                          <Link
-                            href={`/pos/${branchId}?session=${selectedSession.sessionId}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex-1 sm:flex-none"
-                          >
-                            <PillButton tone="success">
-                              <CreditCardIcon className="w-4 h-4" />
-                              Pay
-                            </PillButton>
-                          </Link>
+                          {selectedBillRequested && (
+                            <Link
+                              href={`/pos/${branchId}?session=${selectedSession.sessionId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-1 sm:flex-none"
+                            >
+                              <PillButton tone="success">
+                                <CreditCardIcon className="w-4 h-4" />
+                                Pay
+                              </PillButton>
+                            </Link>
+                          )}
                           <PillButton
                             onPress={() => showLink(selectedTable)}
                             className={cn(WAITSTAFF_ACTION_BUTTON, "flex-1 sm:flex-none")}
@@ -1410,7 +1408,12 @@ export default function WaitstaffPage() {
                         className={cn(
                           "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide transition",
                           active
-                            ? "bg-[var(--accent)] text-white hover:brightness-95"
+                            ? cn(
+                                "border bg-[var(--accent)] text-white hover:brightness-95",
+                                theme === "dark"
+                                  ? "border-white"
+                                  : "border-transparent",
+                              )
                             : theme === "dark"
                               ? "border border-[var(--line-strong)] bg-[var(--bg-elev)] text-ink-soft hover:bg-[var(--line)]"
                               : "border border-line bg-white text-ink-soft hover:bg-[var(--bg-sunken)]",
@@ -1784,7 +1787,7 @@ export default function WaitstaffPage() {
                   {pickerCart.map((l) => (
                     <li
                       key={l.menuItemId}
-                      className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-2 rounded-sm bg-white/60 p-1.5 text-[13px]"
+                      className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-2 rounded-sm border border-line bg-white p-1.5 text-[13px]"
                     >
                       <span className="mono tabular-nums text-ink-muted">
                         {l.qty}×
@@ -2628,7 +2631,7 @@ function BillRequestQueue({
                     T{tableNumber}
                   </span>
                   <span className="inline-flex items-center gap-1 rounded-full bg-clay-500 px-2 py-[2px] text-[11px] font-semibold text-white">
-                    <span className="h-1.5 w-1.5 animate-marrow-blink rounded-full bg-white" />
+                    <span className="h-1.5 w-1.5 animate-udo-blink rounded-full bg-white" />
                     Check requested
                   </span>
                 </div>

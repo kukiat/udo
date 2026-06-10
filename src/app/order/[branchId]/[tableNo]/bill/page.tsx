@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useCart } from "@/contexts/CartContext";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { api } from "@/lib/fetcher";
 import { useOrderLink } from "@/lib/order-link";
 import { getSocket } from "@/lib/socket-client";
@@ -44,6 +45,7 @@ export default function BillPage() {
   const cart = useCart();
   const orderLink = useOrderLink();
   const sParam = useSearchParams().get("s");
+  usePageTitle(`Bill — Table ${tableNo}`);
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [data, setData] = useState<BillResponse | null>(null);
@@ -357,7 +359,7 @@ function BillStatusPill({ status }: { status: BillStatus }) {
       className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.04em] ${t.bg} ${t.fg}`}
     >
       <span
-        className={`h-1.5 w-1.5 rounded-full bg-current ${t.dot ? "animate-marrow-blink" : ""}`}
+        className={`h-1.5 w-1.5 rounded-full bg-current ${t.dot ? "animate-udo-blink" : ""}`}
       />
       {t.label}
     </span>

@@ -15,7 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-const NAV_COLLAPSED_KEY = "marrow.adminNav";
+const NAV_COLLAPSED_KEY = "udo.adminNav";
 
 type NavItem = {
   href: string;
@@ -202,11 +202,11 @@ export function Sidebar({ restaurantId }: { restaurantId?: string }) {
       >
         {collapsed ? (
           <div className="flex justify-center">
-            <span className="h-[7px] w-[7px] animate-marrow-blink rounded-full bg-olive" />
+            <span className="h-[7px] w-[7px] animate-udo-blink rounded-full bg-olive" />
           </div>
         ) : (
           <div className="flex items-center gap-2 text-[11px] text-ink-dim">
-            <span className="h-1.5 w-1.5 flex-shrink-0 animate-marrow-blink rounded-full bg-olive" />
+            <span className="h-1.5 w-1.5 flex-shrink-0 animate-udo-blink rounded-full bg-olive" />
             <span className="mono">Application version: 1.12.3.12</span>
           </div>
         )}

@@ -8,6 +8,7 @@ import { RestaurantFormModal } from "@/components/dashboard/RestaurantFormModal"
 import { PillButton } from "@/components/ui/PillButton";
 import { ErrorState, Loading } from "@/components/ui/States";
 import { useRestaurant } from "@/contexts/RestaurantContext";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { api } from "@/lib/fetcher";
 import { formatPrice } from "@/lib/utils";
 
@@ -26,8 +27,11 @@ type SalesResponse = {
   topItems: { name: string; qty: number; total: string }[];
 };
 
+// Local-timezone date key (YYYY-MM-DD). Timestamps are stored in UTC; all
+// day grouping in the UI happens in the viewer's local timezone.
 function dayKey(d: Date) {
-  return d.toISOString().slice(0, 10);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 function daysAgo(n: number) {
@@ -38,12 +42,14 @@ function daysAgo(n: number) {
 }
 
 function shortDay(iso: string) {
-  // "Mon", "Tue" …
-  return new Date(iso).toLocaleDateString("en-US", { weekday: "short" });
+  // "Mon", "Tue" … — parse as local midnight (date-only strings parse as UTC)
+  return new Date(`${iso}T00:00:00`).toLocaleDateString("en-US", {
+    weekday: "short",
+  });
 }
 function shortDate(iso: string) {
   // "May 27"
-  return new Date(iso).toLocaleDateString("en-US", {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
   });
@@ -130,7 +136,7 @@ function AnimatedCompactMoneyValue({ value }: { value: number }) {
   );
 }
 
-// 4-up KPI tile. Mirrors the Stat primitive from the Marrow design.
+// 4-up KPI tile. Mirrors the Stat primitive from the Udo design.
 function Stat({
   label,
   value,
@@ -316,6 +322,7 @@ export default function RestaurantOverviewPage() {
     branchName,
     refresh,
   } = useRestaurant();
+  usePageTitle(restaurantName ? `Overview — ${restaurantName}` : "Overview");
   const theme = useDashboardTheme();
 
   const [editOpen, setEditOpen] = useState(false);
@@ -335,16 +342,17 @@ export default function RestaurantOverviewPage() {
     const today = dayKey(new Date());
     const yest = dayKey(daysAgo(1));
     const weekStart = dayKey(daysAgo(6));
+    const tz = new Date().getTimezoneOffset();
     let alive = true;
     Promise.all([
       api<SalesResponse>(
-        `/api/reports/sales?branchId=${branchId}&from=${today}&to=${today}`,
+        `/api/reports/sales?branchId=${branchId}&from=${today}&to=${today}&tz=${tz}`,
       ),
       api<SalesResponse>(
-        `/api/reports/sales?branchId=${branchId}&from=${weekStart}&to=${today}`,
+        `/api/reports/sales?branchId=${branchId}&from=${weekStart}&to=${today}&tz=${tz}`,
       ),
       api<SalesResponse>(
-        `/api/reports/sales?branchId=${branchId}&from=${yest}&to=${yest}`,
+        `/api/reports/sales?branchId=${branchId}&from=${yest}&to=${yest}&tz=${tz}`,
       ),
     ])
       .then(([t, w, y]) => {

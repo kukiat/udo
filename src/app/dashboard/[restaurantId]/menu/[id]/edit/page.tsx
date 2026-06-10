@@ -10,6 +10,7 @@ import {
 } from "@/components/dashboard/MenuItemForm";
 import { ErrorState, Loading } from "@/components/ui/States";
 import { useRestaurant } from "@/contexts/RestaurantContext";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { api } from "@/lib/fetcher";
 import { toMenuItemPayload } from "@/lib/menu-form";
 
@@ -33,6 +34,7 @@ type MenuItemDetail = {
 };
 
 export default function EditMenuItemPage() {
+  usePageTitle("Edit menu item");
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { restaurantId, stations, loading: ctxLoading } = useRestaurant();

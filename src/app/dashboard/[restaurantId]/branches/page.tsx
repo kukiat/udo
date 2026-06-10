@@ -8,6 +8,7 @@ import {
   type BranchFieldsValue,
   branchFieldsFromSettings,
   emptyBranchFields,
+  isOvernight,
   normalizeBranchTime,
   settingsFromBranchFields,
   tablesFromCount,
@@ -20,11 +21,13 @@ import {
   useRestaurant,
   type BranchSummary,
 } from "@/contexts/RestaurantContext";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { api } from "@/lib/fetcher";
 import { PillButton } from "@/components/ui/PillButton";
 import { PencilIcon, PlusIcon, PrinterIcon } from "lucide-react";
 
 export default function BranchesPage() {
+  usePageTitle("Branches");
   const { restaurantId, branches, loading, refresh } = useRestaurant();
   const theme = useDashboardTheme();
   const isDark = theme === "dark";
@@ -473,9 +476,10 @@ function BranchesTable({
 
 function formatBranchHours(b: BranchSummary) {
   if (!b.openingTime && !b.closingTime) return "—";
-  return `${normalizeBranchTime(b.openingTime) || "—"}–${
-    normalizeBranchTime(b.closingTime) || "—"
-  }`;
+  const opening = normalizeBranchTime(b.openingTime);
+  const closing = normalizeBranchTime(b.closingTime);
+  const overnight = isOvernight(opening, closing) ? " +1" : "";
+  return `${opening || "—"}–${closing || "—"}${overnight}`;
 }
 
 function HeaderLabel({

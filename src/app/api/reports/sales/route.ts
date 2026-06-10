@@ -13,12 +13,23 @@ export async function GET(req: Request) {
     if (!branchId) return badRequest("branchId is required");
 
     const now = new Date();
-    const from = searchParams.get("from")
-      ? new Date(searchParams.get("from")!)
+    // Client timezone offset in minutes, as reported by
+    // Date.prototype.getTimezoneOffset() (UTC = local + tz). Timestamps are
+    // stored in UTC; the offset only shifts day boundaries and byDay buckets
+    // so "a day" means a day in the client's local timezone.
+    const tzMin = parseInt(searchParams.get("tz") ?? "0", 10) || 0;
+    const localDayStart = (ymd: string) =>
+      new Date(Date.parse(`${ymd}T00:00:00Z`) + tzMin * 60_000);
+    const fromParam = searchParams.get("from");
+    const toParam = searchParams.get("to");
+    const from = fromParam
+      ? localDayStart(fromParam)
       : new Date(now.getTime() - 29 * 86_400_000);
-    const to = searchParams.get("to")
-      ? new Date(new Date(searchParams.get("to")!).setHours(23, 59, 59, 999))
+    const to = toParam
+      ? new Date(localDayStart(toParam).getTime() + 86_400_000 - 1)
       : now;
+    if (isNaN(from.getTime()) || isNaN(to.getTime()))
+      return badRequest("from/to must be YYYY-MM-DD dates");
 
     const timed = makeTimer(
       `reports-sales GET ${crypto.randomUUID().slice(0, 8)}`,
@@ -146,7 +157,9 @@ export async function GET(req: Request) {
         }
       }
 
-      const day = p.createdAt.toISOString().slice(0, 10);
+      const day = new Date(p.createdAt.getTime() - tzMin * 60_000)
+        .toISOString()
+        .slice(0, 10);
       byDay.set(day, (byDay.get(day) ?? 0) + amount);
 
       const m = byMethod.get(p.method) ?? { total: 0, count: 0 };

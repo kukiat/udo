@@ -33,6 +33,15 @@ export function normalizeBranchTime(value: string | null | undefined) {
   return value ? value.slice(0, 5) : "";
 }
 
+/**
+ * True when closing falls on the next day (e.g. open 18:00, close 02:00). Both
+ * times are zero-padded "HH:MM", so a plain string compare orders them.
+ */
+export function isOvernight(opening?: string | null, closing?: string | null) {
+  if (!opening || !closing) return false;
+  return closing < opening;
+}
+
 /** A floor of `count` tables, numbered "1".."count" (matches the API seed). */
 export const tablesFromCount = (count: number): string[] =>
   Array.from({ length: count }, (_, i) => String(i + 1));
@@ -149,7 +158,12 @@ export function BranchFields({
           />
         </label>
         <label style={{ display: "block" }}>
-          <span style={labelStyle}>Closing time</span>
+          <span style={labelStyle}>
+            Closing time
+            {isOvernight(value.openingTime, value.closingTime) && (
+              <span style={overnightBadgeStyle}>+1 day</span>
+            )}
+          </span>
           <TimePicker
             value={value.closingTime}
             onChange={(v) => onChange({ closingTime: v })}
@@ -294,6 +308,17 @@ const labelStyle: React.CSSProperties = {
   color: "var(--ink-3)",
   fontWeight: 600,
   marginBottom: 6,
+};
+
+const overnightBadgeStyle: React.CSSProperties = {
+  marginLeft: 8,
+  padding: "1px 6px",
+  borderRadius: 999,
+  fontSize: 9,
+  fontWeight: 700,
+  letterSpacing: "0.06em",
+  color: "var(--accent)",
+  background: "var(--accent-soft)",
 };
 
 const stepperStyle: React.CSSProperties = {

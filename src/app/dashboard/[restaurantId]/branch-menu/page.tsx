@@ -6,6 +6,7 @@ import { ItemSwatch } from "@/components/menu/ItemSwatch";
 import { TextInput } from "@/components/ui/TextInput";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useRestaurant } from "@/contexts/RestaurantContext";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { api } from "@/lib/fetcher";
 import { formatPrice } from "@/lib/utils";
 
@@ -38,6 +39,7 @@ function hasRowChanged(row: Row, original?: Row) {
 
 export default function BranchMenuPage() {
   const { branchId, branchName, loading: ctxLoading } = useRestaurant();
+  usePageTitle(branchName ? `Branch menu — ${branchName}` : "Branch menu");
   const [rows, setRows] = useState<Row[]>([]);
   const [originalRows, setOriginalRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);

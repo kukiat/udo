@@ -13,6 +13,7 @@ import { TopBar } from "@/components/dashboard/TopBar";
 import { Modal } from "@/components/ui/Modal";
 import { TextInput } from "@/components/ui/TextInput";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { api } from "@/lib/fetcher";
 import { readThemePreference, writeThemePreference } from "@/lib/theme";
 
@@ -37,6 +38,7 @@ type Restaurant = {
 };
 
 export default function DashboardHome() {
+  usePageTitle("Restaurants");
   const router = useRouter();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [menuTotal, setMenuTotal] = useState<number | null>(null);

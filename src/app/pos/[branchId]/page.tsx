@@ -14,6 +14,7 @@ import { Modal } from "@/components/ui/Modal";
 import { PillButton } from "@/components/ui/PillButton";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { cn } from "@/lib/cn";
 import { api } from "@/lib/fetcher";
 import { formatPrice, type BillTotals } from "@/lib/utils";
@@ -45,6 +46,7 @@ const billStatusTone = (s: string) =>
 
 const THEME_KEY = "rms.pos.theme";
 const POS_ACTION_BUTTON = "!h-[34px] min-h-[34px] px-5";
+const ENABLE_POS_SHIFT_WORKFLOW = false;
 
 const formatClock = (iso: string) =>
   new Date(iso).toLocaleTimeString([], {
@@ -72,6 +74,7 @@ function PosPageInner() {
   const [shift, setShift] = useState<Shift | null>(null);
   const [branch, setBranch] = useState<BranchInfo | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
+  usePageTitle(branch ? `POS — ${branch.name}` : "POS");
   const [selected, setSelected] = useState<PosSession | null>(null);
   const [bill, setBill] = useState<BillResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -112,17 +115,22 @@ function PosPageInner() {
     return d.sessions;
   }, [branchId]);
 
+  const loadBranch = useCallback(async () => {
+    const d = await api<{ branch: BranchInfo }>(`/api/branches/${branchId}`);
+    setBranch(d.branch);
+  }, [branchId]);
+
   const loadShift = useCallback(async () => {
+    if (!ENABLE_POS_SHIFT_WORKFLOW) {
+      setShift(null);
+      return;
+    }
+
     const d = await api<{ shifts: Shift[] }>(
       `/api/shifts?branchId=${branchId}&status=open`,
     );
     setShift(d.shifts.find((s) => s.cashierId === user?.id) ?? null);
   }, [branchId, user?.id]);
-
-  const loadBranch = useCallback(async () => {
-    const d = await api<{ branch: BranchInfo }>(`/api/branches/${branchId}`);
-    setBranch(d.branch);
-  }, [branchId]);
 
   useEffect(() => {
     if (!user) return;
@@ -135,10 +143,10 @@ function PosPageInner() {
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([loadSessions(), loadShift(), loadBranch()])
+    Promise.all([loadSessions(), loadBranch(), loadShift()])
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"))
       .finally(() => setLoading(false));
-  }, [loadSessions, loadShift, loadBranch]);
+  }, [loadSessions, loadBranch, loadShift]);
 
   const selectSession = useCallback(async (s: PosSession) => {
     setSelected(s);
@@ -188,7 +196,7 @@ function PosPageInner() {
           method: input.method,
           tendered: input.tendered,
           discount: input.discount,
-          shiftId: shift?.id ?? null,
+          shiftId: ENABLE_POS_SHIFT_WORKFLOW ? (shift?.id ?? null) : null,
         }),
       });
       setPayOpen(false);
@@ -247,11 +255,13 @@ function PosPageInner() {
       />
 
       <div className="mx-auto max-w-6xl p-5 md:p-7">
-        <ShiftBar
-          branchId={branchId}
-          shift={shift}
-          onChange={() => loadShift()}
-        />
+        {ENABLE_POS_SHIFT_WORKFLOW && (
+          <ShiftBar
+            branchId={branchId}
+            shift={shift}
+            onChange={() => loadShift()}
+          />
+        )}
 
       {error && (
         <div className="mt-4">
@@ -386,14 +396,17 @@ function PosPageInner() {
 
               <Button
                 className="mt-4 w-full"
-                isDisabled={!shift || bill.bill.status === "paid"}
+                isDisabled={
+                  bill.bill.status === "paid" ||
+                  (ENABLE_POS_SHIFT_WORKFLOW && !shift)
+                }
                 onPress={() => setPayOpen(true)}
               >
                 {bill.bill.status === "paid"
                   ? "Paid"
-                  : shift
-                    ? "Take payment"
-                    : "Open a shift first"}
+                  : ENABLE_POS_SHIFT_WORKFLOW && !shift
+                    ? "Open a shift first"
+                    : "Take payment"}
               </Button>
             </>
           )}
