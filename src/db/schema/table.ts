@@ -11,8 +11,10 @@ import {
 
 import { bills } from "./bill";
 import { branches } from "./branch";
-import { sessionStatus, tableStatus } from "./enums";
+import { sessionStatus, tableShape, tableStatus } from "./enums";
+import { floorZones } from "./floor";
 import { orders } from "./order";
+import { reservations } from "./reservations";
 
 export const tables = pgTable(
   "tables",
@@ -23,6 +25,18 @@ export const tables = pgTable(
       .references(() => branches.id, { onDelete: "cascade" }),
     tableNumber: text("table_number").notNull(),
     status: tableStatus("status").notNull().default("available"),
+    // Floor plan layout. Positions are logical canvas units (1000x600 per
+    // zone); null posX/posY means the table has not been placed on the plan.
+    zoneId: uuid("zone_id").references(() => floorZones.id, {
+      onDelete: "set null",
+    }),
+    posX: integer("pos_x"),
+    posY: integer("pos_y"),
+    width: integer("width").notNull().default(120),
+    height: integer("height").notNull().default(120),
+    shape: tableShape("shape").notNull().default("rect"),
+    seats: integer("seats").notNull().default(4),
+    rotation: integer("rotation").notNull().default(0),
   },
   (t) => [
     index("tables_branch_id_idx").on(t.branchId),
@@ -68,8 +82,13 @@ export const tablesRelations = relations(tables, ({ one, many }) => ({
     fields: [tables.branchId],
     references: [branches.id],
   }),
+  zone: one(floorZones, {
+    fields: [tables.zoneId],
+    references: [floorZones.id],
+  }),
   sessions: many(tableSessions),
   orders: many(orders),
+  reservations: many(reservations),
 }));
 
 export const tableSessionsRelations = relations(

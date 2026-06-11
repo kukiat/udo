@@ -12,7 +12,54 @@ export type OrderStatus =
   | "cancelled";
 export type OrderType = "dine_in" | "take_away";
 export type BillStatus = "open" | "requested" | "paid";
-export type TableStatus = "available" | "occupied";
+export type TableStatus = "available" | "occupied" | "reserved";
+export type TableShape = "rect" | "circle";
+export type ReservationStatus = "booked" | "seated" | "cancelled" | "no_show";
+
+// --- Floor plan ---------------------------------------------------------------
+
+export type FloorZoneDTO = {
+  id: string;
+  branchId: string;
+  name: string;
+  sortOrder: number;
+};
+
+/** A table row including its floor plan layout (null posX/posY = unplaced). */
+export type TableLayoutDTO = {
+  id: string;
+  branchId: string;
+  tableNumber: string;
+  status: TableStatus;
+  zoneId: string | null;
+  posX: number | null;
+  posY: number | null;
+  width: number;
+  height: number;
+  shape: TableShape;
+  seats: number;
+  rotation: number;
+};
+
+// --- Reservations -------------------------------------------------------------
+
+export type ReservationDTO = {
+  id: string;
+  branchId: string;
+  tableId: string;
+  tableNumber: string;
+  status: ReservationStatus;
+  customerName: string;
+  customerPhone: string | null;
+  partySize: number;
+  note: string | null;
+  reservedFor: string;
+  reservedBy: { id: string; name: string } | null;
+  sessionId: string | null;
+  createdAt: string;
+  seatedAt: string | null;
+  cancelledAt: string | null;
+};
 
 // --- Storefront menu shapes -------------------------------------------------
 
@@ -141,6 +188,7 @@ export type ServerToClientEvents = {
   "order:status-update": (p: { order: OrderDTO }) => void;
   "bill:paid": (p: BillPaidPayload) => void;
   "bill:requested": (p: BillRequestedPayload) => void;
+  "reservation:updated": (p: { branchId: string }) => void;
 };
 
 export type ClientToServerEvents = {

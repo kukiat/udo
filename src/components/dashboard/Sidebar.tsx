@@ -10,6 +10,7 @@ import {
   ChevronRightIcon,
   LayoutDashboard,
   ListTree,
+  Map,
   Store,
   Utensils,
   type LucideIcon,
@@ -123,6 +124,7 @@ export function Sidebar({ restaurantId }: { restaurantId?: string }) {
     { href: `${base}/categories`, label: "Categories", icon: ListTree },
     { href: `${base}/menu`, label: "Menu", icon: Utensils },
     { href: `${base}/branch-menu`, label: "Branch menu", icon: Store },
+    { href: `${base}/floor-plan`, label: "Floor plan", icon: Map },
     { href: `${base}/reports`, label: "Reports", icon: BarChart3 },
   ];
 

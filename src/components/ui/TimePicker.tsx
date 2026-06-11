@@ -48,6 +48,7 @@ export function TimePicker({
   width = "100%",
   height = 38,
   className,
+  isDisabled,
   minTime,
   maxTime,
 }: {
@@ -58,6 +59,7 @@ export function TimePicker({
   width?: number | string;
   height?: number;
   className?: string;
+  isDisabled?: boolean;
   /** Earliest selectable time ("HH:MM"); earlier options are disabled. */
   minTime?: string | null;
   /** Latest selectable time ("HH:MM"); later options are disabled. */
@@ -116,6 +118,7 @@ export function TimePicker({
       onChange={(v) => v && commit(v)}
       granularity="minute"
       hourCycle={24}
+      isDisabled={isDisabled}
       aria-label={ariaLabel}
       className={cn("flex flex-col gap-1.5", className)}
       style={{ width }}
@@ -128,6 +131,7 @@ export function TimePicker({
         className={cn(
           "inline-flex items-center rounded-[10px] border border-line bg-[var(--bg-elev)] pl-3 pr-1 transition-colors",
           "focus-within:border-ink-soft",
+          isDisabled && "opacity-60",
         )}
         style={{ height }}
       >
@@ -144,6 +148,7 @@ export function TimePicker({
         </DateInput>
         <Button
           aria-label="Open time picker"
+          isDisabled={isDisabled}
           onPress={toggle}
           className={cn(
             "ml-1 grid h-7 w-7 shrink-0 place-items-center rounded-md text-ink-muted outline-none transition-colors",

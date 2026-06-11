@@ -81,6 +81,14 @@ export function emitBillPaid(branchId: string, sessionId: string, tableId: strin
   io.to(branchRoom(branchId)).emit("bill:paid", { sessionId, tableId });
 }
 
+/**
+ * Notify the branch floor staff that reservations changed (created, cancelled,
+ * seated, or a table flipped to reserved). Clients re-fetch on receipt.
+ */
+export function emitReservationUpdate(branchId: string) {
+  getIO()?.to(branchRoom(branchId)).emit("reservation:updated", { branchId });
+}
+
 /** Notify the branch floor staff that a table has requested the check. */
 export function emitBillRequested(
   branchId: string,

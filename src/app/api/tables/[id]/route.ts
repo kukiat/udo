@@ -1,25 +1,58 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { badRequest, notFound, parseBody, serverError } from "@/lib/api";
 import { makeTimer } from "@/lib/utils";
-import { tableStatusSchema } from "@/lib/validation";
+import { tableUpdateSchema } from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: Request, { params }: Params) {
   try {
     const { id } = await params;
-    const { data, error } = await parseBody(req, tableStatusSchema);
+    const { data, error } = await parseBody(req, tableUpdateSchema);
     if (error) return error;
 
     const timed = makeTimer(
       `table PATCH ${id.slice(0, 8)} ${crypto.randomUUID().slice(0, 8)}`,
     );
-    const [updated] = await timed("update table status", () =>
+
+    const current = await timed("select table", () =>
+      db.query.tables.findFirst({
+        where: eq(schema.tables.id, id),
+        columns: { id: true, branchId: true, tableNumber: true },
+      }),
+    );
+    if (!current) return notFound("Table not found");
+
+    // Table numbers are unique per branch.
+    const newNumber = data.tableNumber;
+    if (newNumber !== undefined && newNumber !== current.tableNumber) {
+      const existing = await timed("select duplicate table", () =>
+        db.query.tables.findFirst({
+          where: and(
+            eq(schema.tables.branchId, current.branchId),
+            eq(schema.tables.tableNumber, newNumber),
+          ),
+          columns: { id: true },
+        }),
+      );
+      if (existing) {
+        return badRequest(
+          `Table "${newNumber}" already exists in this branch`,
+        );
+      }
+    }
+
+    const [updated] = await timed("update table", () =>
       db
         .update(schema.tables)
-        .set({ status: data.status })
+        .set({
+          ...(data.tableNumber !== undefined
+            ? { tableNumber: data.tableNumber }
+            : {}),
+          ...(data.status !== undefined ? { status: data.status } : {}),
+        })
         .where(eq(schema.tables.id, id))
         .returning(),
     );

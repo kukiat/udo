@@ -2,12 +2,13 @@ import "dotenv/config";
 import { createServer } from "node:http";
 import next from "next";
 import { Server as IOServer } from "socket.io";
-import { eq } from "drizzle-orm";
+import { and, eq, lte } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import {
   branchKdsRoom,
   branchRoom,
+  emitReservationUpdate,
   setIO,
   tableRoom,
   type AppIOServer,
@@ -21,6 +22,52 @@ const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
 const DEFAULT_MAX_KDS = 3;
+const RESERVATION_SWEEP_MS = 30_000;
+
+// Flip available tables to "reserved" once their booked reservation is due.
+// Occupied tables are left alone — the reservation stays booked and a later
+// tick picks it up after the table frees (bill paid). Idempotent: the table
+// update is conditional on status='available'.
+let sweepingReservations = false;
+async function sweepDueReservations() {
+  if (sweepingReservations) return;
+  sweepingReservations = true;
+  try {
+    const due = await db.query.reservations.findMany({
+      where: and(
+        eq(schema.reservations.status, "booked"),
+        lte(schema.reservations.reservedFor, new Date()),
+      ),
+      with: { table: { columns: { id: true, status: true } } },
+    });
+
+    const branchesToNotify = new Set<string>();
+    const flippedTables = new Set<string>();
+    for (const r of due) {
+      if (r.table.status !== "available" || flippedTables.has(r.tableId))
+        continue;
+      const updated = await db
+        .update(schema.tables)
+        .set({ status: "reserved" })
+        .where(
+          and(
+            eq(schema.tables.id, r.tableId),
+            eq(schema.tables.status, "available"),
+          ),
+        )
+        .returning({ id: schema.tables.id });
+      if (updated.length > 0) {
+        flippedTables.add(r.tableId);
+        branchesToNotify.add(r.branchId);
+      }
+    }
+    for (const branchId of branchesToNotify) emitReservationUpdate(branchId);
+  } catch (err) {
+    console.error("[reservation-sweep]", err);
+  } finally {
+    sweepingReservations = false;
+  }
+}
 
 async function maxKdsScreens(branchId: string): Promise<number> {
   const branch = await db.query.branches.findFirst({
@@ -37,6 +84,9 @@ app.prepare().then(() => {
     cors: { origin: "*" },
   });
   setIO(io);
+
+  setInterval(sweepDueReservations, RESERVATION_SWEEP_MS);
+  void sweepDueReservations(); // catch up immediately on boot/restart
 
   io.on("connection", (socket) => {
     // Track which branch KDS room this socket joined, for disconnect cleanup.

@@ -1,7 +1,8 @@
 import { and, eq } from "drizzle-orm";
 
 import { db, schema } from "@/db";
-import { badRequest, parseBody, serverError } from "@/lib/api";
+import { badRequest, errorResponse, parseBody, serverError } from "@/lib/api";
+import { getBlockingReservation } from "@/lib/reservations";
 import { makeTimer } from "@/lib/utils";
 import { sessionCreateSchema } from "@/lib/validation";
 
@@ -50,6 +51,30 @@ export async function POST(req: Request) {
       }),
     );
     if (existing) return Response.json({ session: existing }, { status: 200 });
+
+    // A booked reservation blocks walk-ins from 60 min before its time
+    // (overridable with confirmation) and hard-blocks once it is due — the
+    // table must then be seated via the reservation or the booking cancelled.
+    const blocking = await timed("check blocking reservation", () =>
+      getBlockingReservation(data.tableId),
+    );
+    if (
+      blocking &&
+      (blocking.phase === "due" || !data.overrideReservation)
+    ) {
+      const r = blocking.reservation;
+      return errorResponse(
+        "TABLE_RESERVED",
+        `Table is reserved for ${r.customerName} at ${r.reservedFor.toISOString()}`,
+        409,
+        {
+          reservationId: r.id,
+          reservedFor: r.reservedFor.toISOString(),
+          customerName: r.customerName,
+          phase: blocking.phase,
+        },
+      );
+    }
 
     const txStart = performance.now();
     const session = await db.transaction(async (tx) => {

@@ -51,7 +51,12 @@ export async function POST(req: Request) {
     const [created] = await timed("insert table", () =>
       db
         .insert(schema.tables)
-        .values({ branchId: data.branchId, tableNumber: data.tableNumber })
+        .values({
+          branchId: data.branchId,
+          tableNumber: data.tableNumber,
+          ...(data.seats !== undefined ? { seats: data.seats } : {}),
+          ...(data.shape !== undefined ? { shape: data.shape } : {}),
+        })
         .returning(),
     );
     return Response.json({ table: created }, { status: 201 });

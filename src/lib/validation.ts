@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { RESERVATION_MAX_DAYS } from "@/lib/reservations-shared";
+
 // Money as a string with up to 2 decimals (matches Drizzle numeric output).
 // z.coerce.string() keeps the output type a clean `string` (numbers are
 // String()-ified before validation).
@@ -159,6 +161,8 @@ export const sessionCreateSchema = z
     customerName: z.string().trim().max(160).nullable().optional(),
     customerPhone: z.string().trim().max(80).nullable().optional(),
     expectedLeaveAt: z.coerce.date().nullable().optional(),
+    // Staff confirmed opening despite an upcoming reservation (buffer window).
+    overrideReservation: z.boolean().optional(),
   })
   .refine(
     (s) =>
@@ -215,14 +219,100 @@ export const orderItemDeleteSchema = z.object({
 export const tableCreateSchema = z.object({
   branchId: z.string().uuid(),
   tableNumber: z.string().min(1).max(20),
+  seats: z.number().int().min(1).max(50).optional(),
+  shape: z.enum(["rect", "circle"]).optional(),
 });
 
 export const tableStatusSchema = z.object({
-  status: z.enum(["available", "occupied"]),
+  status: z.enum(["available", "occupied", "reserved"]),
 });
+
+export const tableUpdateSchema = z
+  .object({
+    tableNumber: z.string().trim().min(1).max(20).optional(),
+    status: z.enum(["available", "occupied", "reserved"]).optional(),
+  })
+  .refine((d) => d.tableNumber !== undefined || d.status !== undefined, {
+    message: "Provide at least one field to update",
+  });
+
+// --- Floor plan ---------------------------------------------------------------
+
+export const zoneCreateSchema = z.object({
+  branchId: z.string().uuid(),
+  name: z.string().trim().min(1).max(80),
+  sortOrder: z.number().int().min(0).optional(),
+});
+
+export const zoneUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(80).optional(),
+  sortOrder: z.number().int().min(0).optional(),
+});
+
+// Logical canvas is 1000x600 units per zone; null position = unplaced.
+export const tableLayoutSchema = z.object({
+  branchId: z.string().uuid(),
+  tables: z
+    .array(
+      z.object({
+        id: z.string().uuid(),
+        zoneId: z.string().uuid().nullable(),
+        posX: z.number().int().min(0).max(1000).nullable(),
+        posY: z.number().int().min(0).max(600).nullable(),
+        width: z.number().int().min(40).max(400),
+        height: z.number().int().min(40).max(400),
+        shape: z.enum(["rect", "circle"]),
+        seats: z.number().int().min(1).max(50),
+        rotation: z.number().int().min(0).max(359),
+      }),
+    )
+    .min(1),
+});
+
+export type TableLayoutInput = z.infer<typeof tableLayoutSchema>;
 
 export const billRequestSchema = z.object({
   sessionId: z.string().uuid(),
+});
+
+// --- Reservations -------------------------------------------------------------
+
+export const reservationCreateSchema = z
+  .object({
+    branchId: z.string().uuid(),
+    tableId: z.string().uuid(),
+    customerName: z.string().trim().min(1).max(160),
+    customerPhone: z.string().trim().max(80).nullable().optional(),
+    partySize: z.number().int().min(1).max(999),
+    note: z.string().trim().max(1000).nullable().optional(),
+    reservedFor: z.coerce.date(),
+  })
+  .refine((r) => r.reservedFor.getTime() > Date.now(), {
+    message: "Reservation time must be in the future",
+    path: ["reservedFor"],
+  })
+  .refine(
+    (r) =>
+      r.reservedFor.getTime() <=
+      Date.now() + RESERVATION_MAX_DAYS * 24 * 60 * 60_000,
+    {
+      message: `Reservations can be made at most ${RESERVATION_MAX_DAYS} days ahead`,
+      path: ["reservedFor"],
+    },
+  );
+
+export const reservationCancelSchema = z.object({
+  noShow: z.boolean().optional(),
+});
+
+// All fields optional — defaults come from the reservation row when seating.
+export const reservationSeatSchema = z.object({
+  partySize: z.number().int().min(1).max(999).nullable().optional(),
+  seatedAt: z.coerce.date().optional(),
+  tableNote: z.string().trim().max(1000).nullable().optional(),
+  customerName: z.string().trim().max(160).nullable().optional(),
+  customerPhone: z.string().trim().max(80).nullable().optional(),
+  expectedLeaveAt: z.coerce.date().nullable().optional(),
 });
 
 // --- Auth -------------------------------------------------------------------

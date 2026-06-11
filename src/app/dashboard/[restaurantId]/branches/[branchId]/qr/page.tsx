@@ -16,7 +16,7 @@ type TableRow = {
   id: string;
   branchId: string;
   tableNumber: string;
-  status: "available" | "occupied";
+  status: "available" | "occupied" | "reserved";
 };
 
 type TablesResponse = { tables: TableRow[] };

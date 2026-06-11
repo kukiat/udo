@@ -11,8 +11,19 @@ export const userRole = pgEnum("user_role", [
   "kitchen_staff",
   "waitstaff",
 ]);
-export const tableStatus = pgEnum("table_status", ["available", "occupied"]);
+export const tableStatus = pgEnum("table_status", [
+  "available",
+  "occupied",
+  "reserved",
+]);
+export const tableShape = pgEnum("table_shape", ["rect", "circle"]);
 export const sessionStatus = pgEnum("session_status", ["active", "closed"]);
+export const reservationStatus = pgEnum("reservation_status", [
+  "booked",
+  "seated",
+  "cancelled",
+  "no_show",
+]);
 export const menuItemStatus = pgEnum("menu_item_status", [
   "available",
   "sold_out",

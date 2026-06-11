@@ -64,6 +64,20 @@
       "when": 1780787133786,
       "tag": "0008_giant_mother_askani",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1781196567395,
+      "tag": "0009_left_roxanne_simpson",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1781204862378,
+      "tag": "0010_rich_manta",
+      "breakpoints": true
     }
   ]
 }

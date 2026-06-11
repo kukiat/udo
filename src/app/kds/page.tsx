@@ -31,7 +31,7 @@ type Branch = {
 type TableRow = {
   id: string;
   tableNumber: string;
-  status: "available" | "occupied";
+  status: "available" | "occupied" | "reserved";
 };
 type BranchWithTables = Branch & { tables: TableRow[] };
 

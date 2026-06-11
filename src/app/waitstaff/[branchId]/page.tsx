@@ -7,27 +7,42 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CancelOrderDialog } from "@/components/order/CancelOrderDialog";
 import { TopBar } from "@/components/dashboard/TopBar";
+import { FloorPlanCanvas } from "@/components/floor/FloorPlanCanvas";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { DateTimePicker } from "@/components/ui/DatePicker";
+import { DatePicker } from "@/components/ui/DatePicker";
+import { TimePicker } from "@/components/ui/TimePicker";
 import { Modal } from "@/components/ui/Modal";
 import { PillButton } from "@/components/ui/PillButton";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { cn } from "@/lib/cn";
-import { api } from "@/lib/fetcher";
+import { api, ApiRequestError } from "@/lib/fetcher";
+import {
+  RESERVATION_MAX_DAYS,
+  reservationBlockPhase,
+} from "@/lib/reservations-shared";
 import { getSocket } from "@/lib/socket-client";
 import { readThemePreference, writeThemePreference } from "@/lib/theme";
 import { formatPrice } from "@/lib/utils";
 import type {
   CategoryWithItemsDTO,
+  FloorZoneDTO,
   MenuItemDTO,
   OrderDTO,
   OrderItemDTO,
   OrderStatus,
+  ReservationDTO,
+  TableLayoutDTO,
 } from "@/types";
-import { CreditCardIcon, LinkIcon, PrinterIcon, TableIcon } from "lucide-react";
+import {
+  CalendarClockIcon,
+  CreditCardIcon,
+  LinkIcon,
+  PrinterIcon,
+  TableIcon,
+} from "lucide-react";
 
 // Local cart line for the menu picker drawer. Options aren't supported in this
 // quick-fire flow — staff can edit individual items later in POS if needed.
@@ -54,11 +69,12 @@ function orderItemCount(order: OrderDTO): number {
   return order.items.reduce((s, it) => s + it.quantity, 0);
 }
 
-type TableRow = {
-  id: string;
-  tableNumber: string;
-  status: "available" | "occupied";
-};
+// Table rows now carry their floor plan layout (zone, position, shape, …).
+type TableRow = TableLayoutDTO;
+
+const FLOOR_VIEW_KEY = "rms.waitstaff.floorView";
+const tableIsPlaced = (t: TableRow) =>
+  t.zoneId != null && t.posX != null && t.posY != null;
 type Branch = { id: string; name: string };
 type BranchInfo = { id: string; name: string; restaurant: { name: string } };
 type SessionInfo = {
@@ -150,10 +166,10 @@ const sessionDuration = (createdAt: string, now: number) => {
   return hours > 0 ? `${hours}h ${String(mins).padStart(2, "0")}m` : `${mins}m`;
 };
 
-const toDateTimeLocalValue = (date: Date) => {
-  const offsetMs = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
-};
+const toTimeInputValue = (date: Date) =>
+  `${String(date.getHours()).padStart(2, "0")}:${String(
+    date.getMinutes(),
+  ).padStart(2, "0")}`;
 
 const formatClock = (iso: string) =>
   new Date(iso).toLocaleTimeString([], {
@@ -176,6 +192,45 @@ const expectedLeaveLabel = (expectedLeaveAt: string | null, now: number) => {
 const OVERDUE_MS = 10 * 60 * 1000;
 const isOverdue = (createdAt: string, now: number) =>
   now - new Date(createdAt).getTime() >= OVERDUE_MS;
+
+// Local date as "YYYY-MM-DD" (for the DatePicker bounds / value).
+const toDateInputValue = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+    date.getDate(),
+  ).padStart(2, "0")}`;
+
+// Reservation time, with the day spelled out when it isn't today.
+const formatReservedFor = (iso: string) => {
+  const d = new Date(iso);
+  const sameDay = toDateInputValue(d) === toDateInputValue(new Date());
+  const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (sameDay) return time;
+  return `${d.toLocaleDateString([], { day: "numeric", month: "short" })}, ${time}`;
+};
+
+// Countdown to a reservation, e.g. "in 2h 05m", "in 25m", "12m overdue".
+const reservationCountdown = (reservedFor: string, now: number) => {
+  const deltaMins = Math.ceil((new Date(reservedFor).getTime() - now) / 60000);
+  if (deltaMins < 0) return `${Math.abs(deltaMins)}m overdue`;
+  if (deltaMins === 0) return "Due now";
+  const days = Math.floor(deltaMins / 1440);
+  if (days > 0) return `in ${days}d ${Math.floor((deltaMins % 1440) / 60)}h`;
+  const hours = Math.floor(deltaMins / 60);
+  const mins = deltaMins % 60;
+  return hours > 0
+    ? `in ${hours}h ${String(mins).padStart(2, "0")}m`
+    : `in ${mins}m`;
+};
+
+const RESERVATION_STATUS_TONE: Record<
+  ReservationDTO["status"],
+  "neutral" | "amber" | "green" | "red"
+> = {
+  booked: "amber",
+  seated: "green",
+  cancelled: "neutral",
+  no_show: "red",
+};
 
 // Compact KPI tile for the waiter cockpit.
 function StatCard({
@@ -245,17 +300,18 @@ function FloorStat({
 }: {
   label: string;
   value: number;
-  tone: "olive" | "amber" | "clay";
+  tone: "olive" | "amber" | "clay" | "blue";
 }) {
   const palette = {
     olive: "bg-olive-soft text-olive",
     amber: "bg-amber-soft text-amber",
     clay: "bg-clay-100 text-clay-700",
+    blue: "bg-blue-50 text-blue-700",
   }[tone];
   return (
     <div
       className={cn(
-        "flex min-w-[88px] flex-col items-center rounded-card px-3 py-2",
+        "flex min-w-0 flex-1 flex-col items-center rounded-card px-2 py-2",
         palette,
       )}
     >
@@ -361,6 +417,50 @@ export default function WaitstaffPage() {
     setTables(d.tables);
   }, [branchId]);
 
+  // Upcoming (still booked) reservations for the whole branch.
+  const [reservations, setReservations] = useState<ReservationDTO[]>([]);
+  const loadReservations = useCallback(async () => {
+    const d = await api<{ reservations: ReservationDTO[] }>(
+      `/api/reservations?branchId=${branchId}&filter=upcoming&limit=100`,
+    );
+    setReservations(d.reservations);
+  }, [branchId]);
+
+  // Floor plan view: zones + Plan/Grid preference. Zones change rarely (edited
+  // in the dashboard), so a one-shot load per branch is enough.
+  const [zones, setZones] = useState<FloorZoneDTO[]>([]);
+  const [activeZoneId, setActiveZoneId] = useState<string | null>(null);
+  const [floorView, setFloorView] = useState<"plan" | "grid">(() => {
+    if (typeof window === "undefined") return "plan";
+    const v = localStorage.getItem(FLOOR_VIEW_KEY);
+    return v === "grid" ? "grid" : "plan";
+  });
+  const switchFloorView = (v: "plan" | "grid") => {
+    setFloorView(v);
+    try {
+      localStorage.setItem(FLOOR_VIEW_KEY, v);
+    } catch {
+      /* ignore */
+    }
+  };
+  useEffect(() => {
+    let active = true;
+    api<{ zones: FloorZoneDTO[] }>(`/api/floor-zones?branchId=${branchId}`)
+      .then((d) => {
+        if (!active) return;
+        setZones(d.zones);
+        setActiveZoneId((curr) =>
+          curr && d.zones.some((z) => z.id === curr)
+            ? curr
+            : (d.zones[0]?.id ?? null),
+        );
+      })
+      .catch(() => active && setZones([]));
+    return () => {
+      active = false;
+    };
+  }, [branchId]);
+
   const loadSessions = useCallback(async () => {
     const d = await api<{
       sessions: {
@@ -407,7 +507,11 @@ export default function WaitstaffPage() {
       tableNumber,
     )}?s=${sessionId}`;
 
-  const openSession = async (table: TableRow, input: OpenSessionInput) => {
+  const openSession = async (
+    table: TableRow,
+    input: OpenSessionInput,
+    overrideReservation = false,
+  ) => {
     setOpeningTableId(table.id);
     setError(null);
     try {
@@ -415,7 +519,12 @@ export default function WaitstaffPage() {
         "/api/sessions",
         {
           method: "POST",
-          body: JSON.stringify({ branchId, tableId: table.id, ...input }),
+          body: JSON.stringify({
+            branchId,
+            tableId: table.id,
+            ...input,
+            overrideReservation,
+          }),
         },
       );
       await Promise.all([loadSessions(), loadTables()]);
@@ -426,9 +535,91 @@ export default function WaitstaffPage() {
         url: orderLink(table.tableNumber, session.id),
       });
     } catch (e) {
+      if (e instanceof ApiRequestError && e.code === "TABLE_RESERVED") {
+        // Lost a race with the reservation sweep — re-sync the floor.
+        setOpeningTable(null);
+        await Promise.all([loadTables(), loadReservations()]).catch(() => { });
+      }
       setError(e instanceof Error ? e.message : "Failed to open table");
     } finally {
       setOpeningTableId(null);
+    }
+  };
+
+  // --- Reservations: book / seat / cancel -----------------------------------
+  const [reserveTarget, setReserveTarget] = useState<TableRow | null>(null);
+  const [seatTarget, setSeatTarget] = useState<{
+    table: TableRow;
+    reservation: ReservationDTO;
+  } | null>(null);
+  const [seating, setSeating] = useState(false);
+  const [cancelReservationTarget, setCancelReservationTarget] =
+    useState<ReservationDTO | null>(null);
+  const [cancellingReservation, setCancellingReservation] = useState(false);
+  // Table whose buffer-window override is awaiting staff confirmation.
+  const [overrideConfirmTable, setOverrideConfirmTable] =
+    useState<TableRow | null>(null);
+  // Open-table dialog submits with overrideReservation after a confirm.
+  const [openingWithOverride, setOpeningWithOverride] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  // Earliest booked reservation per table — drives badges and blocking.
+  const nextReservationByTable = useMemo(() => {
+    const m = new Map<string, ReservationDTO>();
+    for (const r of reservations) {
+      const curr = m.get(r.tableId);
+      if (!curr || r.reservedFor < curr.reservedFor) m.set(r.tableId, r);
+    }
+    return m;
+  }, [reservations]);
+
+  const seatReservation = async (
+    table: TableRow,
+    reservation: ReservationDTO,
+    input: OpenSessionInput,
+  ) => {
+    setSeating(true);
+    setError(null);
+    try {
+      const { session } = await api<{ session: { id: string } }>(
+        `/api/reservations/${reservation.id}/seat`,
+        { method: "POST", body: JSON.stringify(input) },
+      );
+      await Promise.all([loadSessions(), loadTables(), loadReservations()]);
+      setSeatTarget(null);
+      setCopied(false);
+      setLinkModal({
+        tableNumber: table.tableNumber,
+        url: orderLink(table.tableNumber, session.id),
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to seat reservation");
+    } finally {
+      setSeating(false);
+    }
+  };
+
+  const confirmCancelReservation = async () => {
+    if (!cancelReservationTarget) return;
+    setCancellingReservation(true);
+    setError(null);
+    try {
+      await api(`/api/reservations/${cancelReservationTarget.id}/cancel`, {
+        method: "POST",
+        body: JSON.stringify({
+          noShow:
+            Date.now() >=
+            new Date(cancelReservationTarget.reservedFor).getTime(),
+        }),
+      });
+      setCancelReservationTarget(null);
+      await Promise.all([loadTables(), loadReservations()]);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Failed to cancel reservation",
+      );
+    } finally {
+      setCancellingReservation(false);
     }
   };
 
@@ -471,10 +662,11 @@ export default function WaitstaffPage() {
       loadOrders(),
       loadTables(),
       loadSessions(),
+      loadReservations(),
     ])
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"))
       .finally(() => setLoading(false));
-  }, [branchId, loadOrders, loadTables, loadSessions]);
+  }, [branchId, loadOrders, loadTables, loadSessions, loadReservations]);
 
   // Live updates via the branch room — replaces interval polling. A new order,
   // a status change, or a settled bill all shift orders/tables/sessions, so we
@@ -486,14 +678,20 @@ export default function WaitstaffPage() {
       loadOrders().catch(() => { });
       loadTables().catch(() => { });
       loadSessions().catch(() => { });
+      loadReservations().catch(() => { });
     };
 
     const refreshSessions = () => loadSessions().catch(() => { });
+    const refreshReservations = () => {
+      loadTables().catch(() => { });
+      loadReservations().catch(() => { });
+    };
 
     socket.on("order:new", refreshAll);
     socket.on("order:status-update", refreshAll);
     socket.on("bill:paid", refreshAll);
     socket.on("bill:requested", refreshSessions);
+    socket.on("reservation:updated", refreshReservations);
 
     const join = () => {
       setConnected(true);
@@ -515,10 +713,11 @@ export default function WaitstaffPage() {
       socket.off("order:status-update", refreshAll);
       socket.off("bill:paid", refreshAll);
       socket.off("bill:requested", refreshSessions);
+      socket.off("reservation:updated", refreshReservations);
       socket.off("connect", join);
       socket.off("disconnect", onDisconnect);
     };
-  }, [branchId, loadOrders, loadTables, loadSessions]);
+  }, [branchId, loadOrders, loadTables, loadSessions, loadReservations]);
 
   const advanceStatus = async (order: OrderDTO, next: OrderStatus) => {
     setServingId(order.id);
@@ -891,6 +1090,7 @@ export default function WaitstaffPage() {
 
   const occupiedCount = tables.filter((t) => t.status === "occupied").length;
   const availableCount = tables.filter((t) => t.status === "available").length;
+  const reservedCount = tables.filter((t) => t.status === "reserved").length;
 
   // Selected table's orders filtered by the status pill and sorted ready →
   // pending → preparing → served. Each order renders as one card with its own
@@ -918,12 +1118,30 @@ export default function WaitstaffPage() {
     ? "Ready to pay"
     : selectedTable?.status === "occupied"
       ? "Seated"
-      : "Available";
+      : selectedTable?.status === "reserved"
+        ? "Reserved"
+        : "Available";
   const selectedTableTone = selectedBillRequested
     ? "clay"
     : selectedTable?.status === "occupied"
       ? "amber"
-      : "green";
+      : selectedTable?.status === "reserved"
+        ? "blue"
+        : "green";
+
+  // Next booked reservation on the selected table + where "now" falls in its
+  // blocking window. Due reservations gate the open-table flow even before
+  // the 30s sweep flips the table status.
+  const selectedNextReservation = selectedTable
+    ? nextReservationByTable.get(selectedTable.id) ?? null
+    : null;
+  const selectedReservationPhase = selectedNextReservation
+    ? reservationBlockPhase(selectedNextReservation.reservedFor, now)
+    : null;
+  const selectedReservationDue =
+    selectedNextReservation !== null &&
+    (selectedTable?.status === "reserved" ||
+      selectedReservationPhase === "due");
 
   const statusCount = (s: OrderStatus) =>
     selectedOrders.reduce(
@@ -978,8 +1196,27 @@ export default function WaitstaffPage() {
         <aside className="flex flex-col border-line bg-white lg:sticky lg:top-14 lg:h-[calc(100vh-3.5rem)] lg:overflow-hidden lg:border-r">
           {/* Header */}
           <div className="border-b border-line p-4">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
-              Floor map
+            <div className="flex items-center justify-between">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
+                Floor map
+              </div>
+              <div className="flex overflow-hidden rounded-full border border-line">
+                {(["plan", "grid"] as const).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => switchFloorView(v)}
+                    aria-pressed={floorView === v}
+                    className={cn(
+                      "px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide transition-colors",
+                      floorView === v
+                        ? "bg-ink text-white"
+                        : "bg-white text-ink-muted hover:text-ink",
+                    )}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="mt-1 text-[16px] font-semibold tracking-[-0.01em] text-ink">
               {branch?.name ?? "—"} · {tables.length} tables
@@ -988,7 +1225,20 @@ export default function WaitstaffPage() {
               <FloorStat label="Open" value={availableCount} tone="olive" />
               <FloorStat label="Seated" value={occupiedCount} tone="amber" />
               <FloorStat label="To pay" value={checkRequestedCount} tone="clay" />
+              <FloorStat label="Reserved" value={reservedCount} tone="blue" />
             </div>
+            <button
+              onClick={() => setHistoryOpen(true)}
+              className="mt-2 flex w-full items-center justify-between rounded-lg border border-line bg-white px-3 py-2 text-[12px] font-semibold text-ink-soft transition-colors hover:border-ink hover:text-ink"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <CalendarClockIcon className="h-3.5 w-3.5" />
+                Reservations
+              </span>
+              <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+                {reservations.length} upcoming
+              </span>
+            </button>
           </div>
 
           {/* Table tile grid */}
@@ -998,6 +1248,137 @@ export default function WaitstaffPage() {
                 title="No tables yet"
                 description="Add tables when creating the branch in the dashboard."
               />
+            ) : floorView === "plan" &&
+              zones.length > 0 &&
+              tables.some(tableIsPlaced) ? (
+              <div className="flex flex-col gap-2">
+                {zones.length > 1 && (
+                  <div className="flex flex-wrap gap-1">
+                    {zones.map((z) => (
+                      <button
+                        key={z.id}
+                        onClick={() => setActiveZoneId(z.id)}
+                        className={cn(
+                          "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                          z.id === activeZoneId
+                            ? "border-clay-500 bg-clay-50 text-clay-700"
+                            : "border-line bg-white text-ink-muted hover:text-ink",
+                        )}
+                      >
+                        {z.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <FloorPlanCanvas
+                  tables={tables.filter(
+                    (t) => tableIsPlaced(t) && t.zoneId === activeZoneId,
+                  )}
+                  mode="view"
+                  selectedId={detailTableId}
+                  onSelect={(id) => id && openDetail(id)}
+                  renderOverlay={(t) => {
+                    const ready = readyByTable.get(t.id) ?? 0;
+                    const session = sessionByTable.get(t.id);
+                    const checkRequested = session?.billStatus === "requested";
+                    const tableOrders = ordersByTable.get(t.id) ?? [];
+                    const overdue = tableOrders.filter(
+                      (o) =>
+                        o.status !== "served" && isOverdue(o.createdAt, now),
+                    ).length;
+                    const nextRes = nextReservationByTable.get(t.id);
+                    const resDue =
+                      nextRes != null &&
+                      reservationBlockPhase(nextRes.reservedFor, now) ===
+                        "due";
+                    if (
+                      !checkRequested &&
+                      overdue === 0 &&
+                      ready === 0 &&
+                      !nextRes
+                    ) {
+                      return null;
+                    }
+                    return (
+                      <>
+                        {(checkRequested || overdue > 0) && (
+                          <div
+                            className={cn(
+                              "absolute inset-0 ring-2",
+                              t.shape === "circle"
+                                ? "rounded-full"
+                                : "rounded-card",
+                              checkRequested
+                                ? "ring-clay-500"
+                                : "ring-rose animate-udo-blink",
+                            )}
+                            style={{ transform: `rotate(${t.rotation}deg)` }}
+                          />
+                        )}
+                        <div className="absolute -top-2 left-1/2 z-10 flex -translate-x-1/2 gap-0.5">
+                          {checkRequested && (
+                            <span className="inline-flex h-4 items-center whitespace-nowrap rounded-full bg-clay-500 px-1.5 text-[8px] font-semibold leading-none text-white">
+                              Check
+                            </span>
+                          )}
+                          {overdue > 0 && !checkRequested && (
+                            <span className="inline-flex h-4 items-center whitespace-nowrap rounded-full bg-rose px-1.5 text-[8px] font-semibold leading-none text-white">
+                              {overdue} late
+                            </span>
+                          )}
+                          {ready > 0 && (
+                            <span className="inline-flex h-4 items-center whitespace-nowrap rounded-full bg-olive px-1.5 text-[8px] font-semibold leading-none text-white">
+                              {ready} ready
+                            </span>
+                          )}
+                          {nextRes && (
+                            <span
+                              className={cn(
+                                "inline-flex h-4 items-center whitespace-nowrap rounded-full px-1.5 text-[8px] font-semibold leading-none text-white",
+                                resDue
+                                  ? "bg-blue-600 animate-udo-blink"
+                                  : "bg-blue-500",
+                              )}
+                            >
+                              {resDue
+                                ? "Res due"
+                                : `Res ${formatReservedFor(nextRes.reservedFor)}`}
+                            </span>
+                          )}
+                        </div>
+                      </>
+                    );
+                  }}
+                />
+                {tables.some((t) => !tableIsPlaced(t)) && (
+                  <div>
+                    <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
+                      Not on plan
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {tables
+                        .filter((t) => !tableIsPlaced(t))
+                        .map((t) => (
+                          <button
+                            key={t.id}
+                            onClick={() => openDetail(t.id)}
+                            className={cn(
+                              "rounded-lg border px-2.5 py-1.5 text-[12px] font-semibold transition-colors",
+                              t.status === "occupied"
+                                ? "border-line bg-amber-soft text-ink-soft"
+                                : t.status === "reserved"
+                                  ? "border-blue-200 bg-blue-50 text-blue-700"
+                                  : "border-line bg-olive-soft text-olive",
+                              t.id === detailTableId && "!border-clay-500",
+                            )}
+                          >
+                            {t.tableNumber}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="grid grid-cols-3 gap-2">
                 {tables.map((t) => {
@@ -1012,6 +1393,10 @@ export default function WaitstaffPage() {
                     (o) => o.status !== "served" && isOverdue(o.createdAt, now),
                   ).length;
                   const flashing = tableOrders.some((o) => flashIds.has(o.id));
+                  const nextRes = nextReservationByTable.get(t.id);
+                  const resDue =
+                    nextRes != null &&
+                    reservationBlockPhase(nextRes.reservedFor, now) === "due";
 
                   // Udo tile palette: status drives bg + dot color. Overdue and
                   // check-requested override with attention-grabbing accents.
@@ -1033,17 +1418,23 @@ export default function WaitstaffPage() {
                           fg: "text-clay-700",
                           dot: "bg-clay-500",
                         }
-                        : t.status === "occupied"
+                        : t.status === "reserved"
                           ? {
-                            bg: "bg-amber-soft border-line",
-                            fg: "text-ink-soft",
-                            dot: "bg-amber",
+                            bg: "bg-blue-50 border-blue-200",
+                            fg: "text-blue-700",
+                            dot: "bg-blue-500 animate-udo-blink",
                           }
-                          : {
-                            bg: "bg-olive-soft border-line",
-                            fg: "text-olive",
-                            dot: "bg-olive",
-                          };
+                          : t.status === "occupied"
+                            ? {
+                              bg: "bg-amber-soft border-line",
+                              fg: "text-ink-soft",
+                              dot: "bg-amber",
+                            }
+                            : {
+                              bg: "bg-olive-soft border-line",
+                              fg: "text-olive",
+                              dot: "bg-olive",
+                            };
                   const selected = t.id === detailTableId;
                   return (
                     <button
@@ -1091,6 +1482,20 @@ export default function WaitstaffPage() {
                           <span className="inline-flex h-4 min-w-0 shrink items-center justify-center gap-0.5 whitespace-nowrap rounded-full bg-olive px-1.5 text-[8px] font-semibold leading-none text-white">
                             <span className="h-1 w-1 rounded-full bg-white" />
                             {ready} ready
+                          </span>
+                        )}
+                        {nextRes && (
+                          <span
+                            className={cn(
+                              "inline-flex h-4 min-w-0 shrink items-center justify-center gap-0.5 whitespace-nowrap rounded-full px-1.5 text-[8px] font-semibold leading-none text-white",
+                              resDue
+                                ? "bg-blue-600 animate-udo-blink"
+                                : "bg-blue-500",
+                            )}
+                          >
+                            {resDue
+                              ? "Res due"
+                              : `Res ${formatReservedFor(nextRes.reservedFor)}`}
                           </span>
                         )}
                       </div>
@@ -1304,6 +1709,49 @@ export default function WaitstaffPage() {
                             )}
                         </>
                       )}
+                      {selectedNextReservation && !selectedSession && (
+                        <div className="min-w-[220px] flex-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-blue-700">
+                              {selectedReservationDue
+                                ? "Reservation due"
+                                : "Next reservation"}
+                            </span>
+                            <span className="mono text-[11px] font-semibold tabular-nums text-blue-700">
+                              {formatReservedFor(
+                                selectedNextReservation.reservedFor,
+                              )}{" "}
+                              ·{" "}
+                              {reservationCountdown(
+                                selectedNextReservation.reservedFor,
+                                now,
+                              )}
+                            </span>
+                          </div>
+                          <div className="mt-1 space-y-0.5 text-[12px] leading-snug text-ink">
+                            <p className="font-semibold">
+                              {selectedNextReservation.customerName}
+                              <span className="font-normal text-ink-muted">
+                                {" "}
+                                · {selectedNextReservation.partySize} guests
+                                {selectedNextReservation.customerPhone
+                                  ? ` · ${selectedNextReservation.customerPhone}`
+                                  : ""}
+                              </span>
+                            </p>
+                            {selectedNextReservation.note && (
+                              <p className="text-ink-muted">
+                                {selectedNextReservation.note}
+                              </p>
+                            )}
+                            <p className="text-[11px] text-ink-muted">
+                              Reserved by{" "}
+                              {selectedNextReservation.reservedBy?.name ??
+                                "staff"}
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </section>
 
@@ -1354,18 +1802,63 @@ export default function WaitstaffPage() {
                             Order link
                           </PillButton>
                         </>
+                      ) : selectedReservationDue && selectedNextReservation ? (
+                        <>
+                          <PillButton
+                            tone="accent"
+                            isDisabled={seating}
+                            onPress={() =>
+                              setSeatTarget({
+                                table: selectedTable,
+                                reservation: selectedNextReservation,
+                              })
+                            }
+                            className={cn(WAITSTAFF_ACTION_BUTTON, "flex-1 sm:flex-none")}
+                          >
+                            <TableIcon className="w-4 h-4" />
+                            {seating ? "Seating…" : "Seat now"}
+                          </PillButton>
+                          <PillButton
+                            tone="danger"
+                            variant="outline"
+                            isDisabled={cancellingReservation}
+                            onPress={() =>
+                              setCancelReservationTarget(selectedNextReservation)
+                            }
+                            className={cn(WAITSTAFF_ACTION_BUTTON, "flex-1 sm:flex-none")}
+                          >
+                            Cancel reservation
+                          </PillButton>
+                        </>
                       ) : (
-                        <PillButton
-                          tone="accent"
-                          isDisabled={openingTableId === selectedTable.id}
-                          onPress={() => setOpeningTable(selectedTable)}
-                          className={cn(WAITSTAFF_ACTION_BUTTON, "flex-1 sm:flex-none")}
-                        >
-                          <TableIcon className="w-4 h-4" />
-                          {openingTableId === selectedTable.id
-                            ? "Opening…"
-                            : "Open table"}
-                        </PillButton>
+                        <>
+                          <PillButton
+                            tone="accent"
+                            isDisabled={openingTableId === selectedTable.id}
+                            onPress={() => {
+                              if (selectedReservationPhase === "buffer") {
+                                setOverrideConfirmTable(selectedTable);
+                              } else {
+                                setOpeningWithOverride(false);
+                                setOpeningTable(selectedTable);
+                              }
+                            }}
+                            className={cn(WAITSTAFF_ACTION_BUTTON, "flex-1 sm:flex-none")}
+                          >
+                            <TableIcon className="w-4 h-4" />
+                            {openingTableId === selectedTable.id
+                              ? "Opening…"
+                              : "Open table"}
+                          </PillButton>
+                          <PillButton
+                            variant="outline"
+                            onPress={() => setReserveTarget(selectedTable)}
+                            className={cn(WAITSTAFF_ACTION_BUTTON, "flex-1 sm:flex-none")}
+                          >
+                            <CalendarClockIcon className="w-4 h-4" />
+                            Reserve
+                          </PillButton>
+                        </>
                       )}
                     </div>
                     {selectedBillRequested && (
@@ -1893,8 +2386,137 @@ export default function WaitstaffPage() {
           if (!openingTableId) setOpeningTable(null);
         }}
         onConfirm={(input) => {
-          if (openingTable) openSession(openingTable, input);
+          if (openingTable)
+            openSession(openingTable, input, openingWithOverride);
         }}
+      />
+
+      {/* Seat a due reservation — same session form, prefilled from the booking. */}
+      <OpenSessionDialog
+        mode="seat"
+        table={seatTarget?.table ?? null}
+        opening={seating}
+        initial={
+          seatTarget
+            ? {
+              partySize: seatTarget.reservation.partySize,
+              customerName: seatTarget.reservation.customerName,
+              customerPhone: seatTarget.reservation.customerPhone,
+              tableNote: seatTarget.reservation.note,
+            }
+            : undefined
+        }
+        onDismiss={() => {
+          if (!seating) setSeatTarget(null);
+        }}
+        onConfirm={(input) => {
+          if (seatTarget)
+            seatReservation(seatTarget.table, seatTarget.reservation, input);
+        }}
+      />
+
+      <ReserveTableDialog
+        table={reserveTarget}
+        branchId={branchId}
+        onDismiss={() => setReserveTarget(null)}
+        onCreated={() => {
+          setReserveTarget(null);
+          loadReservations().catch(() => { });
+        }}
+      />
+
+      {/* Confirm opening a table that has a reservation within the buffer window. */}
+      <Modal
+        isOpen={overrideConfirmTable !== null}
+        onOpenChange={(open) => {
+          if (!open) setOverrideConfirmTable(null);
+        }}
+      >
+        {overrideConfirmTable && (
+          <div className="flex flex-col gap-4 p-5">
+            <div className="pr-8">
+              <h2 className="text-lg font-semibold text-ink">
+                Table {overrideConfirmTable.tableNumber} is reserved soon
+              </h2>
+              <p className="mt-1 text-sm text-ink-muted">
+                {(() => {
+                  const r = nextReservationByTable.get(overrideConfirmTable.id);
+                  return r
+                    ? `Reserved for ${r.customerName} at ${formatReservedFor(
+                      r.reservedFor,
+                    )} (${reservationCountdown(r.reservedFor, now)}). Open it for walk-in guests anyway?`
+                    : "Open this table anyway?";
+                })()}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <PillButton onPress={() => setOverrideConfirmTable(null)}>
+                Keep reserved
+              </PillButton>
+              <PillButton
+                tone="accent"
+                variant="outline"
+                onPress={() => {
+                  setOpeningWithOverride(true);
+                  setOpeningTable(overrideConfirmTable);
+                  setOverrideConfirmTable(null);
+                }}
+              >
+                Open anyway
+              </PillButton>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Confirm cancelling a reservation (no-show once the time has passed). */}
+      <Modal
+        isOpen={cancelReservationTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !cancellingReservation) setCancelReservationTarget(null);
+        }}
+      >
+        {cancelReservationTarget && (
+          <div className="flex flex-col gap-4 p-5">
+            <div className="pr-8">
+              <h2 className="text-lg font-semibold text-ink">
+                Cancel reservation?
+              </h2>
+              <p className="mt-1 text-sm text-ink-muted">
+                {`${cancelReservationTarget.customerName} · ${cancelReservationTarget.partySize} guests · ${formatReservedFor(cancelReservationTarget.reservedFor)}.`}
+                {Date.now() >=
+                  new Date(cancelReservationTarget.reservedFor).getTime()
+                  ? " The guest hasn't arrived — this will be recorded as a no-show and the table freed."
+                  : " The booking will be removed and the table stays available."}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <PillButton
+                isDisabled={cancellingReservation}
+                onPress={() => setCancelReservationTarget(null)}
+              >
+                Keep reservation
+              </PillButton>
+              <PillButton
+                tone="danger"
+                variant="outline"
+                isDisabled={cancellingReservation}
+                onPress={confirmCancelReservation}
+              >
+                {cancellingReservation
+                  ? "Cancelling..."
+                  : "Cancel reservation"}
+              </PillButton>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <ReservationsHistoryModal
+        open={historyOpen}
+        branchId={branchId}
+        onOpenChange={setHistoryOpen}
+        onCancelReservation={(r) => setCancelReservationTarget(r)}
       />
 
       <Modal
@@ -2249,11 +2871,21 @@ function RemoveOrderItemDialog({
 function OpenSessionDialog({
   table,
   opening,
+  mode = "open",
+  initial,
   onConfirm,
   onDismiss,
 }: {
   table: TableRow | null;
   opening: boolean;
+  /** "seat" = converting a reservation; prefilled and re-labelled. */
+  mode?: "open" | "seat";
+  initial?: {
+    partySize?: number | null;
+    customerName?: string | null;
+    customerPhone?: string | null;
+    tableNote?: string | null;
+  };
   onConfirm: (input: OpenSessionInput) => void;
   onDismiss: () => void;
 }) {
@@ -2270,14 +2902,15 @@ function OpenSessionDialog({
 
   useEffect(() => {
     if (!table) return;
-    setPartySize("2");
-    setSeatedAt(toDateTimeLocalValue(new Date()));
+    setPartySize(initial?.partySize ? String(initial.partySize) : "2");
+    setSeatedAt(toTimeInputValue(new Date()));
     setTurnoverPreset("90");
     setCustomMinutes("90");
-    setTableNote("");
-    setCustomerName("");
-    setCustomerPhone("");
+    setTableNote(initial?.tableNote ?? "");
+    setCustomerName(initial?.customerName ?? "");
+    setCustomerPhone(initial?.customerPhone ?? "");
     setError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [table?.id]);
 
   const submit = () => {
@@ -2287,11 +2920,13 @@ function OpenSessionDialog({
       return;
     }
 
-    const seated = new Date(seatedAt);
-    if (!seatedAt || Number.isNaN(seated.getTime())) {
+    const timeMatch = /^(\d{2}):(\d{2})$/.exec(seatedAt);
+    if (!timeMatch) {
       setError("Choose a valid seated time.");
       return;
     }
+    const seated = new Date();
+    seated.setHours(Number(timeMatch[1]), Number(timeMatch[2]), 0, 0);
 
     let expectedLeaveAt: string | null = null;
     if (turnoverPreset !== "none") {
@@ -2329,10 +2964,14 @@ function OpenSessionDialog({
       header={
         <div>
           <h2 className="text-lg font-semibold text-ink">
-            Open table {table?.tableNumber}
+            {mode === "seat"
+              ? `Seat reservation · Table ${table?.tableNumber}`
+              : `Open table ${table?.tableNumber}`}
           </h2>
           <p className="mt-1 text-sm text-ink-muted">
-            Capture the dining round before sharing the customer order link.
+            {mode === "seat"
+              ? "The guest has arrived — confirm the details to open their session."
+              : "Capture the dining round before sharing the customer order link."}
           </p>
         </div>
       }
@@ -2349,7 +2988,13 @@ function OpenSessionDialog({
             isDisabled={opening}
             onPress={submit}
           >
-            {opening ? "Opening..." : "Open table"}
+            {opening
+              ? mode === "seat"
+                ? "Seating..."
+                : "Opening..."
+              : mode === "seat"
+                ? "Seat guests"
+                : "Open table"}
           </PillButton>
         </div>
       }
@@ -2371,7 +3016,7 @@ function OpenSessionDialog({
             />
           </label>
 
-          <DateTimePicker
+          <TimePicker
             label="Seated time"
             value={seatedAt}
             onChange={setSeatedAt}
@@ -2477,6 +3122,348 @@ function OpenSessionDialog({
           <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12px] font-medium text-red-700">
             {error}
           </p>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+function ReserveTableDialog({
+  table,
+  branchId,
+  onDismiss,
+  onCreated,
+}: {
+  table: TableRow | null;
+  branchId: string;
+  onDismiss: () => void;
+  onCreated: () => void;
+}) {
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [partySize, setPartySize] = useState("2");
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!table) return;
+    const inAnHour = new Date(Date.now() + 60 * 60 * 1000);
+    setDate(toDateInputValue(inAnHour));
+    setTime(toTimeInputValue(inAnHour));
+    setPartySize("2");
+    setCustomerName("");
+    setCustomerPhone("");
+    setNote("");
+    setError(null);
+  }, [table?.id]);
+
+  const minDate = toDateInputValue(new Date());
+  const maxDate = toDateInputValue(
+    new Date(Date.now() + RESERVATION_MAX_DAYS * 24 * 60 * 60 * 1000),
+  );
+  const isToday = date === minDate;
+
+  const submit = async () => {
+    if (!table) return;
+    if (!customerName.trim()) {
+      setError("Customer name is required.");
+      return;
+    }
+    const parsedParty = Number(partySize);
+    if (!Number.isInteger(parsedParty) || parsedParty < 1) {
+      setError("Enter at least 1 guest.");
+      return;
+    }
+    const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+    const timeMatch = /^(\d{2}):(\d{2})$/.exec(time);
+    if (!dateMatch || !timeMatch) {
+      setError("Choose a valid date and time.");
+      return;
+    }
+    const reservedFor = new Date(
+      Number(dateMatch[1]),
+      Number(dateMatch[2]) - 1,
+      Number(dateMatch[3]),
+      Number(timeMatch[1]),
+      Number(timeMatch[2]),
+      0,
+      0,
+    );
+    if (reservedFor.getTime() <= Date.now()) {
+      setError("Reservation time must be in the future.");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    try {
+      await api("/api/reservations", {
+        method: "POST",
+        body: JSON.stringify({
+          branchId,
+          tableId: table.id,
+          customerName: customerName.trim(),
+          customerPhone: customerPhone.trim() || null,
+          partySize: parsedParty,
+          note: note.trim() || null,
+          reservedFor: reservedFor.toISOString(),
+        }),
+      });
+      onCreated();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to reserve table");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      isOpen={Boolean(table)}
+      onOpenChange={(open) => {
+        if (!open && !saving) onDismiss();
+      }}
+      className="sm:max-w-2xl"
+      header={
+        <div>
+          <h2 className="text-lg font-semibold text-ink">
+            Reserve table {table?.tableNumber}
+          </h2>
+          <p className="mt-1 text-sm text-ink-muted">
+            Book this table up to {RESERVATION_MAX_DAYS} days ahead. The table
+            switches to Reserved automatically at the booked time.
+          </p>
+        </div>
+      }
+      footer={
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <PillButton isDisabled={saving} onPress={onDismiss}>
+            Cancel
+          </PillButton>
+          <PillButton tone="accent" isDisabled={saving} onPress={submit}>
+            {saving ? "Reserving..." : "Reserve table"}
+          </PillButton>
+        </div>
+      }
+    >
+      <div className="grid gap-4 p-5">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <DatePicker
+            label="Date"
+            value={date}
+            onChange={setDate}
+            min={minDate}
+            max={maxDate}
+          />
+          <TimePicker
+            label="Time"
+            value={time}
+            onChange={setTime}
+            isDisabled={saving}
+            minTime={isToday ? toTimeInputValue(new Date()) : null}
+          />
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[13px] font-semibold text-ink">
+              Customer name
+            </span>
+            <input
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              maxLength={160}
+              disabled={saving}
+              placeholder="Required"
+              className="h-10 rounded-lg border border-line bg-white px-3 text-sm text-ink outline-none transition-colors placeholder:text-ink-muted focus:border-ink disabled:opacity-60"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[13px] font-semibold text-ink">Phone</span>
+            <input
+              value={customerPhone}
+              onChange={(e) => setCustomerPhone(e.target.value)}
+              maxLength={80}
+              disabled={saving}
+              placeholder="Optional"
+              className="h-10 rounded-lg border border-line bg-white px-3 text-sm text-ink outline-none transition-colors placeholder:text-ink-muted focus:border-ink disabled:opacity-60"
+            />
+          </label>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[13px] font-semibold text-ink">Guests</span>
+            <input
+              type="number"
+              min={1}
+              max={999}
+              value={partySize}
+              onChange={(e) => setPartySize(e.target.value)}
+              disabled={saving}
+              className="h-10 rounded-lg border border-line bg-white px-3 text-sm text-ink outline-none transition-colors focus:border-ink disabled:opacity-60"
+            />
+          </label>
+        </div>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-semibold text-ink">Note</span>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            maxLength={1000}
+            rows={3}
+            disabled={saving}
+            placeholder="Birthday, window seat, allergies"
+            className="w-full resize-none rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-ink-muted focus:border-ink disabled:opacity-60"
+          />
+        </label>
+
+        {error && (
+          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12px] font-medium text-red-700">
+            {error}
+          </p>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+function ReservationsHistoryModal({
+  open,
+  branchId,
+  onOpenChange,
+  onCancelReservation,
+}: {
+  open: boolean;
+  branchId: string;
+  onOpenChange: (open: boolean) => void;
+  onCancelReservation: (r: ReservationDTO) => void;
+}) {
+  const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
+  const [rows, setRows] = useState<ReservationDTO[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    setRows(null);
+    setError(null);
+    api<{ reservations: ReservationDTO[] }>(
+      `/api/reservations?branchId=${branchId}&filter=${tab}&limit=100`,
+    )
+      .then((d) => active && setRows(d.reservations))
+      .catch(
+        (e) =>
+          active &&
+          setError(e instanceof Error ? e.message : "Failed to load"),
+      );
+    return () => {
+      active = false;
+    };
+  }, [open, tab, branchId]);
+
+  return (
+    <Modal
+      isOpen={open}
+      onOpenChange={onOpenChange}
+      className="sm:max-w-3xl"
+      header={
+        <div className="flex flex-wrap items-center justify-between gap-3 pr-8">
+          <div>
+            <h2 className="text-lg font-semibold text-ink">Reservations</h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              Upcoming bookings and past reservation history for this branch.
+            </p>
+          </div>
+          <div className="flex overflow-hidden rounded-full border border-line">
+            {(["upcoming", "past"] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setTab(v)}
+                aria-pressed={tab === v}
+                className={cn(
+                  "px-3 py-1 text-[11px] font-semibold uppercase tracking-wide transition-colors",
+                  tab === v
+                    ? "bg-ink text-white"
+                    : "bg-white text-ink-muted hover:text-ink",
+                )}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        </div>
+      }
+    >
+      <div className="p-5 pt-3">
+        {error ? (
+          <ErrorState message={error} />
+        ) : rows === null ? (
+          <Loading />
+        ) : rows.length === 0 ? (
+          <EmptyState
+            title={
+              tab === "upcoming"
+                ? "No upcoming reservations"
+                : "No past reservations"
+            }
+            description={
+              tab === "upcoming"
+                ? "Reserve a table from the table panel to see it here."
+                : "Seated, cancelled and no-show bookings will appear here."
+            }
+          />
+        ) : (
+          <ul className="divide-y divide-line">
+            {rows.map((r) => (
+              <li
+                key={r.id}
+                className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3"
+              >
+                <span className="mono w-12 shrink-0 text-[15px] font-bold text-ink">
+                  {r.tableNumber}
+                </span>
+                <div className="min-w-[160px] flex-1">
+                  <p className="text-[13px] font-semibold text-ink">
+                    {r.customerName}
+                    <span className="font-normal text-ink-muted">
+                      {" "}
+                      · {r.partySize} guests
+                      {r.customerPhone ? ` · ${r.customerPhone}` : ""}
+                    </span>
+                  </p>
+                  <p className="text-[11px] text-ink-muted">
+                    {new Date(r.reservedFor).toLocaleString([], {
+                      day: "numeric",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                    {" · "}by {r.reservedBy?.name ?? "staff"}
+                    {r.note ? ` · ${r.note}` : ""}
+                  </p>
+                </div>
+                <Badge tone={RESERVATION_STATUS_TONE[r.status]}>
+                  {r.status === "no_show" ? "no show" : r.status}
+                </Badge>
+                {r.status === "booked" && (
+                  <PillButton
+                    tone="danger"
+                    variant="outline"
+                    className="!h-[28px] min-h-[28px] px-3 text-[11px]"
+                    onPress={() => onCancelReservation(r)}
+                  >
+                    Cancel
+                  </PillButton>
+                )}
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </Modal>

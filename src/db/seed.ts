@@ -129,6 +129,7 @@ async function main() {
   await db.delete(schema.orderItems);
   await db.delete(schema.orders);
   await db.delete(schema.bills);
+  await db.delete(schema.reservations);
   await db.delete(schema.tableSessions);
   await db.delete(schema.optionItems);
   await db.delete(schema.optionGroups);
@@ -137,6 +138,7 @@ async function main() {
   await db.delete(schema.categories);
   await db.delete(schema.kdsStations);
   await db.delete(schema.tables);
+  await db.delete(schema.floorZones);
   await db.delete(schema.users);
   await db.delete(schema.branches);
   await db.delete(schema.restaurants);
@@ -165,7 +167,7 @@ async function main() {
 
   // Users — all seeded with password "password123".
   const pw = await hashPassword("password123");
-  await db.insert(schema.users).values([
+  const seededUsers = await db.insert(schema.users).values([
     {
       email: "admin@demo.test",
       name: "Admin Owner",
@@ -206,16 +208,96 @@ async function main() {
       restaurantId: restaurant.id,
       branchId: branch.id,
     },
-  ]);
+  ]).returning();
+  const waiter = seededUsers.find((u) => u.role === "waitstaff")!;
 
-  // Tables
-  await db.insert(schema.tables).values(
-    Array.from({ length: 5 }, (_, i) => ({
+  // Floor zones + tables laid out on the plan (logical canvas is 1000x600)
+  const [mainFloor, terrace] = await db
+    .insert(schema.floorZones)
+    .values([
+      { branchId: branch.id, name: "Main floor", sortOrder: 0 },
+      { branchId: branch.id, name: "Terrace", sortOrder: 1 },
+    ])
+    .returning();
+
+  const seededTables = await db.insert(schema.tables).values([
+    {
       branchId: branch.id,
-      tableNumber: String(i + 1),
+      tableNumber: "1",
       status: "available" as const,
-    })),
-  );
+      zoneId: mainFloor.id,
+      posX: 80,
+      posY: 80,
+      width: 160,
+      height: 120,
+      shape: "rect" as const,
+      seats: 4,
+    },
+    {
+      branchId: branch.id,
+      tableNumber: "2",
+      status: "available" as const,
+      zoneId: mainFloor.id,
+      posX: 340,
+      posY: 80,
+      width: 120,
+      height: 100,
+      shape: "rect" as const,
+      seats: 2,
+    },
+    {
+      branchId: branch.id,
+      tableNumber: "3",
+      status: "available" as const,
+      zoneId: mainFloor.id,
+      posX: 560,
+      posY: 60,
+      width: 180,
+      height: 180,
+      shape: "circle" as const,
+      seats: 6,
+    },
+    {
+      branchId: branch.id,
+      tableNumber: "4",
+      status: "available" as const,
+      zoneId: mainFloor.id,
+      posX: 120,
+      posY: 340,
+      width: 200,
+      height: 100,
+      shape: "rect" as const,
+      seats: 4,
+      rotation: 90,
+    },
+    {
+      branchId: branch.id,
+      tableNumber: "5",
+      status: "available" as const,
+      zoneId: terrace.id,
+      posX: 420,
+      posY: 220,
+      width: 160,
+      height: 160,
+      shape: "circle" as const,
+      seats: 4,
+    },
+  ]).returning();
+
+  // Sample upcoming reservation — tomorrow 19:00 on table 5 (terrace).
+  const reservedFor = new Date();
+  reservedFor.setDate(reservedFor.getDate() + 1);
+  reservedFor.setHours(19, 0, 0, 0);
+  await db.insert(schema.reservations).values({
+    branchId: branch.id,
+    tableId: seededTables.find((t) => t.tableNumber === "5")!.id,
+    reservedById: waiter.id,
+    customerName: "Khun Somsri",
+    customerPhone: "081-234-5678",
+    partySize: 4,
+    note: "Window seat if possible",
+    reservedFor,
+  });
 
   // KDS Stations
   const [hot, cold, drinks] = await db
