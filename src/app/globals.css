@@ -511,6 +511,12 @@ body {
 :where(.order-theme, .order-modal-theme) .hover\:bg-sand\/50:hover {
   background-color: rgba(255, 255, 255, 0.06);
 }
+/* Solid-surface buttons (bg-white base) must stay opaque on hover —
+   the translucent overlay above would make them go transparent. */
+:where(.order-theme, .order-modal-theme) .bg-white.hover\:bg-sand:hover,
+:where(.order-theme, .order-modal-theme) .bg-white.hover\:bg-sand\/50:hover {
+  background-color: #23252b;
+}
 :where(.order-theme, .order-modal-theme) .hover\:bg-white\/60:hover {
   background-color: rgba(255, 255, 255, 0.07);
 }

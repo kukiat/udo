@@ -19,8 +19,8 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Udo — RMS",
-    template: "%s · Udo",
+    default: "Udo | RMS",
+    template: "Udo | %s",
   },
   description: "Self-Order, KDS & Menu Management",
   icons: {

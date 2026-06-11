@@ -254,21 +254,19 @@ export default function MenuPage() {
               </div>
             </div>
             <div className="flex flex-shrink-0 gap-2">
-              <button
-                type="button"
-                onClick={() => setStatusOpen(true)}
-                className="flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-[11.5px] font-semibold text-ink-soft shadow-card transition-colors hover:bg-sand"
-              >
+              <PillButton size="lg" onPress={() => setStatusOpen(true)}>
                 <StatusIcon />
                 Order Status
-              </button>
-              <Link
-                href={orderLink(`/order/${branchId}/${tableNo}/bill`)}
-                className="flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-[11.5px] font-semibold text-ink-soft shadow-card transition-colors hover:bg-sand"
+              </PillButton>
+              <PillButton
+                size="lg"
+                onPress={() =>
+                  router.push(orderLink(`/order/${branchId}/${tableNo}/bill`))
+                }
               >
                 <BillIcon />
                 Bill
-              </Link>
+              </PillButton>
             </div>
           </div>
 

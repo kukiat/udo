@@ -12,7 +12,7 @@ const BRAND = "Udo";
 export function usePageTitle(title?: string | null) {
   useEffect(() => {
     if (!title) return;
-    const full = `${title} · ${BRAND}`;
+    const full = `${BRAND} | ${title}`;
     document.title = full;
     // Next.js streams the metadata <title> in after hydration, which would
     // overwrite the value set above — watch <head> and re-assert.
