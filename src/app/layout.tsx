@@ -24,9 +24,9 @@ export const metadata: Metadata = {
   },
   description: "Self-Order, KDS & Menu Management",
   icons: {
-    icon: [{ url: "/uploads/favicon.ico", type: "image/x-icon" }],
-    shortcut: [{ url: "/uploads/favicon.ico", type: "image/x-icon" }],
-    apple: [{ url: "/uploads/favicon.ico", type: "image/x-icon" }],
+    icon: [{ url: "/favicon.ico", type: "image/x-icon" }],
+    shortcut: [{ url: "/favicon.ico", type: "image/x-icon" }],
+    apple: [{ url: "/favicon.ico", type: "image/x-icon" }],
   },
 };
 
