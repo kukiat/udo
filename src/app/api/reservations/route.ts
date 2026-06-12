@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, lt, ne } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, lt, ne } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import {
@@ -30,9 +30,22 @@ export async function GET(req: Request) {
       `reservations GET ${crypto.randomUUID().slice(0, 8)}`,
     );
 
+    // Optional reservedFor window (e.g. the calendar fetches one month at a
+    // time): from = inclusive start, to = exclusive end.
+    const fromParam = searchParams.get("from");
+    const toParam = searchParams.get("to");
+    const from = fromParam ? new Date(fromParam) : null;
+    const to = toParam ? new Date(toParam) : null;
+    if (from && Number.isNaN(from.getTime()))
+      return badRequest("from must be a valid date");
+    if (to && Number.isNaN(to.getTime()))
+      return badRequest("to must be a valid date");
+
     const scope = and(
       branchId ? eq(schema.reservations.branchId, branchId) : undefined,
       tableId ? eq(schema.reservations.tableId, tableId) : undefined,
+      from ? gte(schema.reservations.reservedFor, from) : undefined,
+      to ? lt(schema.reservations.reservedFor, to) : undefined,
     );
     // upcoming = still booked; past = settled (seated/cancelled/no_show)
     const where =

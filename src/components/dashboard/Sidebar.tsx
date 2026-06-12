@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  ArrowLeft,
   BarChart3,
   Building2,
   ChevronLeftIcon,
@@ -150,6 +151,29 @@ export function Sidebar({ restaurantId }: { restaurantId?: string }) {
           </span>
         )}
         <NavToggle collapsed={collapsed} onToggle={toggle} />
+      </div>
+
+      <div className="flex-shrink-0 px-3 pb-1">
+        <NavTip label="All restaurants" show={collapsed}>
+          <Link
+            href="/dashboard"
+            className="flex h-[34px] w-full items-center rounded-full text-[12.5px] font-medium text-ink-dim transition-colors hover:bg-[var(--bg-sunken)] hover:text-[var(--ink-2)]"
+            style={{
+              gap: 11,
+              justifyContent: collapsed ? "center" : "flex-start",
+              padding: collapsed ? 0 : "0 13px",
+            }}
+          >
+            <span aria-hidden className="flex-shrink-0">
+              <ArrowLeft size={15} strokeWidth={2.1} />
+            </span>
+            {!collapsed && (
+              <span className="truncate" style={{ letterSpacing: "-0.01em" }}>
+                All restaurants
+              </span>
+            )}
+          </Link>
+        </NavTip>
       </div>
 
       <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-3 py-1">

@@ -11,6 +11,7 @@ import {
 } from "@/components/dashboard/BranchFields";
 import { ImageUpload, type ImageUploadHandle } from "@/components/ui/ImageUpload";
 import { Modal } from "@/components/ui/Modal";
+import { PillButton } from "@/components/ui/PillButton";
 import { TextInput } from "@/components/ui/TextInput";
 import { ErrorState } from "@/components/ui/States";
 import { api } from "@/lib/fetcher";
@@ -391,18 +392,15 @@ export function RestaurantFormModal(props: Props) {
           >
             Cancel
           </button>
-          <button
+          <PillButton
+            tone="accent"
+            size="lg"
             onClick={submit}
-            disabled={submitting || !canSubmit}
-            style={{
-              ...btnPrimaryStyle,
-              flex: 2,
-              opacity: submitting || !canSubmit ? 0.5 : 1,
-              cursor: submitting || !canSubmit ? "not-allowed" : "pointer",
-            }}
+            isDisabled={submitting || !canSubmit}
+            className="flex-[2]"
           >
             {submitLabel}
-          </button>
+          </PillButton>
         </div>
       </div>
     </Modal>
@@ -443,17 +441,6 @@ const btnGhostStyle: React.CSSProperties = {
   color: "var(--ink)",
   fontSize: 13,
   fontWeight: 500,
-  cursor: "pointer",
-};
-
-const btnPrimaryStyle: React.CSSProperties = {
-  height: 42,
-  borderRadius: 6,
-  border: "1px solid var(--olive)",
-  background: "var(--olive-soft)",
-  color: "var(--olive)",
-  fontSize: 13,
-  fontWeight: 600,
   cursor: "pointer",
 };
 

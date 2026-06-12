@@ -46,17 +46,23 @@ export async function GET(req: Request) {
       db.query.tableSessions.findFirst({
         where: eq(schema.tableSessions.id, sessionId),
         columns: { id: true, branchId: true, tableId: true, status: true },
+        with: { table: { columns: { tableNumber: true } } },
       }),
     );
-    if (
-      !session ||
-      session.branchId !== branchId ||
-      session.tableId !== table.id
-    ) {
+    if (!session || session.branchId !== branchId) {
       return Response.json({ valid: false, reason: "not_found" });
     }
     if (session.status !== "active") {
       return Response.json({ valid: false, reason: "expired" });
+    }
+    if (session.tableId !== table.id) {
+      // Staff moved this session to another table — point the client at it so
+      // an old link (or a device that missed the live event) still recovers.
+      return Response.json({
+        valid: false,
+        reason: "moved",
+        tableNumber: session.table.tableNumber,
+      });
     }
 
     return Response.json({

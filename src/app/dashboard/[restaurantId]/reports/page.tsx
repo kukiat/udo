@@ -86,7 +86,7 @@ export default function ReportsPage() {
   const [data, setData] = useState<SalesReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [chatOpen, setChatOpen] = useState(true);
+  const [chatOpen, setChatOpen] = useState(false);
 
   const load = useCallback(() => {
     if (!branchId) return;

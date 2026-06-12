@@ -22,6 +22,7 @@ export function Select({
   placeholder = "Select…",
   className,
   dark = false,
+  "aria-label": ariaLabel,
 }: {
   label?: string;
   options: SelectOption[];
@@ -32,6 +33,8 @@ export function Select({
   /** Neon Diner dark variant (for the dashboard). The popover portals outside
    *  the .dir-a scope, so colors are spelled out explicitly here. */
   dark?: boolean;
+  /** Accessible name when no visible label is rendered. */
+  "aria-label"?: string;
 }) {
   // The dropdown popover/listbox render in a portal (outside any `.dir-a`
   // wrapper), so the dark variant uses explicit oklch values rather than
@@ -51,6 +54,7 @@ export function Select({
 
   return (
     <AriaSelect
+      aria-label={ariaLabel}
       selectedKey={selectedKey ?? null}
       onSelectionChange={(k) => onSelectionChange?.(k === null ? null : String(k))}
       className={cn("flex flex-col gap-1.5", className)}

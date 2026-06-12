@@ -1,4 +1,4 @@
-import { and, asc, count, eq, isNull } from "drizzle-orm";
+import { and, asc, count, eq, ilike, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { badRequest, parseBody, serverError } from "@/lib/api";
@@ -19,11 +19,22 @@ export async function GET(req: Request) {
     const rawLimit = Number(searchParams.get("limit")) || DEFAULT_LIMIT;
     const limit = Math.min(MAX_LIMIT, Math.max(1, rawLimit));
 
+    const q = searchParams.get("q")?.trim();
+    const categoryId = searchParams.get("categoryId");
+    const status = searchParams.get("status");
+    const validStatus =
+      status === "available" || status === "sold_out" || status === "hidden"
+        ? status
+        : null;
+
     const timed = makeTimer(`menu GET ${crypto.randomUUID().slice(0, 8)}`);
 
     const where = and(
       eq(schema.menuItems.restaurantId, restaurantId),
       isNull(schema.menuItems.deletedAt),
+      q ? ilike(schema.menuItems.name, `%${q}%`) : undefined,
+      categoryId ? eq(schema.menuItems.categoryId, categoryId) : undefined,
+      validStatus ? eq(schema.menuItems.status, validStatus) : undefined,
     );
 
     const [items, [{ total }]] = await timed("select menu items + count", () =>

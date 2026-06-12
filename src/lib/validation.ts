@@ -174,6 +174,12 @@ export const sessionCreateSchema = z
     },
   );
 
+export const sessionMoveSchema = z.object({
+  targetTableId: z.string().uuid(),
+  // Staff confirmed moving despite an upcoming reservation (buffer window).
+  overrideReservation: z.boolean().optional(),
+});
+
 // --- Orders -----------------------------------------------------------------
 
 export const orderCreateSchema = z.object({

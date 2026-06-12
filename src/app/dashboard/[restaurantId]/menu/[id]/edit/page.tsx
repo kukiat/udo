@@ -8,6 +8,7 @@ import {
   MenuItemForm,
   type MenuItemFormValues,
 } from "@/components/dashboard/MenuItemForm";
+import { useDashboardTheme } from "@/components/dashboard/DashboardShell";
 import { ErrorState, Loading } from "@/components/ui/States";
 import { useRestaurant } from "@/contexts/RestaurantContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
@@ -38,6 +39,7 @@ export default function EditMenuItemPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { restaurantId, stations, loading: ctxLoading } = useRestaurant();
+  const isDark = useDashboardTheme() === "dark";
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [values, setValues] = useState<MenuItemFormValues | null>(null);
@@ -128,6 +130,7 @@ export default function EditMenuItemPage() {
         stations={stations}
         submitting={submitting}
         onSubmit={submit}
+        dark={isDark}
       />
     </div>
   );

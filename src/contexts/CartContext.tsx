@@ -24,6 +24,31 @@ type CartContextValue = {
 
 const CartContext = createContext<CartContextValue | null>(null);
 
+const cartStorageKey = (branchId: string, tableNo: string) =>
+  `rms-cart:${branchId}:${tableNo}`;
+
+/**
+ * Carry the un-ordered cart along when staff moves the session to another
+ * table. The new table's key wins if it somehow already has lines.
+ */
+export function migrateCartStorage(
+  branchId: string,
+  fromTableNo: string,
+  toTableNo: string,
+) {
+  try {
+    const fromKey = cartStorageKey(branchId, fromTableNo);
+    const raw = localStorage.getItem(fromKey);
+    if (raw) {
+      const toKey = cartStorageKey(branchId, toTableNo);
+      if (!localStorage.getItem(toKey)) localStorage.setItem(toKey, raw);
+      localStorage.removeItem(fromKey);
+    }
+  } catch {
+    // localStorage unavailable — the cart just starts empty on the new table.
+  }
+}
+
 const lineTotal = (l: CartLine) =>
   l.quantity *
   (parseFloat(l.unitPrice) +
@@ -38,7 +63,7 @@ export function CartProvider({
   tableNo: string;
   children: React.ReactNode;
 }) {
-  const storageKey = `rms-cart:${branchId}:${tableNo}`;
+  const storageKey = cartStorageKey(branchId, tableNo);
   const [lines, setLines] = useState<CartLine[]>([]);
   const [hydrated, setHydrated] = useState(false);
 

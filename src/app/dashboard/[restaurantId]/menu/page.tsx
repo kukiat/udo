@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   MenuItemForm,
@@ -11,6 +11,7 @@ import { DashboardTableFooter } from "@/components/dashboard/TableFooter";
 import { useDashboardTheme } from "@/components/dashboard/DashboardShell";
 import { ItemSwatch } from "@/components/menu/ItemSwatch";
 import { Modal } from "@/components/ui/Modal";
+import { Select } from "@/components/ui/Select";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useRestaurant } from "@/contexts/RestaurantContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
@@ -19,7 +20,7 @@ import { toMenuItemPayload } from "@/lib/menu-form";
 import { formatPrice } from "@/lib/utils";
 import type { MenuItemStatus } from "@/types";
 import { PillButton } from "@/components/ui/PillButton";
-import { PlusIcon } from "lucide-react";
+import { PencilIcon, PlusIcon, SearchIcon, Trash2Icon } from "lucide-react";
 
 type MenuItem = {
   id: string;
@@ -50,7 +51,10 @@ type MenuItemDetail = {
   }[];
 };
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 12;
+
+const CREATE_FORM_ID = "menu-item-create-form";
+const EDIT_FORM_ID = "menu-item-edit-form";
 
 const EMPTY: MenuItemFormValues = {
   name: "",
@@ -64,20 +68,16 @@ const EMPTY: MenuItemFormValues = {
 };
 
 const iconButtonStyle = {
-  width: 34,
-  height: 34,
+  width: 28,
+  height: 28,
   padding: 0,
-  marginRight: 6,
   cursor: "pointer",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
 } satisfies CSSProperties;
 
-const iconDangerButtonStyle = {
-  ...iconButtonStyle,
-  marginRight: 0,
-} satisfies CSSProperties;
+const STATUSES: MenuItemStatus[] = ["available", "sold_out", "hidden"];
 
 const statusLabel: Record<MenuItemStatus, string> = {
   available: "Available",
@@ -85,15 +85,17 @@ const statusLabel: Record<MenuItemStatus, string> = {
   hidden: "Hidden",
 };
 
-const statusStyle: Record<MenuItemStatus, CSSProperties> = {
+// Solid backgrounds for the badge overlaid on card photos (translucent
+// pills are unreadable over imagery).
+const statusOverlayStyle: Record<MenuItemStatus, CSSProperties> = {
   available: {
-    background: "rgba(124, 138, 78, 0.16)",
-    borderColor: "rgba(124, 138, 78, 0.32)",
+    background: "var(--olive-soft)",
+    borderColor: "var(--olive)",
     color: "var(--olive)",
   },
   sold_out: {
-    background: "rgba(201, 138, 60, 0.16)",
-    borderColor: "rgba(201, 138, 60, 0.36)",
+    background: "var(--amber-soft)",
+    borderColor: "var(--amber)",
     color: "#9a5b14",
   },
   hidden: {
@@ -103,46 +105,9 @@ const statusStyle: Record<MenuItemStatus, CSSProperties> = {
   },
 };
 
-function EditIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width={16}
-      height={16}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-    </svg>
-  );
-}
+const STATUS_OPTIONS = STATUSES.map((s) => ({ id: s, label: statusLabel[s] }));
 
-function TrashIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width={16}
-      height={16}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M3 6h18" />
-      <path d="M8 6V4h8v2" />
-      <path d="M19 6l-1 14H6L5 6" />
-      <path d="M10 11v5" />
-      <path d="M14 11v5" />
-    </svg>
-  );
-}
+const ALL_CATEGORIES = "__all__";
 
 export default function MenuListPage() {
   usePageTitle("Menu items");
@@ -155,6 +120,12 @@ export default function MenuListPage() {
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const loadedOnce = useRef(false);
+
+  const [search, setSearch] = useState("");
+  const [query, setQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<MenuItemStatus | null>(null);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -164,14 +135,23 @@ export default function MenuListPage() {
 
   const [deleteItem, setDeleteItem] = useState<MenuItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [statusSaving, setStatusSaving] = useState<string | null>(null);
+
+  const hasFilters = query !== "" || categoryFilter !== null || statusFilter !== null;
 
   const load = () => {
     if (!restaurantId) return;
-    setLoading(true);
+    if (!loadedOnce.current) setLoading(true);
+    const params = new URLSearchParams({
+      restaurantId,
+      offset: String(offset),
+      limit: String(PAGE_SIZE),
+    });
+    if (query) params.set("q", query);
+    if (categoryFilter) params.set("categoryId", categoryFilter);
+    if (statusFilter) params.set("status", statusFilter);
     Promise.all([
-      api<{ items: MenuItem[]; total: number }>(
-        `/api/menu?restaurantId=${restaurantId}&offset=${offset}&limit=${PAGE_SIZE}`,
-      ),
+      api<{ items: MenuItem[]; total: number }>(`/api/menu?${params}`),
       api<{ categories: Category[] }>(
         `/api/categories?restaurantId=${restaurantId}`,
       ),
@@ -182,10 +162,56 @@ export default function MenuListPage() {
         setCategories(c.categories);
       })
       .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        loadedOnce.current = true;
+        setLoading(false);
+      });
   };
 
-  useEffect(load, [restaurantId, offset]);
+  useEffect(load, [restaurantId, offset, query, categoryFilter, statusFilter]);
+
+  // Debounce the search box into the query that hits the API.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setQuery(search.trim());
+      setOffset(0);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const setFilters = (category: string | null, status: MenuItemStatus | null) => {
+    setCategoryFilter(category);
+    setStatusFilter(status);
+    setOffset(0);
+  };
+
+  const clearFilters = () => {
+    setSearch("");
+    setQuery("");
+    setFilters(null, null);
+  };
+
+  const quickStatus = async (item: MenuItem, status: MenuItemStatus) => {
+    if (status === item.status) return;
+    const prev = items;
+    setStatusSaving(item.id);
+    setItems((list) =>
+      list.map((it) => (it.id === item.id ? { ...it, status } : it)),
+    );
+    try {
+      await api(`/api/menu/${item.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ status }),
+      });
+      // Re-sync so items falling out of an active status filter drop off.
+      if (statusFilter) load();
+    } catch (e) {
+      setItems(prev);
+      setError(e instanceof Error ? e.message : "Failed to update status");
+    } finally {
+      setStatusSaving(null);
+    }
+  };
 
   const openEdit = (id: string) => {
     setEditId(id);
@@ -302,6 +328,67 @@ export default function MenuListPage() {
         </PillButton>
       </div>
 
+      <div
+        className="row"
+        style={{ gap: 10, marginBottom: 18, flexWrap: "wrap" }}
+      >
+        <div style={{ position: "relative", flex: "1 1 220px", maxWidth: 320 }}>
+          <SearchIcon
+            aria-hidden
+            style={{
+              position: "absolute",
+              left: 12,
+              top: "50%",
+              transform: "translateY(-50%)",
+              width: 15,
+              height: 15,
+              color: "var(--text-3)",
+              pointerEvents: "none",
+            }}
+          />
+          <input
+            type="search"
+            className="input"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search menu items..."
+            aria-label="Search menu items"
+            style={{ paddingLeft: 36, height: 38 }}
+          />
+        </div>
+        <Select
+          aria-label="Filter by category"
+          options={[
+            { id: ALL_CATEGORIES, label: "All categories" },
+            ...categories.map((c) => ({ id: c.id, label: c.name })),
+          ]}
+          selectedKey={categoryFilter ?? ALL_CATEGORIES}
+          onSelectionChange={(k) =>
+            setFilters(k === ALL_CATEGORIES ? null : k, statusFilter)
+          }
+          dark={isDark}
+        />
+        <div className="row" style={{ gap: 6 }}>
+          <button
+            className={`pill${statusFilter === null ? " pill-on" : ""}`}
+            style={{ height: 30, cursor: "pointer" }}
+            onClick={() => setFilters(categoryFilter, null)}
+          >
+            All
+          </button>
+          {STATUSES.map((s) => (
+            <button
+              key={s}
+              className={`pill${statusFilter === s ? " pill-on" : ""}`}
+              style={{ height: 30, cursor: "pointer" }}
+              onClick={() => setFilters(categoryFilter, s)}
+            >
+              {statusLabel[s]}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {error && (
         <div style={{ marginBottom: 16 }}>
           <ErrorState message={error} onRetry={load} />
@@ -309,93 +396,135 @@ export default function MenuListPage() {
       )}
 
       {items.length === 0 ? (
-        <EmptyState
-          title="No menu items"
-          description="Create your first menu item to get started."
-          action={
-            <button className="btn btn-primary" onClick={() => setCreateOpen(true)}>
-              Create new
-            </button>
-          }
-        />
+        hasFilters ? (
+          <EmptyState
+            title="No matching items"
+            description="No menu items match your search or filters."
+            action={
+              <button className="btn btn-ghost" onClick={clearFilters}>
+                Clear filters
+              </button>
+            }
+          />
+        ) : (
+          <EmptyState
+            title="No menu items"
+            description="Create your first menu item to get started."
+            action={
+              <button className="btn btn-primary" onClick={() => setCreateOpen(true)}>
+                Create new
+              </button>
+            }
+          />
+        )
       ) : (
-        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-          <table className="table">
-            <thead>
-              <tr>
-                <th style={{ width: 96 }} />
-                <th>Item</th>
-                <th>Category</th>
-                <th>Status</th>
-                <th style={{ textAlign: "right" }}>Price</th>
-                <th style={{ textAlign: "right" }} />
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((it) => (
-                <tr key={it.id}>
-                  <td>
-                    <ItemSwatch
-                      id={it.id}
-                      name={it.name}
-                      image={it.image}
-                      size="sm"
-                      className="rounded-xl"
-                    />
-                  </td>
-                  <td style={{ fontWeight: 700 }}>{it.name}</td>
-                  <td>
-                    <span className="pill" style={{ fontSize: 11 }}>
+        <>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {items.map((it) => (
+              <div
+                key={it.id}
+                className="card col"
+                style={{ overflow: "hidden" }}
+              >
+                <div
+                  style={{
+                    position: "relative",
+                    aspectRatio: "4 / 3",
+                    background: "var(--bg-sunken)",
+                    opacity: it.status === "hidden" ? 0.55 : 1,
+                    filter: it.status === "sold_out" ? "grayscale(0.6)" : undefined,
+                  }}
+                >
+                  <ItemSwatch
+                    id={it.id}
+                    name={it.name}
+                    image={it.image}
+                    size="lg"
+                    className="absolute inset-0"
+                  />
+                  <span
+                    className="pill"
+                    style={{
+                      ...statusOverlayStyle[it.status],
+                      position: "absolute",
+                      top: 8,
+                      left: 8,
+                      fontSize: 10,
+                    }}
+                  >
+                    {statusLabel[it.status]}
+                  </span>
+                </div>
+                <div className="col grow" style={{ gap: 8, padding: 10 }}>
+                  <div className="row" style={{ justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
+                    <div style={{ minWidth: 0, fontSize: 14, fontWeight: 600, lineHeight: 1.25 }}>
+                      {it.name}
+                    </div>
+                    <div
+                      className="mono"
+                      style={{ fontSize: 13, fontWeight: 700, color: "var(--olive)", whiteSpace: "nowrap" }}
+                    >
+                      {formatPrice(it.price)}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="pill" style={{ fontSize: 10 }}>
                       {it.category?.name ?? "—"}
                     </span>
-                  </td>
-                  <td>
-                    <span
-                      className="pill"
-                      style={{ ...statusStyle[it.status], fontSize: 11 }}
-                    >
-                      {statusLabel[it.status]}
-                    </span>
-                  </td>
-                  <td
-                    className="mono"
-                    style={{ textAlign: "right", fontWeight: 700, color: "var(--olive)" }}
+                  </div>
+                  <div
+                    className="row"
+                    style={{ justifyContent: "space-between", gap: 8, marginTop: "auto" }}
                   >
-                    {formatPrice(it.price)}
-                  </td>
-                  <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                    <button
-                      className="pill"
-                      style={iconButtonStyle}
-                      onClick={() => openEdit(it.id)}
-                      aria-label={`Edit menu item ${it.name}`}
-                      title="Edit"
-                    >
-                      <EditIcon />
-                    </button>
-                    <button
-                      className="pill pill-danger"
-                      style={iconDangerButtonStyle}
-                      onClick={() => setDeleteItem(it)}
-                      aria-label={`Delete menu item ${it.name}`}
-                      title="Delete"
-                    >
-                      <TrashIcon />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <DashboardTableFooter
-            page={page}
-            pageCount={pageCount}
-            total={total}
-            pageSize={PAGE_SIZE}
-            noun="menu items"
-            onChange={(next) => setOffset((next - 1) * PAGE_SIZE)}
-          />
-        </div>
+                    <div style={{ opacity: statusSaving === it.id ? 0.5 : 1 }}>
+                      <Select
+                        aria-label={`Status of ${it.name}`}
+                        options={STATUS_OPTIONS}
+                        selectedKey={it.status}
+                        onSelectionChange={(k) =>
+                          k && quickStatus(it, k as MenuItemStatus)
+                        }
+                        dark={isDark}
+                      />
+                    </div>
+                    <div className="row" style={{ gap: 6 }}>
+                      <button
+                        className="pill"
+                        style={iconButtonStyle}
+                        onClick={() => openEdit(it.id)}
+                        aria-label={`Edit menu item ${it.name}`}
+                        title="Edit"
+                      >
+                        <PencilIcon style={{ width: 13, height: 13 }} />
+                      </button>
+                      <button
+                        className="pill pill-danger"
+                        style={iconButtonStyle}
+                        onClick={() => setDeleteItem(it)}
+                        aria-label={`Delete menu item ${it.name}`}
+                        title="Delete"
+                      >
+                        <Trash2Icon style={{ width: 13, height: 13 }} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="card" style={{ overflow: "hidden", marginTop: 16 }}>
+            <div style={{ marginTop: -1 }}>
+              <DashboardTableFooter
+                page={page}
+                pageCount={pageCount}
+                total={total}
+                pageSize={PAGE_SIZE}
+                noun="menu items"
+                onChange={(next) => setOffset((next - 1) * PAGE_SIZE)}
+              />
+            </div>
+          </div>
+        </>
       )}
 
       <Modal
@@ -403,22 +532,30 @@ export default function MenuListPage() {
         onOpenChange={(open) => !open && setCreateOpen(false)}
         className={`sm:max-w-2xl dir-a kds-theme${isDark ? " kds-dark" : ""}`}
         header={
-          <h2 className="eyebrow" style={{ fontSize: 13, color: "var(--text)" }}>
-            New menu item
-          </h2>
+          <ItemModalHeader eyebrow="Menu items" heading="New menu item">
+            Add details, pricing and option groups
+          </ItemModalHeader>
+        }
+        footer={
+          <ItemModalFooter
+            formId={CREATE_FORM_ID}
+            submitting={submitting}
+            submitLabel={submitting ? "Creating..." : "Create item"}
+            onCancel={() => setCreateOpen(false)}
+          />
         }
       >
-        <div
-          className={`dir-a kds-theme${isDark ? " kds-dark" : ""}`}
-          style={{ padding: 20, background: "var(--surface)" }}
-        >
+        <div style={{ padding: "18px 20px", background: "var(--surface)" }}>
           <MenuItemForm
+            formId={CREATE_FORM_ID}
+            variant="flat"
+            hideSubmit
+            dark={isDark}
             defaultValues={EMPTY}
             categories={categories}
             stations={stations}
             submitting={submitting}
             onSubmit={submitCreate}
-            stickyFooter
           />
         </div>
       </Modal>
@@ -428,28 +565,39 @@ export default function MenuListPage() {
         onOpenChange={(open) => !open && closeEdit()}
         className={`sm:max-w-2xl dir-a kds-theme${isDark ? " kds-dark" : ""}`}
         header={
-          <h2
-            className="eyebrow"
-            style={{ fontSize: 13, color: "var(--text)" }}
+          <ItemModalHeader
+            eyebrow="Edit menu item"
+            heading={editValues?.name || "Loading..."}
           >
-            Edit menu item
-          </h2>
+            Changes apply to all branches unless overridden
+          </ItemModalHeader>
+        }
+        footer={
+          <ItemModalFooter
+            formId={EDIT_FORM_ID}
+            submitting={submitting}
+            disabled={editLoading || !editValues}
+            submitLabel={submitting ? "Saving..." : "Save changes"}
+            onCancel={closeEdit}
+          />
         }
       >
-        <div
-          className={`dir-a kds-theme${isDark ? " kds-dark" : ""}`}
-          style={{ padding: 20, background: "var(--surface)" }}
-        >
+        <div style={{ padding: "18px 20px", background: "var(--surface)" }}>
           {editLoading || !editValues ? (
-            <Loading />
+            <div style={{ padding: "48px 0" }}>
+              <Loading />
+            </div>
           ) : (
             <MenuItemForm
+              formId={EDIT_FORM_ID}
+              variant="flat"
+              hideSubmit
+              dark={isDark}
               defaultValues={editValues}
               categories={categories}
               stations={stations}
               submitting={submitting}
               onSubmit={submitEdit}
-              stickyFooter
             />
           )}
         </div>
@@ -490,6 +638,86 @@ export default function MenuListPage() {
           </div>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+// Eyebrow + heading + one-line hint for the create/edit item modals, matching
+// the RestaurantFormModal header look.
+function ItemModalHeader({
+  eyebrow,
+  heading,
+  children,
+}: {
+  eyebrow: string;
+  heading: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="eyebrow">{eyebrow}</div>
+      <h2
+        style={{
+          fontSize: 20,
+          fontWeight: 600,
+          letterSpacing: "-0.02em",
+          marginTop: 2,
+          color: "var(--text)",
+        }}
+      >
+        {heading}
+      </h2>
+      <div style={{ fontSize: 13, color: "var(--text-3)", marginTop: 2 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// Pinned modal footer: Cancel + a native submit button targeting the form by
+// id, so it works while the form itself scrolls in the modal body.
+function ItemModalFooter({
+  formId,
+  submitting,
+  disabled = false,
+  submitLabel,
+  onCancel,
+}: {
+  formId: string;
+  submitting: boolean;
+  disabled?: boolean;
+  submitLabel: string;
+  onCancel: () => void;
+}) {
+  const blocked = submitting || disabled;
+  return (
+    <div className="row" style={{ gap: 8 }}>
+      <button
+        type="button"
+        className="btn btn-ghost"
+        style={{
+          flex: 1,
+          opacity: submitting ? 0.5 : 1,
+          cursor: submitting ? "not-allowed" : "pointer",
+        }}
+        disabled={submitting}
+        onClick={onCancel}
+      >
+        Cancel
+      </button>
+      <button
+        type="submit"
+        form={formId}
+        className="btn btn-primary"
+        style={{
+          flex: 2,
+          opacity: blocked ? 0.6 : 1,
+          cursor: blocked ? "not-allowed" : "pointer",
+        }}
+        disabled={blocked}
+      >
+        {submitLabel}
+      </button>
     </div>
   );
 }

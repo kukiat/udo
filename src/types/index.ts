@@ -180,6 +180,14 @@ export type ScreenCountPayload = { branchId: string; count: number; max: number 
 export type TableJoinPayload = { tableId: string };
 export type BillPaidPayload = { sessionId: string; tableId: string };
 export type BillRequestedPayload = { sessionId: string; tableId: string };
+export type TableMovedPayload = {
+  branchId: string;
+  sessionId: string;
+  fromTableId: string;
+  fromTableNumber: string;
+  toTableId: string;
+  toTableNumber: string;
+};
 
 export type ServerToClientEvents = {
   "kds:reject": (p: KdsRejectPayload) => void;
@@ -189,6 +197,7 @@ export type ServerToClientEvents = {
   "bill:paid": (p: BillPaidPayload) => void;
   "bill:requested": (p: BillRequestedPayload) => void;
   "reservation:updated": (p: { branchId: string }) => void;
+  "table:moved": (p: TableMovedPayload) => void;
 };
 
 export type ClientToServerEvents = {

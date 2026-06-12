@@ -18,7 +18,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { cn } from "@/lib/cn";
 import { api } from "@/lib/fetcher";
 import { getSocket } from "@/lib/socket-client";
-import type { OrderDTO, OrderStatus } from "@/types";
+import type { OrderDTO, OrderStatus, TableMovedPayload } from "@/types";
 
 type Station = { id: string; name: string };
 type StationsResponse = { stations: Station[] };
@@ -226,6 +226,15 @@ export default function KdsPage() {
       setRejected(reason);
       setLoading(false);
     };
+    // Staff moved a session to another table — re-label its tickets in place.
+    const onMoved = (p: TableMovedPayload) =>
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.tableSessionId === p.sessionId
+            ? { ...o, tableId: p.toTableId, tableNumber: p.toTableNumber }
+            : o,
+        ),
+      );
     const onCount = (p: { count: number; max: number }) => {
       setScreen(p);
       if (joinAt.current && latency === null) {
@@ -235,6 +244,7 @@ export default function KdsPage() {
 
     socket.on("order:new", onNew);
     socket.on("order:status-update", onUpdate);
+    socket.on("table:moved", onMoved);
     socket.on("kds:reject", onReject);
     socket.on("kds:screen-count", onCount);
 
@@ -278,6 +288,7 @@ export default function KdsPage() {
     return () => {
       socket.off("order:new", onNew);
       socket.off("order:status-update", onUpdate);
+      socket.off("table:moved", onMoved);
       socket.off("kds:reject", onReject);
       socket.off("kds:screen-count", onCount);
       socket.off("connect", join);

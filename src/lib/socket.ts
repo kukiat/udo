@@ -4,6 +4,7 @@ import type {
   ClientToServerEvents,
   OrderDTO,
   ServerToClientEvents,
+  TableMovedPayload,
 } from "@/types";
 
 export type AppIOServer = IOServer<ClientToServerEvents, ServerToClientEvents>;
@@ -87,6 +88,29 @@ export function emitBillPaid(branchId: string, sessionId: string, tableId: strin
  */
 export function emitReservationUpdate(branchId: string) {
   getIO()?.to(branchRoom(branchId)).emit("reservation:updated", { branchId });
+}
+
+/**
+ * Broadcast that an active session moved to another table. KDS and floor
+ * screens re-label their tickets; customer screens on the old table's room
+ * follow the session to the new table URL.
+ */
+export function emitTableMoved(
+  p: TableMovedPayload,
+  originSocketId?: string | null,
+) {
+  const io = getIO();
+  if (!io) return;
+  toRoomExceptOrigin(io, branchKdsRoom(p.branchId), originSocketId).emit(
+    "table:moved",
+    p,
+  );
+  toRoomExceptOrigin(io, branchRoom(p.branchId), originSocketId).emit(
+    "table:moved",
+    p,
+  );
+  // Customer devices joined the old table's room — always include them.
+  io.to(tableRoom(p.fromTableId)).emit("table:moved", p);
 }
 
 /** Notify the branch floor staff that a table has requested the check. */

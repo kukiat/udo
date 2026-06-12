@@ -37,7 +37,11 @@ import type {
   TableLayoutDTO,
 } from "@/types";
 import {
+  ArrowRightLeftIcon,
   CalendarClockIcon,
+  CalendarDaysIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   CreditCardIcon,
   LinkIcon,
   PrinterIcon,
@@ -550,6 +554,12 @@ export default function WaitstaffPage() {
 
   // --- Reservations: book / seat / cancel -----------------------------------
   const [reserveTarget, setReserveTarget] = useState<TableRow | null>(null);
+  // Date (YYYY-MM-DD) picked from the calendar to prefill the reserve dialog.
+  const [reservePrefillDate, setReservePrefillDate] = useState<string | null>(
+    null,
+  );
+  // Table whose reservation calendar modal is open.
+  const [calendarTable, setCalendarTable] = useState<TableRow | null>(null);
   const [seatTarget, setSeatTarget] = useState<{
     table: TableRow;
     reservation: ReservationDTO;
@@ -625,6 +635,48 @@ export default function WaitstaffPage() {
     }
   };
 
+  // --- Move table: relocate an active session to a free table ---------------
+  const [moveSource, setMoveSource] = useState<TableRow | null>(null);
+  const [movingToId, setMovingToId] = useState<string | null>(null);
+  const [moveError, setMoveError] = useState<string | null>(null);
+  // Target whose buffer-window reservation needs a "move anyway" confirm.
+  const [moveRetryTarget, setMoveRetryTarget] = useState<TableRow | null>(null);
+
+  const moveSession = async (target: TableRow, overrideReservation = false) => {
+    const session = moveSource ? sessionByTable.get(moveSource.id) : null;
+    if (!session) return;
+    setMovingToId(target.id);
+    setMoveError(null);
+    setMoveRetryTarget(null);
+    try {
+      await api(`/api/sessions/${session.sessionId}/move`, {
+        method: "POST",
+        headers: socketOriginHeaders(),
+        body: JSON.stringify({ targetTableId: target.id, overrideReservation }),
+      });
+      setMoveSource(null);
+      setDetailTableId(target.id);
+      await Promise.all([loadOrders(), loadTables(), loadSessions()]);
+    } catch (e) {
+      if (e instanceof ApiRequestError) {
+        // A buffer-window reservation can be overridden after a confirm.
+        if (
+          e.code === "TABLE_RESERVED" &&
+          (e.details as { phase?: string } | null)?.phase === "buffer"
+        ) {
+          setMoveRetryTarget(target);
+        }
+        // Re-sync the floor so the picker reflects reality.
+        await Promise.all([loadTables(), loadSessions(), loadReservations()]).catch(
+          () => { },
+        );
+      }
+      setMoveError(e instanceof Error ? e.message : "Failed to move table");
+    } finally {
+      setMovingToId(null);
+    }
+  };
+
   const showLink = (table: TableRow) => {
     const session = sessionByTable.get(table.id);
     if (!session) return;
@@ -691,6 +743,7 @@ export default function WaitstaffPage() {
 
     socket.on("order:new", refreshAll);
     socket.on("order:status-update", refreshAll);
+    socket.on("table:moved", refreshAll);
     socket.on("bill:paid", refreshAll);
     socket.on("bill:requested", refreshSessions);
     socket.on("reservation:updated", refreshReservations);
@@ -713,6 +766,7 @@ export default function WaitstaffPage() {
     return () => {
       socket.off("order:new", refreshAll);
       socket.off("order:status-update", refreshAll);
+      socket.off("table:moved", refreshAll);
       socket.off("bill:paid", refreshAll);
       socket.off("bill:requested", refreshSessions);
       socket.off("reservation:updated", refreshReservations);
@@ -1803,6 +1857,18 @@ export default function WaitstaffPage() {
                             <LinkIcon className="w-4 h-4" />
                             Order link
                           </PillButton>
+                          <PillButton
+                            variant="outline"
+                            onPress={() => {
+                              setMoveError(null);
+                              setMoveRetryTarget(null);
+                              setMoveSource(selectedTable);
+                            }}
+                            className={cn(WAITSTAFF_ACTION_BUTTON, "flex-1 sm:flex-none")}
+                          >
+                            <ArrowRightLeftIcon className="w-4 h-4" />
+                            Move table
+                          </PillButton>
                         </>
                       ) : selectedReservationDue && selectedNextReservation ? (
                         <>
@@ -1862,6 +1928,14 @@ export default function WaitstaffPage() {
                           </PillButton>
                         </>
                       )}
+                      <PillButton
+                        variant="outline"
+                        onPress={() => setCalendarTable(selectedTable)}
+                        className={cn(WAITSTAFF_ACTION_BUTTON, "flex-1 sm:flex-none")}
+                      >
+                        <CalendarDaysIcon className="w-4 h-4" />
+                        Calendar
+                      </PillButton>
                     </div>
                     {selectedBillRequested && (
                       <p className="text-[11px] text-ink-muted">
@@ -2438,12 +2512,139 @@ export default function WaitstaffPage() {
       <ReserveTableDialog
         table={reserveTarget}
         branchId={branchId}
-        onDismiss={() => setReserveTarget(null)}
+        prefillDate={reservePrefillDate}
+        onViewCalendar={() => {
+          if (reserveTarget) setCalendarTable(reserveTarget);
+        }}
+        onDismiss={() => {
+          setReserveTarget(null);
+          setReservePrefillDate(null);
+        }}
         onCreated={() => {
           setReserveTarget(null);
+          setReservePrefillDate(null);
           loadReservations().catch(() => { });
         }}
       />
+
+      {/* Per-table reservation calendar — opened from the table panel or from
+      inside the reserve dialog (stacks on top of it). */}
+      <TableReservationCalendarModal
+        table={calendarTable}
+        onOpenChange={(open) => {
+          if (!open) setCalendarTable(null);
+        }}
+        onPickDate={(date) => {
+          const t = calendarTable;
+          if (!t) return;
+          setCalendarTable(null);
+          setReservePrefillDate(date);
+          setReserveTarget(t);
+        }}
+      />
+
+      {/* Move an active session (orders + bill) to a free table. */}
+      <Modal
+        isOpen={moveSource !== null}
+        onOpenChange={(open) => {
+          if (!open && !movingToId) {
+            setMoveSource(null);
+            setMoveRetryTarget(null);
+          }
+        }}
+      >
+        {moveSource && (
+          <div className="flex flex-col gap-4 p-5">
+            <div className="pr-8">
+              <h2 className="text-lg font-semibold text-ink">
+                Move table {moveSource.tableNumber}
+              </h2>
+              <p className="mt-1 text-sm text-ink-muted">
+                Pick the table the guests are moving to. All orders and the
+                bill follow them; the customer&apos;s ordering link switches
+                over automatically.
+              </p>
+            </div>
+            {moveError && (
+              <div className="rounded-lg bg-rose-soft px-3 py-2">
+                <p className="text-sm text-rose">{moveError}</p>
+                {moveRetryTarget && (
+                  <PillButton
+                    tone="accent"
+                    variant="outline"
+                    isDisabled={movingToId !== null}
+                    onPress={() => moveSession(moveRetryTarget, true)}
+                    className="mt-2"
+                  >
+                    Move to {moveRetryTarget.tableNumber} anyway
+                  </PillButton>
+                )}
+              </div>
+            )}
+            {(() => {
+              const candidates = tables
+                .filter(
+                  (t) =>
+                    t.id !== moveSource.id &&
+                    t.status === "available" &&
+                    !sessionByTable.has(t.id),
+                )
+                .sort((a, b) => {
+                  const av = Number(a.tableNumber);
+                  const bv = Number(b.tableNumber);
+                  if (Number.isFinite(av) && Number.isFinite(bv)) return av - bv;
+                  return a.tableNumber.localeCompare(b.tableNumber);
+                });
+              if (candidates.length === 0) {
+                return (
+                  <EmptyState
+                    title="No free tables"
+                    description="Every other table is occupied or reserved right now."
+                  />
+                );
+              }
+              return (
+                <div className="grid max-h-[50vh] grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
+                  {candidates.map((t) => {
+                    const nextRes = nextReservationByTable.get(t.id);
+                    return (
+                      <button
+                        key={t.id}
+                        disabled={movingToId !== null}
+                        onClick={() => moveSession(t)}
+                        className={cn(
+                          "flex flex-col items-center gap-1 rounded-card border border-line bg-olive-soft px-2 py-3 text-olive transition-colors hover:border-ink disabled:opacity-50",
+                          movingToId === t.id && "!border-clay-500",
+                        )}
+                      >
+                        <span className="mono text-[18px] font-bold leading-none">
+                          {movingToId === t.id ? "…" : t.tableNumber}
+                        </span>
+                        <span className="text-[10px] text-ink-muted">
+                          {t.seats} seats
+                        </span>
+                        {nextRes && (
+                          <span className="inline-flex h-4 items-center whitespace-nowrap rounded-full bg-blue-500 px-1.5 text-[8px] font-semibold leading-none text-white">
+                            Res {formatReservedFor(nextRes.reservedFor)}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+            <div className="flex justify-end">
+              <PillButton
+                isDisabled={movingToId !== null}
+                onPress={() => setMoveSource(null)}
+              >
+                Cancel
+              </PillButton>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Confirm opening a table that has a reservation within the buffer window. */}
       <Modal
@@ -3169,11 +3370,16 @@ function OpenSessionDialog({
 function ReserveTableDialog({
   table,
   branchId,
+  prefillDate,
+  onViewCalendar,
   onDismiss,
   onCreated,
 }: {
   table: TableRow | null;
   branchId: string;
+  /** Date (YYYY-MM-DD) picked from the calendar modal — overrides the default. */
+  prefillDate?: string | null;
+  onViewCalendar?: () => void;
   onDismiss: () => void;
   onCreated: () => void;
 }) {
@@ -3197,6 +3403,11 @@ function ReserveTableDialog({
     setNote("");
     setError(null);
   }, [table?.id]);
+
+  // Apply a date picked from the calendar modal (runs after the reset above).
+  useEffect(() => {
+    if (table && prefillDate) setDate(prefillDate);
+  }, [table?.id, prefillDate]);
 
   const minDate = toDateInputValue(new Date());
   const maxDate = toDateInputValue(
@@ -3266,14 +3477,27 @@ function ReserveTableDialog({
       }}
       className="sm:max-w-2xl"
       header={
-        <div>
-          <h2 className="text-lg font-semibold text-ink">
-            Reserve table {table?.tableNumber}
-          </h2>
-          <p className="mt-1 text-sm text-ink-muted">
-            Book this table up to {RESERVATION_MAX_DAYS} days ahead. The table
-            switches to Reserved automatically at the booked time.
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-3 pr-2">
+          <div>
+            <h2 className="text-lg font-semibold text-ink">
+              Reserve table {table?.tableNumber}
+            </h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              Book this table up to {RESERVATION_MAX_DAYS} days ahead. The table
+              switches to Reserved automatically at the booked time.
+            </p>
+          </div>
+          {onViewCalendar && (
+            <PillButton
+              variant="outline"
+              isDisabled={saving}
+              onPress={onViewCalendar}
+              className="!h-[30px] min-h-[30px] px-3 text-[11px]"
+            >
+              <CalendarDaysIcon className="h-3.5 w-3.5" />
+              View calendar
+            </PillButton>
+          )}
         </div>
       }
       footer={
@@ -3365,6 +3589,307 @@ function ReserveTableDialog({
           <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12px] font-medium text-red-700">
             {error}
           </p>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+// Dot color per reservation status on the calendar day cells. Booked uses the
+// same blue as the floor map "Res" chips; settled states reuse badge tones.
+const RESERVATION_DOT: Record<ReservationDTO["status"], string> = {
+  booked: "bg-blue-500",
+  seated: "bg-olive",
+  cancelled: "bg-line",
+  no_show: "bg-rose",
+};
+
+const WEEKDAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+/**
+ * Month calendar of one table's reservations. Each day shows status dots for
+ * its bookings; selecting a day lists the details below the grid. When
+ * `onPickDate` is provided, a footer button hands the selected (bookable)
+ * date back — used to prefill the reserve dialog.
+ */
+function TableReservationCalendarModal({
+  table,
+  onOpenChange,
+  onPickDate,
+}: {
+  table: TableRow | null;
+  onOpenChange: (open: boolean) => void;
+  onPickDate?: (date: string) => void;
+}) {
+  const today = toDateInputValue(new Date());
+  const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
+  const [viewMonth, setViewMonth] = useState(() => new Date().getMonth());
+  const [selectedDate, setSelectedDate] = useState(today);
+  const [rows, setRows] = useState<ReservationDTO[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Reset to the current month whenever the modal opens for a table.
+  useEffect(() => {
+    if (!table) return;
+    const now = new Date();
+    setViewYear(now.getFullYear());
+    setViewMonth(now.getMonth());
+    setSelectedDate(toDateInputValue(now));
+  }, [table?.id]);
+
+  // One month of reservations (all statuses) for this table.
+  useEffect(() => {
+    if (!table) return;
+    let active = true;
+    setRows(null);
+    setError(null);
+    const from = new Date(viewYear, viewMonth, 1);
+    const to = new Date(viewYear, viewMonth + 1, 1);
+    api<{ reservations: ReservationDTO[] }>(
+      `/api/reservations?tableId=${table.id}&filter=all&limit=100&from=${from.toISOString()}&to=${to.toISOString()}`,
+    )
+      .then((d) => active && setRows(d.reservations))
+      .catch(
+        (e) =>
+          active &&
+          setError(e instanceof Error ? e.message : "Failed to load"),
+      );
+    return () => {
+      active = false;
+    };
+  }, [table?.id, viewYear, viewMonth]);
+
+  const byDate = useMemo(() => {
+    const m = new Map<string, ReservationDTO[]>();
+    for (const r of rows ?? []) {
+      const key = toDateInputValue(new Date(r.reservedFor));
+      const arr = m.get(key) ?? [];
+      arr.push(r);
+      m.set(key, arr);
+    }
+    for (const arr of m.values()) {
+      arr.sort((a, b) => a.reservedFor.localeCompare(b.reservedFor));
+    }
+    return m;
+  }, [rows]);
+
+  // Leading blanks + day numbers, padded to whole weeks (Sunday start).
+  const cells = useMemo(() => {
+    const startWeekday = new Date(viewYear, viewMonth, 1).getDay();
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+    const list: (number | null)[] = [
+      ...Array.from({ length: startWeekday }, () => null),
+      ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+    ];
+    while (list.length % 7 !== 0) list.push(null);
+    return list;
+  }, [viewYear, viewMonth]);
+
+  const moveMonth = (delta: number) => {
+    const next = new Date(viewYear, viewMonth + delta, 1);
+    setViewYear(next.getFullYear());
+    setViewMonth(next.getMonth());
+  };
+
+  const monthLabel = new Date(viewYear, viewMonth, 1).toLocaleDateString([], {
+    month: "long",
+    year: "numeric",
+  });
+  const dateKey = (day: number) =>
+    `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+  // YYYY-MM-DD compares lexicographically, so string bounds are enough.
+  const maxPick = toDateInputValue(
+    new Date(Date.now() + RESERVATION_MAX_DAYS * 24 * 60 * 60 * 1000),
+  );
+  const pickable = selectedDate >= today && selectedDate <= maxPick;
+  const dayRows = byDate.get(selectedDate) ?? [];
+  const bookedCount = (rows ?? []).filter((r) => r.status === "booked").length;
+
+  return (
+    <Modal
+      isOpen={Boolean(table)}
+      onOpenChange={onOpenChange}
+      className="sm:max-w-2xl"
+      header={
+        <div className="flex flex-wrap items-center justify-between gap-3 pr-2">
+          <div>
+            <h2 className="text-lg font-semibold text-ink">
+              Table {table?.tableNumber} — reservation calendar
+            </h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              {bookedCount} booked in {monthLabel}
+            </p>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => moveMonth(-1)}
+              aria-label="Previous month"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-line bg-white text-ink-soft transition-colors hover:border-ink hover:text-ink"
+            >
+              <ChevronLeftIcon className="h-4 w-4" />
+            </button>
+            <span className="mono min-w-[130px] text-center text-[13px] font-semibold tabular-nums text-ink">
+              {monthLabel}
+            </span>
+            <button
+              onClick={() => moveMonth(1)}
+              aria-label="Next month"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-line bg-white text-ink-soft transition-colors hover:border-ink hover:text-ink"
+            >
+              <ChevronRightIcon className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      }
+      footer={
+        onPickDate ? (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-[11px] text-ink-muted">
+              {pickable
+                ? `Reserve this table on ${new Date(`${selectedDate}T00:00:00`).toLocaleDateString([], { day: "numeric", month: "short" })}.`
+                : `Bookings are limited to the next ${RESERVATION_MAX_DAYS} days.`}
+            </p>
+            <PillButton
+              tone="accent"
+              isDisabled={!pickable}
+              onPress={() => onPickDate(selectedDate)}
+            >
+              <CalendarClockIcon className="h-4 w-4" />
+              Reserve this date
+            </PillButton>
+          </div>
+        ) : undefined
+      }
+    >
+      <div className="grid gap-4 p-5">
+        {error ? (
+          <ErrorState message={error} />
+        ) : (
+          <>
+            <div>
+              <div className="grid grid-cols-7 gap-1">
+                {WEEKDAY_LABELS.map((d) => (
+                  <div
+                    key={d}
+                    className="py-1 text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-muted"
+                  >
+                    {d}
+                  </div>
+                ))}
+                {cells.map((day, i) => {
+                  if (day === null) return <div key={`blank-${i}`} />;
+                  const key = dateKey(day);
+                  const dayReservations = byDate.get(key) ?? [];
+                  const isToday = key === today;
+                  const selected = key === selectedDate;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setSelectedDate(key)}
+                      aria-pressed={selected}
+                      className={cn(
+                        "flex h-12 flex-col items-center justify-center gap-1 rounded-lg border text-[13px] font-semibold transition-colors sm:h-14",
+                        selected
+                          ? "border-clay-500 bg-clay-50 text-clay-700"
+                          : isToday
+                            ? "border-ink bg-white text-ink"
+                            : "border-line bg-white text-ink-soft hover:border-ink hover:text-ink",
+                      )}
+                    >
+                      <span className="mono leading-none tabular-nums">
+                        {day}
+                      </span>
+                      {dayReservations.length > 0 && (
+                        <span className="flex items-center gap-0.5">
+                          {dayReservations.slice(0, 3).map((r) => (
+                            <span
+                              key={r.id}
+                              className={cn(
+                                "h-1.5 w-1.5 rounded-full",
+                                RESERVATION_DOT[r.status],
+                              )}
+                            />
+                          ))}
+                          {dayReservations.length > 3 && (
+                            <span className="text-[8px] font-semibold leading-none text-ink-muted">
+                              +{dayReservations.length - 3}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-medium text-ink-muted">
+                {(
+                  [
+                    ["booked", "Booked"],
+                    ["seated", "Seated"],
+                    ["cancelled", "Cancelled"],
+                    ["no_show", "No show"],
+                  ] as const
+                ).map(([status, label]) => (
+                  <span key={status} className="inline-flex items-center gap-1">
+                    <span
+                      className={cn(
+                        "h-1.5 w-1.5 rounded-full",
+                        RESERVATION_DOT[status],
+                      )}
+                    />
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
+                {new Date(`${selectedDate}T00:00:00`).toLocaleDateString([], {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "long",
+                })}
+              </div>
+              {rows === null ? (
+                <Loading />
+              ) : dayRows.length === 0 ? (
+                <p className="mt-2 text-[13px] text-ink-muted">
+                  No reservations on this day.
+                </p>
+              ) : (
+                <ul className="mt-1 divide-y divide-line">
+                  {dayRows.map((r) => (
+                    <li
+                      key={r.id}
+                      className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2.5"
+                    >
+                      <span className="mono w-12 shrink-0 text-[14px] font-bold tabular-nums text-ink">
+                        {formatClock(r.reservedFor)}
+                      </span>
+                      <div className="min-w-[140px] flex-1">
+                        <p className="text-[13px] font-semibold text-ink">
+                          {r.customerName}
+                          <span className="font-normal text-ink-muted">
+                            {" "}
+                            · {r.partySize} guests
+                            {r.customerPhone ? ` · ${r.customerPhone}` : ""}
+                          </span>
+                        </p>
+                        {r.note && (
+                          <p className="text-[11px] text-ink-muted">{r.note}</p>
+                        )}
+                      </div>
+                      <Badge tone={RESERVATION_STATUS_TONE[r.status]}>
+                        {r.status === "no_show" ? "no show" : r.status}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </>
         )}
       </div>
     </Modal>

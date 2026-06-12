@@ -27,6 +27,15 @@ type SalesResponse = {
   topItems: { name: string; qty: number; total: string }[];
 };
 
+type BranchSalesRow = {
+  branchId: string;
+  name: string;
+  total: string;
+  paymentCount: number;
+  paidBills: number;
+  byDay: { date: string; total: string }[];
+};
+
 // Local-timezone date key (YYYY-MM-DD). Timestamps are stored in UTC; all
 // day grouping in the UI happens in the viewer's local timezone.
 function dayKey(d: Date) {
@@ -249,6 +258,191 @@ function RevenueChart({
   );
 }
 
+// Line colors for non-active branches. The branch selected in the sidebar
+// always draws with the accent.
+const BRANCH_LINE_COLORS = [
+  "var(--olive)",
+  "#5B7F95",
+  "#B3833B",
+  "#96678F",
+  "#6B7280",
+];
+
+function compactMoney(v: number) {
+  return v >= 1000 ? `฿${(v / 1000).toFixed(1)}k` : `฿${Math.round(v)}`;
+}
+
+// Branch comparison — one line per branch across the last 7 days. The
+// branch selected in the sidebar is drawn with the accent on top.
+function BranchSalesLineChart({
+  rows,
+  days,
+  activeBranchId,
+}: {
+  rows: BranchSalesRow[];
+  days: string[];
+  activeBranchId: string | null;
+}) {
+  const W = 700;
+  const H = 240;
+  const PAD_L = 48;
+  const PAD_R = 16;
+  const PAD_T = 14;
+  const PAD_B = 36;
+  const plotW = W - PAD_L - PAD_R;
+  const plotH = H - PAD_T - PAD_B;
+
+  let palette = 0;
+  const series = rows.map((r) => {
+    const byDate = new Map(r.byDay.map((d) => [d.date, parseFloat(d.total)]));
+    const isActive = r.branchId === activeBranchId;
+    return {
+      ...r,
+      isActive,
+      color: isActive
+        ? "var(--accent)"
+        : BRANCH_LINE_COLORS[palette++ % BRANCH_LINE_COLORS.length],
+      values: days.map((d) => byDate.get(d) ?? 0),
+    };
+  });
+  // Draw the active branch last so it sits on top of overlapping lines.
+  const drawOrder = [...series].sort(
+    (a, b) => Number(a.isActive) - Number(b.isActive),
+  );
+
+  const max = Math.max(1, ...series.flatMap((s) => s.values)) * 1.1;
+  const x = (i: number) =>
+    PAD_L + (days.length <= 1 ? plotW / 2 : (i * plotW) / (days.length - 1));
+  const y = (v: number) => PAD_T + (1 - v / max) * plotH;
+  const grand = series.reduce((s, r) => s + parseFloat(r.total), 0);
+
+  return (
+    <div className="flex flex-col gap-3 pt-1">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        role="img"
+        aria-label="Sales by branch, last 7 days"
+        style={{ width: "100%", height: "auto" }}
+      >
+        {/* Horizontal gridlines + y labels */}
+        {[0, 0.25, 0.5, 0.75, 1].map((f) => {
+          const v = max * f;
+          return (
+            <g key={f}>
+              <line
+                x1={PAD_L}
+                x2={W - PAD_R}
+                y1={y(v)}
+                y2={y(v)}
+                stroke="var(--line)"
+                strokeWidth={1}
+                strokeDasharray={f === 0 ? undefined : "3 4"}
+              />
+              <text
+                x={PAD_L - 8}
+                y={y(v) + 3.5}
+                textAnchor="end"
+                fontSize={10.5}
+                fill="var(--ink-3)"
+                className="tnum"
+              >
+                {compactMoney(v)}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Day labels */}
+        {days.map((d, i) => (
+          <g key={d}>
+            <text
+              x={x(i)}
+              y={H - 18}
+              textAnchor="middle"
+              fontSize={11}
+              fontWeight={500}
+              fill="var(--ink-3)"
+            >
+              {shortDay(d)}
+            </text>
+            <text
+              x={x(i)}
+              y={H - 5}
+              textAnchor="middle"
+              fontSize={9.5}
+              fill="var(--ink-4)"
+            >
+              {shortDate(d)}
+            </text>
+          </g>
+        ))}
+
+        {/* Lines */}
+        {drawOrder.map((s) => (
+          <g key={s.branchId}>
+            <polyline
+              points={s.values.map((v, i) => `${x(i)},${y(v)}`).join(" ")}
+              fill="none"
+              stroke={s.color}
+              strokeWidth={s.isActive ? 2.5 : 1.75}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              opacity={s.isActive ? 1 : 0.75}
+            />
+            {s.values.map((v, i) => (
+              <circle
+                key={days[i]}
+                cx={x(i)}
+                cy={y(v)}
+                r={s.isActive ? 3.5 : 2.75}
+                fill="var(--bg-elev, #fff)"
+                stroke={s.color}
+                strokeWidth={s.isActive ? 2 : 1.5}
+                opacity={s.isActive ? 1 : 0.85}
+              >
+                <title>{`${s.name} · ${shortDate(days[i])}: ${formatPrice(v)}`}</title>
+              </circle>
+            ))}
+          </g>
+        ))}
+      </svg>
+
+      {/* Legend */}
+      <div className="flex flex-wrap gap-x-5 gap-y-2 border-t border-line pt-3">
+        {series.map((s) => {
+          const total = parseFloat(s.total);
+          const share = grand > 0 ? Math.round((total / grand) * 100) : 0;
+          return (
+            <div key={s.branchId} className="flex items-center gap-2">
+              <span
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={{ background: s.color }}
+              />
+              <span
+                className="text-[12px] font-medium"
+                style={{ color: s.isActive ? "var(--ink)" : "var(--ink-2)" }}
+              >
+                {s.name}
+              </span>
+              {s.isActive && (
+                <span className="inline-flex shrink-0 items-center rounded-full bg-clay-100 px-1.5 py-px text-[9px] font-semibold text-clay-500">
+                  Active
+                </span>
+              )}
+              <span className="tnum text-[12px] font-semibold">
+                <AnimatedMoneyValue value={total} />
+              </span>
+              <span className="tnum text-[11px] text-ink-muted">
+                {share}% · {s.paidBills} bill{s.paidBills === 1 ? "" : "s"}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function SectionHead({
   overline,
   title,
@@ -331,6 +525,9 @@ export default function RestaurantOverviewPage() {
   const [weekSales, setWeekSales] = useState<SalesResponse | null>(null);
   const [yesterdayTotal, setYesterdayTotal] = useState<number | null>(null);
   const [menuCount, setMenuCount] = useState<number | null>(null);
+  const [branchSales, setBranchSales] = useState<BranchSalesRow[] | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!branchId) {
@@ -372,6 +569,25 @@ export default function RestaurantOverviewPage() {
       alive = false;
     };
   }, [branchId]);
+
+  useEffect(() => {
+    if (!restaurantId) {
+      setBranchSales(null);
+      return;
+    }
+    const today = dayKey(new Date());
+    const weekStart = dayKey(daysAgo(6));
+    const tz = new Date().getTimezoneOffset();
+    let alive = true;
+    api<{ branches: BranchSalesRow[] }>(
+      `/api/reports/branch-sales?restaurantId=${restaurantId}&from=${weekStart}&to=${today}&tz=${tz}`,
+    )
+      .then((d) => alive && setBranchSales(d.branches))
+      .catch(() => alive && setBranchSales(null));
+    return () => {
+      alive = false;
+    };
+  }, [restaurantId]);
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -613,6 +829,44 @@ export default function RestaurantOverviewPage() {
           </div>
         </div>
       </div>
+
+      {/* Branch comparison */}
+      {branchSales && branchSales.length > 0 && (
+        <div className="mt-4 rounded-card border border-line bg-white p-4">
+          <CardHead
+            title="Sales by branch, 7-day"
+            subtitle={
+              <AnimatedMoneyValue
+                value={branchSales.reduce(
+                  (s, b) => s + parseFloat(b.total),
+                  0,
+                )}
+              />
+            }
+            action={
+              <Link
+                href={`/dashboard/${restaurantId}/branches`}
+                className="text-[12px] font-medium text-ink-soft hover:text-ink"
+              >
+                Manage →
+              </Link>
+            }
+          />
+          {branchSales.every((b) => parseFloat(b.total) === 0) ? (
+            <div className="py-6 text-center text-[12px] text-ink-muted">
+              No payments in the last 7 days.
+            </div>
+          ) : (
+            <BranchSalesLineChart
+              rows={[...branchSales].sort(
+                (a, b) => parseFloat(b.total) - parseFloat(a.total),
+              )}
+              days={weekDays.map((d) => d.date)}
+              activeBranchId={branchId}
+            />
+          )}
+        </div>
+      )}
 
       {/* Branches + Brand */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">

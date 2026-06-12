@@ -1,16 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
 
 import { Loading } from "@/components/ui/States";
-import { useCart } from "@/contexts/CartContext";
+import { migrateCartStorage, useCart } from "@/contexts/CartContext";
 import { api } from "@/lib/fetcher";
+import { getSocket } from "@/lib/socket-client";
+import type { TableMovedPayload } from "@/types";
 
 type AccessResponse =
   | { valid: true; session: { id: string }; tableId: string }
-  | { valid: false; reason: "not_found" | "expired" };
+  | { valid: false; reason: "not_found" | "expired" }
+  | { valid: false; reason: "moved"; tableNumber: string };
 
 function GateInner({
   branchId,
@@ -22,12 +25,29 @@ function GateInner({
   children: React.ReactNode;
 }) {
   const params = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
   const cart = useCart();
   const [state, setState] = useState<
     | { kind: "checking" }
-    | { kind: "ok" }
+    | { kind: "ok"; tableId: string }
     | { kind: "denied"; reason: "not_found" | "expired" }
   >({ kind: "checking" });
+
+  // Staff moved this session to another table — carry the cart over and swap
+  // the table segment of the current URL, keeping the sub-page and `?s=`.
+  const followMove = useCallback(
+    (toTableNumber: string) => {
+      migrateCartStorage(branchId, tableNo, toTableNumber);
+      const segments = pathname.split("/"); // ["", "order", branchId, tableNo, ...rest]
+      segments[3] = encodeURIComponent(toTableNumber);
+      const sessionId = params.get("s");
+      router.replace(
+        `${segments.join("/")}${sessionId ? `?s=${sessionId}` : ""}`,
+      );
+    },
+    [branchId, tableNo, pathname, params, router],
+  );
 
   useEffect(() => {
     // Access is granted solely by the `?s=<sessionId>` query param; internal
@@ -49,7 +69,10 @@ function GateInner({
       .then((res) => {
         if (cancelled) return;
         if (res.valid) {
-          setState({ kind: "ok" });
+          setState({ kind: "ok", tableId: res.tableId });
+        } else if (res.reason === "moved") {
+          // Stay on the loading screen while the redirect re-runs the gate.
+          followMove(res.tableNumber);
         } else {
           // The session was closed/paid out — drop any stale cart so the next
           // guest at this table starts fresh.
@@ -64,7 +87,30 @@ function GateInner({
     return () => {
       cancelled = true;
     };
-  }, [branchId, tableNo, params, cart.clear]);
+  }, [branchId, tableNo, params, cart.clear, followMove]);
+
+  // Live follow: staff moving the table mid-session pushes every customer
+  // device on the old table's room to the new table URL.
+  useEffect(() => {
+    if (state.kind !== "ok") return;
+    const sessionId = params.get("s");
+    const { tableId } = state;
+    const socket = getSocket();
+
+    const join = () => socket.emit("table:join", { tableId });
+    const onMoved = (p: TableMovedPayload) => {
+      if (p.sessionId !== sessionId) return;
+      followMove(p.toTableNumber);
+    };
+
+    if (socket.connected) join();
+    socket.on("connect", join);
+    socket.on("table:moved", onMoved);
+    return () => {
+      socket.off("connect", join);
+      socket.off("table:moved", onMoved);
+    };
+  }, [state, params, followMove]);
 
   if (state.kind === "checking") {
     return <Loading label="Checking your table…" />;

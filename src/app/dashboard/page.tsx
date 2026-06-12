@@ -11,8 +11,10 @@ type SortDir = "asc" | "desc";
 import { RestaurantFormModal } from "@/components/dashboard/RestaurantFormModal";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { Modal } from "@/components/ui/Modal";
+import { PillButton } from "@/components/ui/PillButton";
 import { TextInput } from "@/components/ui/TextInput";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
+import { ArrowRightIcon, PlusIcon } from "lucide-react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { api } from "@/lib/fetcher";
 import { readThemePreference, writeThemePreference } from "@/lib/theme";
@@ -274,41 +276,10 @@ export default function DashboardHome() {
                 }}
                 placeholder="Search restaurants…"
               />
-              <button
-                onClick={() => setCreating(true)}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  height: 38,
-                  padding: "0 16px",
-                  borderRadius: 999,
-                  border: "1px solid var(--olive)",
-                  background: "var(--olive-soft)",
-                  color: "var(--olive)",
-                  fontWeight: 600,
-                  fontSize: 13,
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                  boxShadow: "0 6px 18px -10px rgba(42,111,78,0.45)",
-                }}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  width={15}
-                  height={15}
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <line x1="12" y1="5" x2="12" y2="19" />
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
+              <PillButton tone="accent" onClick={() => setCreating(true)}>
+                <PlusIcon className="h-4 w-4" />
                 New restaurant
-              </button>
+              </PillButton>
             </div>
           </div>
 
@@ -348,25 +319,10 @@ export default function DashboardHome() {
                 title="No restaurants yet"
                 description="Create your first restaurant to get started."
                 action={
-                  <button
-                    onClick={() => setCreating(true)}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                      height: 36,
-                      padding: "0 14px",
-                      borderRadius: 999,
-                      border: "1px solid var(--olive)",
-                      background: "var(--olive-soft)",
-                      color: "var(--olive)",
-                      fontWeight: 600,
-                      fontSize: 13,
-                      cursor: "pointer",
-                    }}
-                  >
+                  <PillButton tone="accent" onClick={() => setCreating(true)}>
+                    <PlusIcon className="h-4 w-4" />
                     New restaurant
-                  </button>
+                  </PillButton>
                 }
               />
             </div>
@@ -453,21 +409,21 @@ export default function DashboardHome() {
                 be undone, and only works if it has no branches.
               </p>
               <div style={{ display: "flex", gap: 8, marginTop: 22 }}>
-                <button onClick={() => setDeleting(null)} style={btnGhostStyle}>
+                <PillButton
+                  variant="outline"
+                  onClick={() => setDeleting(null)}
+                  className="flex-1"
+                >
                   Cancel
-                </button>
-                <button
+                </PillButton>
+                <PillButton
+                  tone="danger"
                   onClick={confirmRemove}
-                  disabled={removing}
-                  style={{
-                    ...btnDangerStyle,
-                    flex: 2,
-                    opacity: removing ? 0.5 : 1,
-                    cursor: removing ? "not-allowed" : "pointer",
-                  }}
+                  isDisabled={removing}
+                  className="flex-[2]"
                 >
                   {removing ? "Deleting…" : "Delete"}
-                </button>
+                </PillButton>
               </div>
             </div>
           </Modal>
@@ -866,43 +822,14 @@ function RestaurantTable({
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <button
+              <PillButton
+                variant="outline"
                 onClick={() => onOpen(r.id)}
-                disabled={!live}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  height: 30,
-                  padding: "0 12px",
-                  borderRadius: 999,
-                  border: "1px solid transparent",
-                  background: "transparent",
-                  color: live ? "var(--ink)" : "var(--ink-4)",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: live ? "pointer" : "not-allowed",
-                  letterSpacing: "0.01em",
-                  textDecoration: "none",
-                  transition: "color 0.12s ease",
-                }}
-                onMouseEnter={(e) => {
-                  if (!live) return;
-                  e.currentTarget.style.color = "var(--accent)";
-                  e.currentTarget.style.textDecoration = "none";
-                }}
-                onMouseLeave={(e) => {
-                  if (!live) return;
-                  e.currentTarget.style.color = "var(--ink)";
-                  e.currentTarget.style.textDecoration = "none";
-                }}
+                isDisabled={!live}
               >
                 Manage
-                <svg viewBox="0 0 24 24" width={13} height={13} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                  <polyline points="12 5 19 12 12 19" />
-                </svg>
-              </button>
+                <ArrowRightIcon className="h-3.5 w-3.5" />
+              </PillButton>
             </div>
           </div>
         );
@@ -920,25 +847,16 @@ function ThemeToggle({
 }) {
   const nextLabel = theme === "light" ? "Dark" : "Light";
   return (
-    <button
+    <PillButton
+      variant="outline"
       onClick={onToggle}
       aria-label={`Switch to ${nextLabel} theme`}
-      title={`Switch to ${nextLabel} theme`}
-      className="btn-quiet"
-      style={{
-        gap: 6,
-        padding: "6px 10px",
-        borderRadius: 8,
-        color: "var(--ink-2)",
-        fontSize: 12,
-        letterSpacing: "0.02em",
-      }}
     >
       <span aria-hidden style={{ fontSize: 13, lineHeight: 1 }}>
         {theme === "light" ? "◐" : "○"}
       </span>
       {nextLabel}
-    </button>
+    </PillButton>
   );
 }
 
@@ -1107,27 +1025,3 @@ function PageBtn({
     </button>
   );
 }
-
-
-const btnGhostStyle: React.CSSProperties = {
-  flex: 1,
-  height: 42,
-  borderRadius: 8,
-  border: "1px solid var(--line-strong)",
-  background: "transparent",
-  color: "var(--ink)",
-  fontSize: 13,
-  fontWeight: 500,
-  cursor: "pointer",
-};
-
-const btnDangerStyle: React.CSSProperties = {
-  height: 42,
-  borderRadius: 8,
-  border: "1px solid var(--rose)",
-  background: "var(--rose)",
-  color: "#fff",
-  fontSize: 13,
-  fontWeight: 600,
-  cursor: "pointer",
-};

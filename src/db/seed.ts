@@ -1,4 +1,4 @@
-import "dotenv/config";
+﻿import "dotenv/config";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";
@@ -36,13 +36,16 @@ async function seedBranch(
     })
     .returning();
 
-  await db.insert(schema.tables).values(
-    Array.from({ length: 5 }, (_, i) => ({
-      branchId: branch.id,
-      tableNumber: String(i + 1),
-      status: "available" as const,
-    })),
-  );
+  const branchTables = await db
+    .insert(schema.tables)
+    .values(
+      Array.from({ length: 5 }, (_, i) => ({
+        branchId: branch.id,
+        tableNumber: String(i + 1),
+        status: "available" as const,
+      })),
+    )
+    .returning();
 
   const [hot, cold, drinks] = await db
     .insert(schema.kdsStations)
@@ -58,7 +61,201 @@ async function seedBranch(
     drinks: drinks.id,
   };
 
-  return { branch, stationId };
+  return { branch, stationId, tables: branchTables };
+}
+
+// Last 7 days of closed sessions, completed orders, paid bills and payments
+// for one branch, so the revenue charts have data out of the box. The PRNG is
+// seeded per branch: re-seeds are stable and each branch gets its own curve;
+// weekends sell more than weekdays.
+async function seedBranchSales(opts: {
+  branchId: string;
+  tables: { id: string }[];
+  menu: { id: string; price: string }[];
+  cashierId: string;
+  seed: number;
+  /** Sessions per weekday (weekends add ~4, plus jitter). */
+  baseSessions: number;
+  /** Leave today's shift open (for the POS demo). */
+  keepTodayOpen?: boolean;
+}) {
+  const rand = (() => {
+    let s = opts.seed;
+    return () => {
+      s |= 0;
+      s = (s + 0x6d2b79f5) | 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  })();
+  const randInt = (min: number, max: number) =>
+    min + Math.floor(rand() * (max - min + 1));
+  const shuffle = <T,>(arr: T[]) => {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const vatRate = 0.07;
+
+  const shiftRows: (typeof schema.shifts.$inferInsert)[] = [];
+  const sessionRows: (typeof schema.tableSessions.$inferInsert)[] = [];
+  const orderRows: (typeof schema.orders.$inferInsert)[] = [];
+  const orderItemRows: (typeof schema.orderItems.$inferInsert)[] = [];
+  const billRows: (typeof schema.bills.$inferInsert)[] = [];
+  const paymentRows: (typeof schema.payments.$inferInsert)[] = [];
+
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  let orderSeq = 0;
+
+  for (let offset = 6; offset >= 0; offset--) {
+    const dayStart = new Date(todayStart.getTime() - offset * 86_400_000);
+    const dow = dayStart.getDay();
+    const weekend = dow === 0 || dow === 5 || dow === 6;
+
+    // One cashier shift per day; optionally today's stays open.
+    const shiftId = crypto.randomUUID();
+    const isToday = offset === 0;
+    const stayOpen = isToday && (opts.keepTodayOpen ?? false);
+    let cashTotal = 0;
+
+    const minutesNow = Math.floor(
+      (now.getTime() - todayStart.getTime()) / 60_000,
+    );
+    const openMin = 9 * 60 + 30;
+
+    const sessionsTarget =
+      opts.baseSessions + (weekend ? 4 : 0) + randInt(0, 3);
+    for (let s = 0; s < sessionsTarget; s++) {
+      // Past days: lunch (11:00-13:50) and dinner (17:00-20:20) waves,
+      // dinner-heavy. Today: spread between opening and "long enough ago to
+      // have finished", so the current day still shows revenue on the chart.
+      let startMin: number;
+      if (isToday) {
+        const latestStart = minutesNow - 100;
+        if (latestStart < openMin) break; // too early — nothing completed yet
+        startMin = openMin + randInt(0, latestStart - openMin);
+      } else {
+        const dinner = rand() < 0.6;
+        startMin = dinner
+          ? 17 * 60 + randInt(0, 200)
+          : 11 * 60 + randInt(0, 170);
+      }
+      const seatedAt = new Date(dayStart.getTime() + startMin * 60_000);
+      const leftAt = new Date(seatedAt.getTime() + randInt(45, 95) * 60_000);
+      // Today only gets sessions that have already wrapped up.
+      if (isToday && leftAt.getTime() > now.getTime()) continue;
+
+      const sessionId = crypto.randomUUID();
+      const table = opts.tables[randInt(0, opts.tables.length - 1)];
+      sessionRows.push({
+        id: sessionId,
+        branchId: opts.branchId,
+        tableId: table.id,
+        status: "closed",
+        partySize: randInt(1, 5),
+        seatedAt,
+        createdAt: seatedAt,
+        closedAt: leftAt,
+      });
+
+      let subtotal = 0;
+      const orderCount = rand() < 0.7 ? 1 : 2;
+      for (let o = 0; o < orderCount; o++) {
+        const orderId = crypto.randomUUID();
+        const orderedAt = new Date(
+          seatedAt.getTime() +
+            (o === 0 ? randInt(2, 8) : randInt(20, 35)) * 60_000,
+        );
+        let orderTotal = 0;
+        for (const item of shuffle(opts.menu).slice(0, randInt(2, 4))) {
+          const quantity = rand() < 0.75 ? 1 : 2;
+          orderTotal += parseFloat(item.price) * quantity;
+          orderItemRows.push({
+            orderId,
+            menuItemId: item.id,
+            quantity,
+            unitPrice: item.price,
+          });
+        }
+        subtotal += orderTotal;
+        orderSeq += 1;
+        orderRows.push({
+          id: orderId,
+          branchId: opts.branchId,
+          tableId: table.id,
+          tableSessionId: sessionId,
+          orderNumber: `#${String(orderSeq).padStart(4, "0")}`,
+          status: "completed",
+          type: "dine_in",
+          totalAmount: orderTotal.toFixed(2),
+          createdAt: orderedAt,
+        });
+      }
+
+      const vat = round2(subtotal * vatRate);
+      const total = round2(subtotal + vat);
+      const billId = crypto.randomUUID();
+      billRows.push({
+        id: billId,
+        tableSessionId: sessionId,
+        subtotal: subtotal.toFixed(2),
+        vat: vat.toFixed(2),
+        serviceCharge: "0.00",
+        discount: "0.00",
+        totalAmount: total.toFixed(2),
+        status: "paid",
+        createdAt: seatedAt,
+      });
+
+      const r = rand();
+      const method = r < 0.4 ? "cash" : r < 0.65 ? "card" : "qr";
+      const tendered =
+        method === "cash" ? Math.ceil(total / 100) * 100 : null;
+      if (method === "cash") cashTotal += total;
+      paymentRows.push({
+        billId,
+        shiftId,
+        cashierId: opts.cashierId,
+        method,
+        amount: total.toFixed(2),
+        tendered: tendered === null ? null : tendered.toFixed(2),
+        change: tendered === null ? null : (tendered - total).toFixed(2),
+        createdAt: leftAt,
+      });
+    }
+
+    // Closed shifts settle at 22:30; today's closed shift settles "now".
+    const settleAt = isToday
+      ? now
+      : new Date(dayStart.getTime() + 22.5 * 3_600_000);
+    shiftRows.push({
+      id: shiftId,
+      branchId: opts.branchId,
+      cashierId: opts.cashierId,
+      status: stayOpen ? "open" : "closed",
+      openingFloat: "2000.00",
+      closingAmount: stayOpen ? null : (2000 + cashTotal).toFixed(2),
+      openedAt: new Date(
+        Math.min(dayStart.getTime() + 9 * 3_600_000, now.getTime()),
+      ),
+      closedAt: stayOpen ? null : settleAt,
+    });
+  }
+
+  await db.insert(schema.shifts).values(shiftRows);
+  await db.insert(schema.tableSessions).values(sessionRows);
+  await db.insert(schema.orders).values(orderRows);
+  await db.insert(schema.orderItems).values(orderItemRows);
+  await db.insert(schema.bills).values(billRows);
+  await db.insert(schema.payments).values(paymentRows);
+  return { bills: paymentRows.length, orders: orderRows.length };
 }
 
 // Creates a restaurant with one branch, tables, the 3 standard KDS stations,
@@ -551,6 +748,54 @@ async function main() {
     { optionGroupId: sizeGroup.id, name: "Large", price: "20", sortOrder: 1 },
   ]);
 
+  // ---------- Historical sales: last 7 days (all Bangkok Bites branches) ----------
+  // Two more Bangkok Bites branches so the per-branch comparison report has
+  // something to compare; each branch gets its own deterministic revenue
+  // curve (different PRNG seed + busyness level).
+  const sukhumvit = await seedBranch(
+    restaurant.id,
+    "Sukhumvit Branch",
+    "999 Sukhumvit Road, Bangkok",
+  );
+  const chatuchak = await seedBranch(
+    restaurant.id,
+    "Chatuchak Branch",
+    "10 Kamphaeng Phet 2 Road, Bangkok",
+  );
+
+  const cashier = seededUsers.find((u) => u.role === "cashier")!;
+  const mainSales = await seedBranchSales({
+    branchId: branch.id,
+    tables: seededTables,
+    menu,
+    cashierId: cashier.id,
+    seed: 20260612,
+    baseSessions: 5,
+    keepTodayOpen: true, // POS demo expects an open drawer on Main Branch
+  });
+  const sukhumvitSales = await seedBranchSales({
+    branchId: sukhumvit.branch.id,
+    tables: sukhumvit.tables,
+    menu,
+    cashierId: cashier.id,
+    seed: 770913,
+    baseSessions: 7,
+  });
+  const chatuchakSales = await seedBranchSales({
+    branchId: chatuchak.branch.id,
+    tables: chatuchak.tables,
+    menu,
+    cashierId: cashier.id,
+    seed: 424242,
+    baseSessions: 3,
+  });
+  const totalBills =
+    mainSales.bills + sukhumvitSales.bills + chatuchakSales.bills;
+  const totalOrders =
+    mainSales.orders + sukhumvitSales.orders + chatuchakSales.orders;
+  console.log(
+    `Seeded ${totalBills} paid sessions (${totalOrders} orders) over the last 7 days across 3 Bangkok Bites branches.`,
+  );
   // ---------- Extra demo brands: KFC, Steak House, Burger ----------
   const kfc = await seedRestaurant({
     name: "KFC",
