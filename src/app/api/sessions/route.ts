@@ -55,17 +55,23 @@ export async function POST(req: Request) {
     // A booked reservation blocks walk-ins from 60 min before its time
     // (overridable with confirmation) and hard-blocks once it is due — the
     // table must then be seated via the reservation or the booking cancelled.
+    // A seat window (expectedLeaveAt) that runs past the reserved time also
+    // hard-blocks: shorten the turnover or pick another table.
     const blocking = await timed("check blocking reservation", () =>
-      getBlockingReservation(data.tableId),
+      getBlockingReservation(data.tableId, {
+        expectedLeaveAt: data.expectedLeaveAt ?? null,
+      }),
     );
     if (
       blocking &&
-      (blocking.phase === "due" || !data.overrideReservation)
+      (blocking.phase !== "buffer" || !data.overrideReservation)
     ) {
       const r = blocking.reservation;
       return errorResponse(
         "TABLE_RESERVED",
-        `Table is reserved for ${r.customerName} at ${r.reservedFor.toISOString()}`,
+        blocking.phase === "overlap"
+          ? `Expected leave time overlaps the reservation for ${r.customerName} at ${r.reservedFor.toISOString()} — shorten the turnover or pick another table`
+          : `Table is reserved for ${r.customerName} at ${r.reservedFor.toISOString()}`,
         409,
         {
           reservationId: r.id,

@@ -1,8 +1,14 @@
 import { and, eq } from "drizzle-orm";
 
 import { db, schema } from "@/db";
-import { badRequest, notFound, parseBody, serverError } from "@/lib/api";
-import { toReservationDTO } from "@/lib/reservations";
+import {
+  badRequest,
+  errorResponse,
+  notFound,
+  parseBody,
+  serverError,
+} from "@/lib/api";
+import { getBlockingReservation, toReservationDTO } from "@/lib/reservations";
 import { emitReservationUpdate } from "@/lib/socket";
 import { makeTimer } from "@/lib/utils";
 import { reservationSeatSchema } from "@/lib/validation";
@@ -50,6 +56,32 @@ export async function POST(req: Request, { params }: Params) {
     );
     if (activeSession) {
       return badRequest("Table already has an active session");
+    }
+
+    // The seat window must not run past the table's next booking. Only the
+    // overlap phase blocks here — the next booking's pre-arrival buffer must
+    // not prevent seating this reservation.
+    if (data.expectedLeaveAt) {
+      const blocking = await timed("check next reservation overlap", () =>
+        getBlockingReservation(reservation.tableId, {
+          expectedLeaveAt: data.expectedLeaveAt,
+          excludeReservationId: id,
+        }),
+      );
+      if (blocking?.phase === "overlap") {
+        const r = blocking.reservation;
+        return errorResponse(
+          "TABLE_RESERVED",
+          `Expected leave time overlaps the next reservation for ${r.customerName} at ${r.reservedFor.toISOString()} — shorten the turnover`,
+          409,
+          {
+            reservationId: r.id,
+            reservedFor: r.reservedFor.toISOString(),
+            customerName: r.customerName,
+            phase: blocking.phase,
+          },
+        );
+      }
     }
 
     const { session, updated } = await db.transaction(async (tx) => {

@@ -536,8 +536,10 @@ export default function WaitstaffPage() {
       });
     } catch (e) {
       if (e instanceof ApiRequestError && e.code === "TABLE_RESERVED") {
-        // Lost a race with the reservation sweep — re-sync the floor.
-        setOpeningTable(null);
+        const phase = (e.details as { phase?: string } | null)?.phase;
+        // Overlap: keep the dialog open so staff can shorten the turnover.
+        // Otherwise we lost a race with the reservation sweep — re-sync.
+        if (phase !== "overlap") setOpeningTable(null);
         await Promise.all([loadTables(), loadReservations()]).catch(() => { });
       }
       setError(e instanceof Error ? e.message : "Failed to open table");
@@ -2382,6 +2384,11 @@ export default function WaitstaffPage() {
       <OpenSessionDialog
         table={openingTable}
         opening={openingTableId === openingTable?.id}
+        nextReservation={
+          openingTable
+            ? nextReservationByTable.get(openingTable.id) ?? null
+            : null
+        }
         onDismiss={() => {
           if (!openingTableId) setOpeningTable(null);
         }}
@@ -2396,6 +2403,19 @@ export default function WaitstaffPage() {
         mode="seat"
         table={seatTarget?.table ?? null}
         opening={seating}
+        nextReservation={
+          seatTarget
+            ? reservations
+              .filter(
+                (r) =>
+                  r.tableId === seatTarget.table.id &&
+                  r.id !== seatTarget.reservation.id &&
+                  r.status === "booked",
+              )
+              .sort((a, b) => a.reservedFor.localeCompare(b.reservedFor))[0] ??
+            null
+            : null
+        }
         initial={
           seatTarget
             ? {
@@ -2873,6 +2893,7 @@ function OpenSessionDialog({
   opening,
   mode = "open",
   initial,
+  nextReservation = null,
   onConfirm,
   onDismiss,
 }: {
@@ -2886,6 +2907,8 @@ function OpenSessionDialog({
     customerPhone?: string | null;
     tableNote?: string | null;
   };
+  /** Next booked reservation on this table — the seat window must end before it. */
+  nextReservation?: ReservationDTO | null;
   onConfirm: (input: OpenSessionInput) => void;
   onDismiss: () => void;
 }) {
@@ -2941,6 +2964,21 @@ function OpenSessionDialog({
       expectedLeaveAt = new Date(
         seated.getTime() + minutes * 60 * 1000,
       ).toISOString();
+    }
+
+    // The planned seat window must not run past the table's next booking.
+    if (
+      expectedLeaveAt &&
+      nextReservation &&
+      new Date(expectedLeaveAt).getTime() >
+        new Date(nextReservation.reservedFor).getTime()
+    ) {
+      setError(
+        `Guests would stay until ${formatClock(expectedLeaveAt)}, past the reservation for ${nextReservation.customerName} at ${formatReservedFor(
+          nextReservation.reservedFor,
+        )}. Shorten the turnover or pick another table.`,
+      );
+      return;
     }
 
     setError(null);

@@ -1,4 +1,4 @@
-import { and, asc, eq, lte } from "drizzle-orm";
+import { and, asc, eq, lte, ne } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import {
@@ -48,22 +48,40 @@ export type BlockingReservation = {
 
 /**
  * The earliest booked reservation that currently blocks opening this table:
- * one whose reserved time is due or within the pre-arrival buffer window.
+ * one whose reserved time is due, within the pre-arrival buffer window, or
+ * overlapped by the planned seat window (`expectedLeaveAt`).
  */
 export async function getBlockingReservation(
   tableId: string,
-  now: Date = new Date(),
+  opts: {
+    now?: Date;
+    /** Planned leave time — any booked reservation before it overlaps. */
+    expectedLeaveAt?: Date | null;
+    /** Skip this reservation (the one being seated). */
+    excludeReservationId?: string;
+  } = {},
 ): Promise<BlockingReservation | null> {
-  const horizon = new Date(now.getTime() + RESERVATION_BUFFER_MIN * 60_000);
+  const now = opts.now ?? new Date();
+  const leaveMs = opts.expectedLeaveAt?.getTime() ?? null;
+  const horizon = new Date(
+    Math.max(now.getTime() + RESERVATION_BUFFER_MIN * 60_000, leaveMs ?? 0),
+  );
   const reservation = await db.query.reservations.findFirst({
     where: and(
       eq(schema.reservations.tableId, tableId),
       eq(schema.reservations.status, "booked"),
       lte(schema.reservations.reservedFor, horizon),
+      opts.excludeReservationId
+        ? ne(schema.reservations.id, opts.excludeReservationId)
+        : undefined,
     ),
     orderBy: [asc(schema.reservations.reservedFor)],
   });
   if (!reservation) return null;
-  const phase = reservationBlockPhase(reservation.reservedFor, now.getTime());
+  const phase = reservationBlockPhase(
+    reservation.reservedFor,
+    now.getTime(),
+    leaveMs,
+  );
   return phase ? { reservation, phase } : null;
 }
