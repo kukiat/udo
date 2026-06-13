@@ -9,10 +9,12 @@ import type {
   OrderItemUpdateInput,
 } from "@/lib/validation";
 import { ServiceError } from "@/services/errors";
-import { socketEvents, type EventPublisher } from "@/services/events";
+import {
+  socketEvents,
+  type EventPublisher,
+  type Origin,
+} from "@/services/events";
 import type { OrderDTO, OrderStatus } from "@/types";
-
-type Origin = { originSocketId?: string | null };
 
 // Statuses still relevant to the kitchen.
 const KDS_ACTIVE: OrderStatus[] = ["pending", "preparing", "ready"];

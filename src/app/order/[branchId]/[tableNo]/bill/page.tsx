@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/Modal";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useCart } from "@/contexts/CartContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useSocketRoom } from "@/hooks/useSocketRoom";
 import { api } from "@/lib/fetcher";
 import { useOrderLink } from "@/lib/order-link";
 import { getSocket } from "@/lib/socket-client";
@@ -48,6 +49,7 @@ export default function BillPage() {
   usePageTitle(`Bill — Table ${tableNo}`);
 
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [tableId, setTableId] = useState<string | null>(null);
   const [data, setData] = useState<BillResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,10 +62,11 @@ export default function BillPage() {
     setError(null);
     try {
       const t = await api<TablesResponse>(`/api/tables?branchId=${branchId}`);
-      const tableId = t.tables.find((x) => x.tableNumber === tableNo)?.id;
-      if (!tableId) throw new Error("Table not found");
+      const resolvedTableId = t.tables.find((x) => x.tableNumber === tableNo)?.id;
+      if (!resolvedTableId) throw new Error("Table not found");
+      setTableId(resolvedTableId);
       const s = await api<SessionResponse>(
-        `/api/sessions?tableId=${tableId}&status=active`,
+        `/api/sessions?tableId=${resolvedTableId}&status=active`,
       );
       if (!s.session) {
         setSessionId(null);
@@ -93,36 +96,23 @@ export default function BillPage() {
     }
   }, [data?.bill.status, cart.clear]);
 
+  // Join the table room — re-joins automatically on reconnect.
+  useSocketRoom("table:join", tableId ? { tableId } : null);
+
   // Live "bill settled" popup: staff takes payment elsewhere (POS), and the
   // table session closes — surface it to the guest in real time.
   useEffect(() => {
     const socket = getSocket();
-    let cancelled = false;
-
     const onPaid = (p: BillPaidPayload) => {
       if (sParam && p.sessionId !== sParam) return;
       cart.clear();
       setCompleted(true);
     };
-
-    (async () => {
-      try {
-        const t = await api<TablesResponse>(`/api/tables?branchId=${branchId}`);
-        if (cancelled) return;
-        const tableId = t.tables.find((x) => x.tableNumber === tableNo)?.id;
-        if (!tableId) return;
-        socket.emit("table:join", { tableId });
-        socket.on("bill:paid", onPaid);
-      } catch {
-        // best-effort; the popup also fires when load() sees a paid bill
-      }
-    })();
-
+    socket.on("bill:paid", onPaid);
     return () => {
-      cancelled = true;
       socket.off("bill:paid", onPaid);
     };
-  }, [branchId, tableNo, sParam, cart.clear]);
+  }, [sParam, cart.clear]);
 
   const requestCheck = async () => {
     if (!sessionId) return;

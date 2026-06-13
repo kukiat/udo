@@ -23,7 +23,7 @@ Build the End User self-order and check bill, real-time KDS with Socket.IO and p
 
 ## To-Do List
 
-1. **scaffold** -- Scaffold Next.js project with TypeScript, Tailwind CSS, and install dependencies (drizzle-orm, postgres, drizzle-kit, zod, socket.io, socket.io-client, react-aria-components, react-hook-form). UI is styled with a custom "Codex visual style" Tailwind theme.
+1. **scaffold** -- Scaffold Next.js project with TypeScript, Tailwind CSS, and install dependencies (drizzle-orm, postgres, drizzle-kit, zod, socket.io, socket.io-client, react-aria-components, react-hook-form). UI is styled with a custom "Claude visual style" Tailwind theme.
 2. **drizzle-schema** -- Create Drizzle schema (`src/db/schema.ts`) with all models (Restaurant, Branch, User, Table, TableSession, Category, MenuItem, BranchMenuItem, OptionGroup, OptionItem, Order, OrderItem, OrderItemOption, Bill, KdsStation). Include kdsStationId on MenuItem, deletedAt for soft delete, sortOrder on OptionGroup/OptionItem.
 3. **seed-data** -- Write seed script (`src/db/seed.ts`) with sample restaurant, menu items, categories, options, tables, KDS stations, 1 admin User, and 1 branch manager User
 4. **db-lib** -- Create Drizzle client singleton (`src/db/index.ts`) and utility functions (price formatting, VAT calculation)
@@ -138,6 +138,15 @@ flowchart TD
 - **`order:item-status-update`** -- KDS staff updates individual item status. Broadcast similarly.
 - **`kds:screen-count`** -- Broadcast current connected screen count to all KDS screens in a branch.
 
+> **How emits are wired:** route handlers stay thin and delegate to the per-domain
+> service layer (`src/services/`). Services do **not** import `src/lib/socket.ts`
+> directly — they depend on the `EventPublisher` port (`src/services/events.ts`)
+> and call `this.events.<event>(…)`. The default `socketEvents` impl (injected via
+> the service constructor, so the exported singletons are unchanged) is the only
+> caller of the `emit*` helpers in `socket.ts`, which alone touch `getIO()`. This
+> keeps the real-time layer behind one swappable seam and lets use cases be
+> unit-tested with a fake publisher. See `docs/architecture/README.md` (Rules 1 & 3).
+
 ### Connection Limit Logic
 
 - Each Branch has a `maxKdsScreens` setting (stored in `Branch.settings` JSON, default: 3).
@@ -238,6 +247,7 @@ rms/
 │   │   ├── AuthContext.tsx
 │   │   └── RestaurantContext.tsx
 │   ├── db/ (schema/ [per-domain files], index.ts [client singleton], seed.ts)
+│   ├── services/ (per-domain use-case layer; errors.ts [ServiceError], events.ts [EventPublisher port], orders.ts, bills.ts, payments.ts, sessions.ts, reservations.ts, …)
 │   ├── lib/ (socket.ts, socket-client.ts, utils.ts, auth.ts, guard.ts, password.ts, session-cookie.ts, bills.ts, validation.ts, …)
 │   └── types/ (index.ts, pos.ts)
 ├── package.json

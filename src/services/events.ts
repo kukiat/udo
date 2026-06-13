@@ -19,6 +19,13 @@ import type {
 } from "@/types";
 
 /**
+ * Identifies the socket that triggered a mutation so the publisher can skip
+ * echoing the event back to its originator. Threaded through service methods
+ * that emit real-time updates.
+ */
+export type Origin = { originSocketId?: string | null };
+
+/**
  * The set of real-time notifications domain services can raise. Methods mirror
  * the emit helpers in `@/lib/socket` (minus the `emit` prefix); all emits are
  * best-effort and fire after the transaction commits.

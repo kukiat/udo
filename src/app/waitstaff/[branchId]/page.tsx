@@ -18,6 +18,7 @@ import { PillButton } from "@/components/ui/PillButton";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useSocketRoom } from "@/hooks/useSocketRoom";
 import { cn } from "@/lib/cn";
 import { api, ApiRequestError } from "@/lib/fetcher";
 import {
@@ -400,13 +401,26 @@ export default function WaitstaffPage() {
     url: string;
   } | null>(null);
   const [copied, setCopied] = useState(false);
-  const [connected, setConnected] = useState(false);
   const [latency, setLatency] = useState<number | null>(null);
-  const joinAt = useRef<number>(0);
   const socketOriginHeaders = (): Record<string, string> | undefined => {
     const socket = getSocket();
     return socket.id ? { "x-rms-socket-id": socket.id } : undefined;
   };
+
+  // Join the branch room — re-joins on reconnect. Each join fires a short
+  // round-trip ping for the latency readout in the live pill.
+  const { connected } = useSocketRoom(
+    "branch:join",
+    { branchId },
+    {
+      onJoin: (socket) => {
+        const t0 = performance.now();
+        socket.emit("ping", () => {
+          setLatency(Math.max(1, Math.round(performance.now() - t0)));
+        });
+      },
+    },
+  );
 
   const loadOrders = useCallback(async () => {
     const d = await api<{ orders: OrderDTO[] }>(
@@ -789,21 +803,6 @@ export default function WaitstaffPage() {
     socket.on("bill:requested", refreshSessions);
     socket.on("reservation:updated", refreshReservations);
 
-    const join = () => {
-      setConnected(true);
-      joinAt.current = performance.now();
-      socket.emit("branch:join", { branchId });
-      // Use a short round-trip ping for a friendly latency readout.
-      const t0 = performance.now();
-      socket.emit("ping", () => {
-        setLatency(Math.max(1, Math.round(performance.now() - t0)));
-      });
-    };
-    const onDisconnect = () => setConnected(false);
-    if (socket.connected) join();
-    socket.on("connect", join);
-    socket.on("disconnect", onDisconnect);
-
     return () => {
       socket.off("order:new", refreshAll);
       socket.off("order:status-update", refreshAll);
@@ -812,10 +811,8 @@ export default function WaitstaffPage() {
       socket.off("bill:paid", refreshAll);
       socket.off("bill:requested", refreshSessions);
       socket.off("reservation:updated", refreshReservations);
-      socket.off("connect", join);
-      socket.off("disconnect", onDisconnect);
     };
-  }, [branchId, loadOrders, loadTables, loadSessions, loadReservations]);
+  }, [loadOrders, loadTables, loadSessions, loadReservations]);
 
   const advanceStatus = async (order: OrderDTO, next: OrderStatus) => {
     setServingId(order.id);

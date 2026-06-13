@@ -6,12 +6,14 @@ import { getBlockingReservation } from "@/lib/reservations";
 import { makeTimer } from "@/lib/utils";
 import type { SessionCreateInput, SessionMoveInput } from "@/lib/validation";
 import { ServiceError } from "@/services/errors";
-import { socketEvents, type EventPublisher } from "@/services/events";
+import {
+  socketEvents,
+  type EventPublisher,
+  type Origin,
+} from "@/services/events";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-type Origin = { originSocketId?: string | null };
 
 type Status = "active" | "closed";
 

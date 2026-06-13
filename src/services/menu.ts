@@ -8,12 +8,14 @@ import {
   type MenuItemUpdateInput,
 } from "@/lib/validation";
 import { ServiceError } from "@/services/errors";
-import type { CategoryWithItemsDTO, MenuItemDTO } from "@/types";
+import type {
+  CategoryWithItemsDTO,
+  MenuItemDTO,
+  MenuItemStatus,
+} from "@/types";
 
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 100;
-
-type MenuItemStatus = "available" | "sold_out" | "hidden";
 
 type BranchMenuOverrideInput = {
   branchId: string;

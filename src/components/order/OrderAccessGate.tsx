@@ -6,6 +6,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 
 import { Loading } from "@/components/ui/States";
 import { migrateCartStorage, useCart } from "@/contexts/CartContext";
+import { useSocketRoom } from "@/hooks/useSocketRoom";
 import { api } from "@/lib/fetcher";
 import { getSocket } from "@/lib/socket-client";
 import type { SessionCancelledPayload, TableMovedPayload } from "@/types";
@@ -89,15 +90,19 @@ function GateInner({
     };
   }, [branchId, tableNo, params, cart.clear, followMove]);
 
+  // Join the table room once access is granted — re-joins on reconnect.
+  useSocketRoom(
+    "table:join",
+    state.kind === "ok" ? { tableId: state.tableId } : null,
+  );
+
   // Live follow: staff moving the table mid-session pushes every customer
   // device on the old table's room to the new table URL.
   useEffect(() => {
     if (state.kind !== "ok") return;
     const sessionId = params.get("s");
-    const { tableId } = state;
     const socket = getSocket();
 
-    const join = () => socket.emit("table:join", { tableId });
     const onMoved = (p: TableMovedPayload) => {
       if (p.sessionId !== sessionId) return;
       followMove(p.toTableNumber);
@@ -110,12 +115,9 @@ function GateInner({
       setState({ kind: "denied", reason: "expired" });
     };
 
-    if (socket.connected) join();
-    socket.on("connect", join);
     socket.on("table:moved", onMoved);
     socket.on("session:cancelled", onCancelled);
     return () => {
-      socket.off("connect", join);
       socket.off("table:moved", onMoved);
       socket.off("session:cancelled", onCancelled);
     };

@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { useSocketRoom } from "@/hooks/useSocketRoom";
 import { api } from "@/lib/fetcher";
 import { getSocket } from "@/lib/socket-client";
 import type { OrderDTO } from "@/types";
@@ -17,6 +18,7 @@ export function useTableOrders(
 ) {
   const sessionId = useSearchParams().get("s");
   const [orders, setOrders] = useState<OrderDTO[]>([]);
+  const [tableId, setTableId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<OrderDTO | null>(null);
@@ -46,6 +48,7 @@ export function useTableOrders(
     }
   };
 
+  // Resolve the table id + initial orders for the session.
   useEffect(() => {
     if (!enabled) return;
     if (!sessionId) {
@@ -53,9 +56,44 @@ export function useTableOrders(
       setLoading(false);
       return;
     }
-    const socket = getSocket();
+    let cancelled = false;
+    (async () => {
+      try {
+        const t = await api<TablesResponse>(`/api/tables?branchId=${branchId}`);
+        if (cancelled) return;
+        const id = t.tables.find((x) => x.tableNumber === tableNo)?.id ?? null;
+        if (!id) {
+          setError("Table not found.");
+          setLoading(false);
+          return;
+        }
+        const o = await api<OrdersResponse>(
+          `/api/orders?sessionId=${sessionId}`,
+        );
+        if (cancelled) return;
+        setTableId(id);
+        setOrders(o.orders);
+      } catch (e) {
+        if (!cancelled)
+          setError(e instanceof Error ? e.message : "Failed to load orders");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [branchId, tableNo, enabled, sessionId]);
 
-    // Live updates broadcast to the table room; keep only this session's orders.
+  // Join the table room — re-joins automatically on reconnect.
+  useSocketRoom("table:join", tableId ? { tableId } : null, {
+    enabled: enabled && !!sessionId,
+  });
+
+  // Live status updates broadcast to the table room; keep this session's orders.
+  useEffect(() => {
+    if (!enabled || !sessionId) return;
+    const socket = getSocket();
     const onUpdate = ({ order }: { order: OrderDTO }) => {
       if (order.tableSessionId !== sessionId) return;
       setOrders((prev) =>
@@ -64,33 +102,11 @@ export function useTableOrders(
           : [order, ...prev],
       );
     };
-
-    (async () => {
-      try {
-        const t = await api<TablesResponse>(`/api/tables?branchId=${branchId}`);
-        const tableId = t.tables.find((x) => x.tableNumber === tableNo)?.id ?? null;
-        if (!tableId) {
-          setError("Table not found.");
-          setLoading(false);
-          return;
-        }
-        const o = await api<OrdersResponse>(
-          `/api/orders?sessionId=${sessionId}`,
-        );
-        setOrders(o.orders);
-        socket.emit("table:join", { tableId });
-        socket.on("order:status-update", onUpdate);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load orders");
-      } finally {
-        setLoading(false);
-      }
-    })();
-
+    socket.on("order:status-update", onUpdate);
     return () => {
       socket.off("order:status-update", onUpdate);
     };
-  }, [branchId, tableNo, enabled, sessionId]);
+  }, [enabled, sessionId]);
 
   return {
     orders,

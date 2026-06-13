@@ -15,6 +15,7 @@ import { AppLogo } from "@/components/ui/AppLogo";
 import { AccountMenu } from "@/components/ui/AccountMenu";
 import { ErrorState, Loading } from "@/components/ui/States";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useSocketRoom } from "@/hooks/useSocketRoom";
 import { cn } from "@/lib/cn";
 import { api } from "@/lib/fetcher";
 import { getSocket } from "@/lib/socket-client";
@@ -140,7 +141,6 @@ export default function KdsPage() {
   );
   const [serviced, setServiced] = useState(0);
   const [latency, setLatency] = useState<number | null>(null);
-  const [connected, setConnected] = useState(false);
   const [pulse, setPulse] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     if (typeof window === "undefined") return "light";
@@ -175,6 +175,14 @@ export default function KdsPage() {
 
   const joinAt = useRef<number>(0);
   const lastNewCount = useRef(0);
+
+  // Join the branch KDS room — re-joins on reconnect. Stamp the join time so
+  // the first `kds:screen-count` reply can report a round-trip latency.
+  const { connected } = useSocketRoom(
+    "kds:join",
+    { branchId },
+    { onJoin: () => (joinAt.current = performance.now()) },
+  );
 
   // Normalize URL station if it points at an unknown id.
   useEffect(() => {
@@ -248,16 +256,6 @@ export default function KdsPage() {
     socket.on("kds:reject", onReject);
     socket.on("kds:screen-count", onCount);
 
-    const join = () => {
-      setConnected(true);
-      joinAt.current = performance.now();
-      socket.emit("kds:join", { branchId });
-    };
-    const onDisconnect = () => setConnected(false);
-    if (socket.connected) join();
-    socket.on("connect", join);
-    socket.on("disconnect", onDisconnect);
-
     (async () => {
       try {
         const [s, o, b, served] = await Promise.all([
@@ -291,8 +289,6 @@ export default function KdsPage() {
       socket.off("table:moved", onMoved);
       socket.off("kds:reject", onReject);
       socket.off("kds:screen-count", onCount);
-      socket.off("connect", join);
-      socket.off("disconnect", onDisconnect);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branchId]);
