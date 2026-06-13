@@ -7,7 +7,7 @@ import {
 } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
 import { reservationCreateSchema } from "@/lib/validation";
-import { createReservation, listReservations } from "@/services/reservations";
+import { reservationService } from "@/services/reservations";
 
 export async function GET(req: Request) {
   try {
@@ -32,7 +32,7 @@ export async function GET(req: Request) {
     }
 
     const { limit, offset } = parsePagination(searchParams);
-    const reservations = await listReservations({
+    const reservations = await reservationService.list({
       branchId,
       tableId,
       filter: searchParams.get("filter") ?? "upcoming",
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     const { data, error } = await parseBody(req, reservationCreateSchema);
     if (error) return error;
 
-    const reservation = await createReservation(data, user);
+    const reservation = await reservationService.create(data, user);
     return Response.json({ reservation }, { status: 201 });
   } catch (err) {
     return handleError(err, "POST /api/reservations");

@@ -1,6 +1,6 @@
 import { handleError, parseBody } from "@/lib/api";
 import { orderCancelSchema } from "@/lib/validation";
-import { cancelOrder } from "@/services/orders";
+import { orderService } from "@/services/orders";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -10,7 +10,7 @@ export async function POST(req: Request, { params }: Params) {
     const { data, error } = await parseBody(req, orderCancelSchema);
     if (error) return error;
 
-    const order = await cancelOrder(id, data.reason ?? null, {
+    const order = await orderService.cancel(id, data.reason ?? null, {
       originSocketId: req.headers.get("x-rms-socket-id"),
     });
     return Response.json({ order });

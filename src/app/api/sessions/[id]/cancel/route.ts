@@ -1,6 +1,6 @@
 import { handleError, parseBody } from "@/lib/api";
 import { sessionCancelSchema } from "@/lib/validation";
-import { cancelSession } from "@/services/sessions";
+import { sessionService } from "@/services/sessions";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -16,7 +16,7 @@ export async function POST(req: Request, { params }: Params) {
     const { data, error } = await parseBody(req, sessionCancelSchema);
     if (error) return error;
 
-    const result = await cancelSession(id, data.reason ?? null, {
+    const result = await sessionService.cancel(id, data.reason ?? null, {
       originSocketId: req.headers.get("x-rms-socket-id"),
     });
     return Response.json(result);

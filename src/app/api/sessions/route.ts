@@ -1,6 +1,6 @@
 import { badRequest, handleError, parseBody } from "@/lib/api";
 import { sessionCreateSchema } from "@/lib/validation";
-import { getTableSession, openSession } from "@/services/sessions";
+import { sessionService } from "@/services/sessions";
 
 export async function GET(req: Request) {
   try {
@@ -9,7 +9,7 @@ export async function GET(req: Request) {
     if (!tableId) return badRequest("tableId is required");
 
     const status = searchParams.get("status") === "closed" ? "closed" : "active";
-    const session = await getTableSession(tableId, status);
+    const session = await sessionService.getForTable(tableId, status);
     return Response.json({ session });
   } catch (err) {
     return handleError(err, "GET /api/sessions");
@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     const { data, error } = await parseBody(req, sessionCreateSchema);
     if (error) return error;
 
-    const { session, created } = await openSession(data);
+    const { session, created } = await sessionService.open(data);
     return Response.json({ session }, { status: created ? 201 : 200 });
   } catch (err) {
     return handleError(err, "POST /api/sessions");

@@ -1,6 +1,6 @@
 import { badRequest, handleError, parseBody } from "@/lib/api";
 import { branchMenuUpdateSchema } from "@/lib/validation";
-import { getBranchMenu, upsertBranchMenuOverrides } from "@/services/menu";
+import { menuService } from "@/services/menu";
 
 // All master menu items for the branch's restaurant, with any branch override.
 export async function GET(req: Request) {
@@ -9,7 +9,7 @@ export async function GET(req: Request) {
     const branchId = searchParams.get("branchId");
     if (!branchId) return badRequest("branchId is required");
 
-    const result = await getBranchMenu(branchId);
+    const result = await menuService.getBranchMenu(branchId);
     return Response.json(result);
   } catch (err) {
     return handleError(err, "GET /api/branch-menu");
@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     const { data, error } = await parseBody(req, branchMenuUpdateSchema);
     if (error) return error;
 
-    const result = await upsertBranchMenuOverrides(data);
+    const result = await menuService.upsertBranchOverrides(data);
     return Response.json(result);
   } catch (err) {
     return handleError(err, "POST /api/branch-menu");
@@ -35,7 +35,7 @@ export async function PUT(req: Request) {
     const { data, error } = await parseBody(req, branchMenuUpdateSchema);
     if (error) return error;
 
-    const result = await upsertBranchMenuOverrides(data);
+    const result = await menuService.upsertBranchOverrides(data);
     return Response.json(result);
   } catch (err) {
     return handleError(err, "PUT /api/branch-menu");

@@ -1,6 +1,6 @@
 import { handleError, parseBody } from "@/lib/api";
 import { reservationSeatSchema } from "@/lib/validation";
-import { seatReservation } from "@/services/reservations";
+import { reservationService } from "@/services/reservations";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -14,7 +14,7 @@ export async function POST(req: Request, { params }: Params) {
     const { data, error } = await parseBody(req, reservationSeatSchema);
     if (error) return error;
 
-    const result = await seatReservation(id, data);
+    const result = await reservationService.seat(id, data);
     return Response.json(result, { status: 201 });
   } catch (err) {
     return handleError(err, "POST /api/reservations/[id]/seat");

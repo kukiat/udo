@@ -1,6 +1,6 @@
 import { handleError, parseBody } from "@/lib/api";
 import { sessionMoveSchema } from "@/lib/validation";
-import { moveSession } from "@/services/sessions";
+import { sessionService } from "@/services/sessions";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -14,7 +14,7 @@ export async function POST(req: Request, { params }: Params) {
     const { data, error } = await parseBody(req, sessionMoveSchema);
     if (error) return error;
 
-    const result = await moveSession(id, data, {
+    const result = await sessionService.move(id, data, {
       originSocketId: req.headers.get("x-rms-socket-id"),
     });
     return Response.json(result);

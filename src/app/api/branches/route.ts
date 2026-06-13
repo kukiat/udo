@@ -1,6 +1,6 @@
 import { handleError, parseBody } from "@/lib/api";
 import { branchCreateSchema } from "@/lib/validation";
-import { createBranch, listBranches } from "@/services/branches";
+import { branchService } from "@/services/branches";
 
 export async function GET(req: Request) {
   try {
@@ -13,7 +13,7 @@ export async function GET(req: Request) {
       ? Math.min(100, Math.max(1, Number(searchParams.get("limit")) || 10))
       : undefined;
 
-    const { branches, total } = await listBranches({
+    const { branches, total } = await branchService.list({
       restaurantId: searchParams.get("restaurantId"),
       withRestaurant: searchParams.get("withRestaurant") === "true",
       limit,
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     const { data, error } = await parseBody(req, branchCreateSchema);
     if (error) return error;
 
-    const branch = await createBranch(data);
+    const branch = await branchService.create(data);
     return Response.json({ branch }, { status: 201 });
   } catch (err) {
     return handleError(err, "POST /api/branches");

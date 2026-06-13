@@ -1,11 +1,11 @@
 import { handleError, parseBody } from "@/lib/api";
 import { restaurantCreateSchema } from "@/lib/validation";
-import { createRestaurant, listRestaurants } from "@/services/restaurants";
+import { restaurantService } from "@/services/restaurants";
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const restaurants = await listRestaurants({
+    const restaurants = await restaurantService.list({
       withBranches: searchParams.get("withBranches") === "true",
     });
     return Response.json({ restaurants });
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     const { data, error } = await parseBody(req, restaurantCreateSchema);
     if (error) return error;
 
-    const restaurant = await createRestaurant(data);
+    const restaurant = await restaurantService.create(data);
     return Response.json({ restaurant }, { status: 201 });
   } catch (err) {
     return handleError(err, "POST /api/restaurants");

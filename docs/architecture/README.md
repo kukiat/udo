@@ -77,6 +77,24 @@ it has no DB/domain logic to extract.
   after the transaction commits — never inside it. The request's
   `x-rms-socket-id` is passed in as an `originSocketId` option.
 
+  Services don't import `@/lib/socket` directly: they depend on the
+  **`EventPublisher` port** (`src/services/events.ts`) and call
+  `this.events.<event>(…)`. The class takes the publisher as a constructor
+  argument defaulting to `socketEvents` (the production impl that delegates to
+  the `@/lib/socket` helpers), so the exported singleton (`new OrderService()`)
+  is unchanged and a unit test can inject a fake publisher to assert exactly
+  what was emitted. Pattern for a new emitting service:
+
+  ```ts
+  import { socketEvents, type EventPublisher } from "@/services/events";
+
+  export class FooService {
+    constructor(private readonly events: EventPublisher = socketEvents) {}
+    // … this.events.orderStatusUpdate(dto, originSocketId)
+  }
+  export const fooService = new FooService();
+  ```
+
   Routes that need the signed-in user fetch it (`getCurrentUser`) and pass it
   to the service (e.g. `createReservation(data, user)`, `openShift(data, user)`)
   — auth is an HTTP concern, attribution is the service's.
@@ -134,11 +152,17 @@ payloads are typed in `src/types`.
 
 **Practice:**
 
-- **Never** call `getIO()` outside `src/lib/socket.ts`; domain code only calls
-  the named emit helpers. Adding an event means adding a typed payload in
-  `src/types` and one helper in `socket.ts`.
+- **Never** call `getIO()` outside `src/lib/socket.ts`. Services reach the
+  real-time layer through the **`EventPublisher` port** (`src/services/events.ts`),
+  whose default `socketEvents` impl is the *only* caller of the named emit
+  helpers. Adding an event means: a typed payload in `src/types`, one helper in
+  `socket.ts`, one method on `EventPublisher`, and its delegation in
+  `socketEvents`.
 - Emits are best-effort notifications, never load-bearing: the DB is the
   source of truth and clients re-fetch on reconnect.
+- The port is also the extraction lever: to move real-time into its own process
+  you swap the `socketEvents` delegations (or the `@/lib/socket` helpers they
+  call) to publish over Redis — no service, route, or client code changes.
 
 **When scale actually demands it,** the extraction is mechanical: run
 Socket.IO in its own process with the Redis adapter, and swap the emit

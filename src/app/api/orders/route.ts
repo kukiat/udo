@@ -1,6 +1,6 @@
 import { badRequest, handleError, parseBody } from "@/lib/api";
 import { orderCreateSchema } from "@/lib/validation";
-import { listOrders, placeOrder } from "@/services/orders";
+import { orderService } from "@/services/orders";
 import type { OrderStatus } from "@/types";
 
 export async function GET(req: Request) {
@@ -20,7 +20,7 @@ export async function GET(req: Request) {
       .map((s) => s.trim())
       .filter(Boolean) as OrderStatus[] | undefined;
 
-    const orders = await listOrders({
+    const orders = await orderService.list({
       tableId,
       sessionId,
       branchId,
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     const { data, error } = await parseBody(req, orderCreateSchema);
     if (error) return error;
 
-    const order = await placeOrder(data, {
+    const order = await orderService.place(data, {
       originSocketId: req.headers.get("x-rms-socket-id"),
     });
     return Response.json({ order }, { status: 201 });

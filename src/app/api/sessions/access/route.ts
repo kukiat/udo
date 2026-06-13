@@ -1,5 +1,5 @@
 import { badRequest, handleError } from "@/lib/api";
-import { checkSessionAccess } from "@/services/sessions";
+import { sessionService } from "@/services/sessions";
 
 // Validates a customer's order link: the `sessionId` must belong to an
 // *active* session for the given branch + table number. Used by the order page
@@ -14,7 +14,7 @@ export async function GET(req: Request) {
       return badRequest("branchId and tableNo are required");
     }
 
-    const result = await checkSessionAccess({
+    const result = await sessionService.checkAccess({
       branchId,
       tableNo,
       sessionId: searchParams.get("sessionId"),

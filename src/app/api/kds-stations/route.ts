@@ -1,5 +1,5 @@
 import { badRequest, handleError } from "@/lib/api";
-import { listKdsStations } from "@/services/kds";
+import { kdsService } from "@/services/kds";
 
 export async function GET(req: Request) {
   try {
@@ -7,7 +7,7 @@ export async function GET(req: Request) {
     const branchId = searchParams.get("branchId");
     if (!branchId) return badRequest("branchId is required");
 
-    const stations = await listKdsStations(branchId);
+    const stations = await kdsService.listStations(branchId);
     return Response.json({ stations });
   } catch (err) {
     return handleError(err, "GET /api/kds-stations");

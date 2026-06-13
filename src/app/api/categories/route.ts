@@ -1,6 +1,6 @@
 import { badRequest, handleError, parseBody } from "@/lib/api";
 import { categoryCreateSchema } from "@/lib/validation";
-import { createCategory, listCategories } from "@/services/categories";
+import { categoryService } from "@/services/categories";
 
 export async function GET(req: Request) {
   try {
@@ -8,7 +8,7 @@ export async function GET(req: Request) {
     const restaurantId = searchParams.get("restaurantId");
     if (!restaurantId) return badRequest("restaurantId is required");
 
-    const categories = await listCategories(restaurantId);
+    const categories = await categoryService.list(restaurantId);
     return Response.json({ categories });
   } catch (err) {
     return handleError(err, "GET /api/categories");
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     const { data, error } = await parseBody(req, categoryCreateSchema);
     if (error) return error;
 
-    const category = await createCategory(data);
+    const category = await categoryService.create(data);
     return Response.json({ category }, { status: 201 });
   } catch (err) {
     return handleError(err, "POST /api/categories");

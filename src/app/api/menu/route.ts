@@ -1,6 +1,6 @@
 import { badRequest, handleError, parseBody } from "@/lib/api";
 import { menuItemCreateSchema } from "@/lib/validation";
-import { createMenuItem, listMenuItems } from "@/services/menu";
+import { menuService } from "@/services/menu";
 
 // Dashboard list: all statuses (excludes soft-deleted). Paginated via offset/limit.
 export async function GET(req: Request) {
@@ -9,7 +9,7 @@ export async function GET(req: Request) {
     const restaurantId = searchParams.get("restaurantId");
     if (!restaurantId) return badRequest("restaurantId is required");
 
-    const result = await listMenuItems({
+    const result = await menuService.list({
       restaurantId,
       offset: Number(searchParams.get("offset")) || 0,
       limit: Number(searchParams.get("limit")) || 0,
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     const { data, error } = await parseBody(req, menuItemCreateSchema);
     if (error) return error;
 
-    const item = await createMenuItem(data);
+    const item = await menuService.create(data);
     return Response.json({ item }, { status: 201 });
   } catch (err) {
     return handleError(err, "POST /api/menu");

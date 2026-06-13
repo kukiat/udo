@@ -1,6 +1,6 @@
 import { handleError, parseBody } from "@/lib/api";
 import { shiftCloseSchema } from "@/lib/validation";
-import { closeShift } from "@/services/shifts";
+import { shiftService } from "@/services/shifts";
 
 export async function POST(
   req: Request,
@@ -11,7 +11,7 @@ export async function POST(
     const { data, error } = await parseBody(req, shiftCloseSchema);
     if (error) return error;
 
-    const shift = await closeShift(id, data);
+    const shift = await shiftService.close(id, data);
     return Response.json({ shift });
   } catch (err) {
     return handleError(err, "POST /api/shifts/[id]/close");

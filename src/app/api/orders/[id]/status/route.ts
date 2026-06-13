@@ -1,6 +1,6 @@
 import { handleError, parseBody } from "@/lib/api";
 import { orderStatusSchema } from "@/lib/validation";
-import { transitionOrder } from "@/services/orders";
+import { orderService } from "@/services/orders";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -10,7 +10,7 @@ export async function PATCH(req: Request, { params }: Params) {
     const { data, error } = await parseBody(req, orderStatusSchema);
     if (error) return error;
 
-    const order = await transitionOrder(id, data.status, {
+    const order = await orderService.transition(id, data.status, {
       originSocketId: req.headers.get("x-rms-socket-id"),
     });
     return Response.json({ order });

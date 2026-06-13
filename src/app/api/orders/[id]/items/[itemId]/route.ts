@@ -3,7 +3,7 @@ import {
   orderItemDeleteSchema,
   orderItemUpdateSchema,
 } from "@/lib/validation";
-import { removeOrderItem, updateOrderItem } from "@/services/orders";
+import { orderService } from "@/services/orders";
 
 type Params = { params: Promise<{ id: string; itemId: string }> };
 
@@ -13,7 +13,7 @@ export async function PATCH(req: Request, { params }: Params) {
     const { data, error } = await parseBody(req, orderItemUpdateSchema);
     if (error) return error;
 
-    const order = await updateOrderItem(id, itemId, data, {
+    const order = await orderService.updateItem(id, itemId, data, {
       originSocketId: req.headers.get("x-rms-socket-id"),
     });
     return Response.json({ order });
@@ -28,7 +28,7 @@ export async function DELETE(req: Request, { params }: Params) {
     const { data, error } = await parseBody(req, orderItemDeleteSchema);
     if (error) return error;
 
-    const order = await removeOrderItem(id, itemId, {
+    const order = await orderService.removeItem(id, itemId, {
       originSocketId: req.headers.get("x-rms-socket-id"),
     });
     return Response.json({ order, reason: data.reason });

@@ -1,6 +1,6 @@
 import { handleError, parseBody } from "@/lib/api";
 import { zoneUpdateSchema } from "@/lib/validation";
-import { deleteZone, updateZone } from "@/services/floor";
+import { floorService } from "@/services/floor";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -10,7 +10,7 @@ export async function PUT(req: Request, { params }: Params) {
     const { data, error } = await parseBody(req, zoneUpdateSchema);
     if (error) return error;
 
-    const zone = await updateZone(id, data);
+    const zone = await floorService.updateZone(id, data);
     return Response.json({ zone });
   } catch (err) {
     return handleError(err, "PUT /api/floor-zones/[id]");
@@ -20,7 +20,7 @@ export async function PUT(req: Request, { params }: Params) {
 export async function DELETE(_req: Request, { params }: Params) {
   try {
     const { id } = await params;
-    await deleteZone(id);
+    await floorService.deleteZone(id);
     return Response.json({ ok: true });
   } catch (err) {
     return handleError(err, "DELETE /api/floor-zones/[id]");
