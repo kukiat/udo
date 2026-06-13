@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError, type ZodSchema } from "zod";
 
+import { ServiceError } from "@/services/errors";
 import type { ApiError } from "@/types";
 
 export function errorResponse(
@@ -31,6 +32,20 @@ export function badRequest(message: string, details?: unknown) {
 
 export function serverError(message = "Internal server error") {
   return errorResponse("INTERNAL_ERROR", message, 500);
+}
+
+/**
+ * Map a thrown error to a response. A `ServiceError` carries its own
+ * code/status/details (the route's expected failure modes); anything else is
+ * logged under `scope` and returned as a 500. Lets route handlers reduce their
+ * catch block to `return handleError(err, "POST /api/...")`.
+ */
+export function handleError(err: unknown, scope: string): NextResponse<ApiError> {
+  if (err instanceof ServiceError) {
+    return errorResponse(err.code, err.message, err.status, err.details);
+  }
+  console.error(scope, err);
+  return serverError();
 }
 
 /** Parse and validate a JSON request body, returning either data or a response. */

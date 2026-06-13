@@ -89,8 +89,10 @@ export function ShiftBar({
         </>
       )}
 
-      <Modal isOpen={showOpen} onOpenChange={setShowOpen}>
-        <div className="flex flex-col gap-4 p-5">
+      <Modal
+        isOpen={showOpen}
+        onOpenChange={setShowOpen}
+        header={
           <div>
             <h2
               className="text-lg font-semibold"
@@ -102,7 +104,29 @@ export function ShiftBar({
               Enter the starting cash in the drawer.
             </p>
           </div>
-
+        }
+        footer={
+          <div className="flex gap-2">
+            <PillButton
+              tone="neutral"
+              isDisabled={busy}
+              onPress={() => setShowOpen(false)}
+              className="flex-1"
+            >
+              Cancel
+            </PillButton>
+            <PillButton
+              tone="accent"
+              isDisabled={busy}
+              onPress={openShift}
+              className="flex-1"
+            >
+              Open
+            </PillButton>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-4 p-5">
           <label className="flex flex-col gap-1.5">
             <span
               className="text-[13px] font-semibold"
@@ -122,30 +146,13 @@ export function ShiftBar({
           </label>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
-
-          <div className="flex gap-2">
-            <PillButton
-              tone="neutral"
-              isDisabled={busy}
-              onPress={() => setShowOpen(false)}
-              className="flex-1"
-            >
-              Cancel
-            </PillButton>
-            <PillButton
-              tone="accent"
-              isDisabled={busy}
-              onPress={openShift}
-              className="flex-1"
-            >
-              Open
-            </PillButton>
-          </div>
         </div>
       </Modal>
 
-      <Modal isOpen={showClose} onOpenChange={setShowClose}>
-        <div className="flex flex-col gap-4 p-5">
+      <Modal
+        isOpen={showClose}
+        onOpenChange={setShowClose}
+        header={
           <div>
             <h2
               className="text-lg font-semibold"
@@ -157,7 +164,29 @@ export function ShiftBar({
               Count the cash in the drawer and enter the total.
             </p>
           </div>
-
+        }
+        footer={
+          <div className="flex gap-2">
+            <PillButton
+              tone="neutral"
+              isDisabled={busy}
+              onPress={() => setShowClose(false)}
+              className="flex-1"
+            >
+              Cancel
+            </PillButton>
+            <PillButton
+              tone="accent"
+              isDisabled={busy}
+              onPress={closeShift}
+              className="flex-1"
+            >
+              Close shift
+            </PillButton>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-4 p-5">
           {shift && (
             <div
               className="rounded-lg p-3 text-sm"
@@ -215,25 +244,6 @@ export function ShiftBar({
           )}
 
           {error && <p className="text-sm text-red-600">{error}</p>}
-
-          <div className="flex gap-2">
-            <PillButton
-              tone="neutral"
-              isDisabled={busy}
-              onPress={() => setShowClose(false)}
-              className="flex-1"
-            >
-              Cancel
-            </PillButton>
-            <PillButton
-              tone="accent"
-              isDisabled={busy}
-              onPress={closeShift}
-              className="flex-1"
-            >
-              Close shift
-            </PillButton>
-          </div>
         </div>
       </Modal>
     </div>

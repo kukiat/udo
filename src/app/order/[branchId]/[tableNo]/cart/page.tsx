@@ -349,13 +349,16 @@ export default function CartPage() {
         isOpen={removeTarget !== null}
         className="order-modal-theme"
         onOpenChange={(open) => !open && setRemoveTarget(null)}
-      >
-        <div className="p-5">
-          <h2 className="text-[17px] font-semibold text-ink">Remove item?</h2>
-          <p className="mt-1.5 text-[13.5px] text-ink-muted">
-            Remove {removeTarget?.name} from your order?
-          </p>
-          <div className="mt-5 flex justify-end gap-2.5">
+        header={
+          <div>
+            <h2 className="text-[17px] font-semibold text-ink">Remove item?</h2>
+            <p className="mt-1.5 text-[13.5px] text-ink-muted">
+              Remove {removeTarget?.name} from your order?
+            </p>
+          </div>
+        }
+        footer={
+          <div className="flex justify-end gap-2.5">
             <Button variant="secondary" onPress={() => setRemoveTarget(null)}>
               Cancel
             </Button>
@@ -368,34 +371,29 @@ export default function CartPage() {
               Remove
             </Button>
           </div>
-        </div>
+        }
+      >
+        <span className="sr-only">
+          Confirm removing {removeTarget?.name} from your order.
+        </span>
       </Modal>
 
       <Modal
         isOpen={noteTarget !== null}
         className="order-modal-theme"
         onOpenChange={(open) => !open && setNoteTarget(null)}
-      >
-        <div className="p-5">
-          <h2 className="text-[17px] font-semibold text-ink">
-            {noteTarget?.note ? "Edit kitchen note" : "Add kitchen note"}
-          </h2>
-          <p className="mt-1.5 text-[13.5px] text-ink-muted">
-            {noteTarget?.name}
-          </p>
-          <label className="mt-4 flex flex-col gap-1.5">
-            <span className="text-[13px] font-semibold text-ink">Note</span>
-            <textarea
-              value={draftNote}
-              onChange={(e) => setDraftNote(e.target.value)}
-              rows={4}
-              maxLength={500}
-              autoFocus
-              placeholder="e.g. no onions, sauce on the side"
-              className="w-full resize-none rounded-lg border border-line bg-white px-3 py-2 text-[13px] text-ink outline-none transition-colors placeholder:text-ink-muted focus:border-ink"
-            />
-          </label>
-          <div className="mt-5 flex justify-end gap-2.5">
+        header={
+          <div>
+            <h2 className="text-[17px] font-semibold text-ink">
+              {noteTarget?.note ? "Edit kitchen note" : "Add kitchen note"}
+            </h2>
+            <p className="mt-1.5 text-[13.5px] text-ink-muted">
+              {noteTarget?.name}
+            </p>
+          </div>
+        }
+        footer={
+          <div className="flex justify-end gap-2.5">
             <Button variant="secondary" onPress={() => setNoteTarget(null)}>
               Cancel
             </Button>
@@ -410,6 +408,21 @@ export default function CartPage() {
               Save note
             </Button>
           </div>
+        }
+      >
+        <div className="p-5">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[13px] font-semibold text-ink">Note</span>
+            <textarea
+              value={draftNote}
+              onChange={(e) => setDraftNote(e.target.value)}
+              rows={4}
+              maxLength={500}
+              autoFocus
+              placeholder="e.g. no onions, sauce on the side"
+              className="w-full resize-none rounded-lg border border-line bg-white px-3 py-2 text-[13px] text-ink outline-none transition-colors placeholder:text-ink-muted focus:border-ink"
+            />
+          </label>
         </div>
       </Modal>
     </div>

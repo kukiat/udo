@@ -180,6 +180,10 @@ export const sessionMoveSchema = z.object({
   overrideReservation: z.boolean().optional(),
 });
 
+export const sessionCancelSchema = z.object({
+  reason: z.string().max(500).nullable().optional(),
+});
+
 // --- Orders -----------------------------------------------------------------
 
 export const orderCreateSchema = z.object({
@@ -353,4 +357,8 @@ export const paymentSchema = z.object({
 export type MenuItemCreateInput = z.infer<typeof menuItemCreateSchema>;
 export type MenuItemUpdateInput = z.infer<typeof menuItemUpdateSchema>;
 export type BranchMenuUpdateInput = z.infer<typeof branchMenuUpdateSchema>;
-export type OrderCreateInput = z.infer<typeof orderCreateSchema>;
+// Request-payload shape (pre-defaults): matches what `parseBody` yields, which
+// the service layer consumes. `.default()`ed fields stay optional here.
+export type OrderCreateInput = z.input<typeof orderCreateSchema>;
+export type PaymentInput = z.infer<typeof paymentSchema>;
+export type SessionMoveInput = z.infer<typeof sessionMoveSchema>;

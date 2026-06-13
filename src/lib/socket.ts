@@ -4,6 +4,7 @@ import type {
   ClientToServerEvents,
   OrderDTO,
   ServerToClientEvents,
+  SessionCancelledPayload,
   TableMovedPayload,
 } from "@/types";
 
@@ -111,6 +112,26 @@ export function emitTableMoved(
   );
   // Customer devices joined the old table's room — always include them.
   io.to(tableRoom(p.fromTableId)).emit("table:moved", p);
+}
+
+/**
+ * Broadcast that a table session was cancelled without payment. Floor staff
+ * refresh their boards; customer devices on the table's room see their
+ * session expire. KDS needs no dedicated event — the per-order
+ * `order:status-update` emits already drop the cancelled tickets.
+ */
+export function emitSessionCancelled(
+  p: SessionCancelledPayload,
+  originSocketId?: string | null,
+) {
+  const io = getIO();
+  if (!io) return;
+  toRoomExceptOrigin(io, branchRoom(p.branchId), originSocketId).emit(
+    "session:cancelled",
+    p,
+  );
+  // Customer devices joined the table's room — always include them.
+  io.to(tableRoom(p.tableId)).emit("session:cancelled", p);
 }
 
 /** Notify the branch floor staff that a table has requested the check. */

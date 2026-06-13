@@ -530,7 +530,8 @@ export default function MenuListPage() {
       <Modal
         isOpen={createOpen}
         onOpenChange={(open) => !open && setCreateOpen(false)}
-        className={`sm:max-w-2xl dir-a kds-theme${isDark ? " kds-dark" : ""}`}
+        theme={isDark ? "dark" : "light"}
+        className="sm:max-w-2xl dir-a"
         header={
           <ItemModalHeader eyebrow="Menu items" heading="New menu item">
             Add details, pricing and option groups
@@ -563,7 +564,8 @@ export default function MenuListPage() {
       <Modal
         isOpen={editId !== null}
         onOpenChange={(open) => !open && closeEdit()}
-        className={`sm:max-w-2xl dir-a kds-theme${isDark ? " kds-dark" : ""}`}
+        theme={isDark ? "dark" : "light"}
+        className="sm:max-w-2xl dir-a"
         header={
           <ItemModalHeader
             eyebrow="Edit menu item"
@@ -606,12 +608,9 @@ export default function MenuListPage() {
       <Modal
         isOpen={deleteItem !== null}
         onOpenChange={(open) => !open && setDeleteItem(null)}
-        className={isDark ? "!border-[#23262E] !bg-[#15171C]" : undefined}
-      >
-        <div
-          className={`dir-a col kds-theme${isDark ? " kds-dark" : ""}`}
-          style={{ gap: 16, padding: 20, background: "var(--surface)" }}
-        >
+        theme={isDark ? "dark" : "light"}
+        className="dir-a"
+        header={
           <div>
             <h2 className="h-2">Delete menu item?</h2>
             <p style={{ marginTop: 4, fontSize: 13, color: "var(--text-3)" }}>
@@ -620,6 +619,8 @@ export default function MenuListPage() {
                 : ""}
             </p>
           </div>
+        }
+        footer={
           <div className="row" style={{ gap: 8 }}>
             <button
               className="btn btn-ghost grow"
@@ -636,7 +637,11 @@ export default function MenuListPage() {
               {deleting ? "Deleting..." : "Delete"}
             </button>
           </div>
-        </div>
+        }
+      >
+        <span className="sr-only">
+          Confirm deleting this menu item. This can&apos;t be undone.
+        </span>
       </Modal>
     </div>
   );

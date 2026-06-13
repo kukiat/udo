@@ -8,7 +8,7 @@ import { Loading } from "@/components/ui/States";
 import { migrateCartStorage, useCart } from "@/contexts/CartContext";
 import { api } from "@/lib/fetcher";
 import { getSocket } from "@/lib/socket-client";
-import type { TableMovedPayload } from "@/types";
+import type { SessionCancelledPayload, TableMovedPayload } from "@/types";
 
 type AccessResponse =
   | { valid: true; session: { id: string }; tableId: string }
@@ -102,15 +102,24 @@ function GateInner({
       if (p.sessionId !== sessionId) return;
       followMove(p.toTableNumber);
     };
+    // Staff cancelled the table — the session is gone, so drop the cart and
+    // show the expired screen immediately.
+    const onCancelled = (p: SessionCancelledPayload) => {
+      if (p.sessionId !== sessionId) return;
+      cart.clear();
+      setState({ kind: "denied", reason: "expired" });
+    };
 
     if (socket.connected) join();
     socket.on("connect", join);
     socket.on("table:moved", onMoved);
+    socket.on("session:cancelled", onCancelled);
     return () => {
       socket.off("connect", join);
       socket.off("table:moved", onMoved);
+      socket.off("session:cancelled", onCancelled);
     };
-  }, [state, params, followMove]);
+  }, [state, params, followMove, cart.clear]);
 
   if (state.kind === "checking") {
     return <Loading label="Checking your table…" />;

@@ -188,6 +188,12 @@ export type TableMovedPayload = {
   toTableId: string;
   toTableNumber: string;
 };
+export type SessionCancelledPayload = {
+  branchId: string;
+  sessionId: string;
+  tableId: string;
+  tableNumber: string;
+};
 
 export type ServerToClientEvents = {
   "kds:reject": (p: KdsRejectPayload) => void;
@@ -198,6 +204,7 @@ export type ServerToClientEvents = {
   "bill:requested": (p: BillRequestedPayload) => void;
   "reservation:updated": (p: { branchId: string }) => void;
   "table:moved": (p: TableMovedPayload) => void;
+  "session:cancelled": (p: SessionCancelledPayload) => void;
 };
 
 export type ClientToServerEvents = {

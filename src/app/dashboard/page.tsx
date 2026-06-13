@@ -373,42 +373,35 @@ export default function DashboardHome() {
             onOpenChange={(open) => {
               if (!open) setDeleting(null);
             }}
-            className={
-              theme === "dark"
-                ? "!border-[#2c2a23] !bg-[#1d1b16]"
-                : ""
+            theme={theme}
+            header={
+              <div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                    color: "var(--ink-3)",
+                  }}
+                >
+                  Delete restaurant
+                </div>
+                <div
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 600,
+                    letterSpacing: "-0.02em",
+                    marginTop: 2,
+                    color: "var(--ink)",
+                  }}
+                >
+                  {deleting?.name}
+                </div>
+              </div>
             }
-          >
-            <div
-              className={`kds-theme${theme === "dark" ? " kds-dark" : ""}`}
-              style={{ padding: 24, background: "var(--bg-elev)", color: "var(--ink)" }}
-            >
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  color: "var(--ink-3)",
-                }}
-              >
-                Delete restaurant
-              </div>
-              <div
-                style={{
-                  fontSize: 22,
-                  fontWeight: 600,
-                  letterSpacing: "-0.02em",
-                  marginTop: 2,
-                }}
-              >
-                {deleting?.name}
-              </div>
-              <p style={{ marginTop: 14, fontSize: 13, color: "var(--ink-3)" }}>
-                Are you sure you want to delete this restaurant? This cannot
-                be undone, and only works if it has no branches.
-              </p>
-              <div style={{ display: "flex", gap: 8, marginTop: 22 }}>
+            footer={
+              <div style={{ display: "flex", gap: 8 }}>
                 <PillButton
                   variant="outline"
                   onClick={() => setDeleting(null)}
@@ -425,7 +418,18 @@ export default function DashboardHome() {
                   {removing ? "Deleting…" : "Delete"}
                 </PillButton>
               </div>
-            </div>
+            }
+          >
+            <p
+              style={{
+                padding: "16px 20px",
+                fontSize: 13,
+                color: "var(--ink-3)",
+              }}
+            >
+              Are you sure you want to delete this restaurant? This cannot
+              be undone, and only works if it has no branches.
+            </p>
           </Modal>
         </div>
       )}

@@ -161,30 +161,10 @@ export function RestaurantFormModal(props: Props) {
         if (!open && mode === "create") resetCreate();
         onOpenChange(open);
       }}
-      className={
-        "sm:!max-w-2xl" +
-        (theme === "dark" ? " !border-[#2c2a23] !bg-[#1d1b16]" : "")
-      }
-    >
-      <div
-        className={`kds-theme${theme === "dark" ? " kds-dark" : ""}`}
-        style={{
-          background: "var(--bg-elev)",
-          color: "var(--ink)",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <div
-          style={{
-            position: "sticky",
-            top: 0,
-            zIndex: 2,
-            background: "var(--bg-elev)",
-            padding: "20px 24px 16px",
-            borderBottom: "1px solid var(--line)",
-          }}
-        >
+      theme={theme}
+      className="sm:!max-w-2xl"
+      header={
+        <div>
           <div
             style={{
               fontSize: 11,
@@ -202,6 +182,7 @@ export function RestaurantFormModal(props: Props) {
               fontWeight: 600,
               letterSpacing: "-0.02em",
               marginTop: 2,
+              color: "var(--ink)",
             }}
           >
             {heading}
@@ -210,8 +191,33 @@ export function RestaurantFormModal(props: Props) {
             {subheading}
           </div>
         </div>
-
-        <div style={{ padding: "16px 24px 8px" }}>
+      }
+      footer={
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={() => onOpenChange(false)}
+            disabled={submitting}
+            style={{
+              ...btnGhostStyle,
+              opacity: submitting ? 0.5 : 1,
+              cursor: submitting ? "not-allowed" : "pointer",
+            }}
+          >
+            Cancel
+          </button>
+          <PillButton
+            tone="accent"
+            size="lg"
+            onClick={submit}
+            isDisabled={submitting || !canSubmit}
+            className="flex-[2]"
+          >
+            {submitLabel}
+          </PillButton>
+        </div>
+      }
+    >
+      <div style={{ color: "var(--ink)", padding: "16px 24px" }}>
         {error && (
           <div style={{ marginBottom: 16 }}>
             <ErrorState message={error} />
@@ -367,41 +373,6 @@ export function RestaurantFormModal(props: Props) {
         </section>
         )}
 
-        </div>
-
-        <div
-          style={{
-            position: "sticky",
-            bottom: 0,
-            zIndex: 2,
-            background: "var(--bg-elev)",
-            padding: "16px 24px 20px",
-            borderTop: "1px solid var(--line)",
-            display: "flex",
-            gap: 8,
-          }}
-        >
-          <button
-            onClick={() => onOpenChange(false)}
-            disabled={submitting}
-            style={{
-              ...btnGhostStyle,
-              opacity: submitting ? 0.5 : 1,
-              cursor: submitting ? "not-allowed" : "pointer",
-            }}
-          >
-            Cancel
-          </button>
-          <PillButton
-            tone="accent"
-            size="lg"
-            onClick={submit}
-            isDisabled={submitting || !canSubmit}
-            className="flex-[2]"
-          >
-            {submitLabel}
-          </PillButton>
-        </div>
       </div>
     </Modal>
   );

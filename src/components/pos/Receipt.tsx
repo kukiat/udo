@@ -10,13 +10,7 @@ const METHOD_LABEL: Record<string, string> = {
   qr: "QR / e-wallet",
 };
 
-export function Receipt({
-  receipt,
-  onClose,
-}: {
-  receipt: ReceiptData;
-  onClose: () => void;
-}) {
+export function Receipt({ receipt }: { receipt: ReceiptData }) {
   const { totals } = receipt;
   return (
     <div className="p-5">
@@ -94,15 +88,20 @@ export function Receipt({
         </div>
         <p className="mt-4 text-center text-xs text-ink-muted">Thank you!</p>
       </div>
+    </div>
+  );
+}
 
-      <div className="mt-5 flex gap-2 print:hidden">
-        <Button variant="secondary" className="flex-1" onPress={() => window.print()}>
-          Print
-        </Button>
-        <Button className="flex-1" onPress={onClose}>
-          Done
-        </Button>
-      </div>
+/** Print / Done action row — rendered in the receipt modal's footer. */
+export function ReceiptActions({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="flex gap-2 print:hidden">
+      <Button variant="secondary" className="flex-1" onPress={() => window.print()}>
+        Print
+      </Button>
+      <Button className="flex-1" onPress={onClose}>
+        Done
+      </Button>
     </div>
   );
 }

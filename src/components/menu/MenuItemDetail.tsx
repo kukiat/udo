@@ -96,30 +96,63 @@ export function MenuItemDetail({
       isOpen={Boolean(item)}
       onOpenChange={(o) => !o && onClose()}
       showClose={false}
+      ariaLabel={item.name}
       className="order-theme !min-h-0 sm:max-w-xl"
-    >
-      <div className="flex max-h-[92dvh] flex-col overflow-hidden">
-        <div className="relative h-[220px] flex-shrink-0 bg-[var(--bg-sunken)]">
-          <ItemSwatch
-            id={item.id}
-            name={item.name}
-            image={item.image}
-            size="lg"
+      footer={
+        <div className="grid grid-cols-[auto_1fr] items-center gap-3">
+          <QuantityStepper
+            value={quantity}
+            onDecrease={() => setQuantity((q) => Math.max(1, q - 1))}
+            onIncrease={() => setQuantity((q) => q + 1)}
           />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[var(--bg-elev)] via-transparent to-black/15" />
           <button
             type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="absolute right-3.5 top-3.5 grid h-9 w-9 place-items-center rounded-full border border-white/15 bg-black/55 text-white backdrop-blur transition-colors hover:bg-black/75"
+            disabled={!canAdd}
+            onClick={handleAdd}
+            className={cn(
+              "inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-colors",
+              canAdd
+                ? "bg-clay-500 text-white shadow-card hover:bg-clay-600"
+                : "cursor-not-allowed bg-sand text-ink-muted",
+            )}
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-              <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
+            {canAdd ? (
+              <>
+                Add to order ·{" "}
+                <b className="font-bold">{formatPrice(unit * quantity)}</b>
+              </>
+            ) : (
+              `Select ${missingRequired[0].name.toLowerCase()}`
+            )}
           </button>
         </div>
+      }
+    >
+      {/* Custom close button pinned over the hero image while content scrolls. */}
+      <div className="pointer-events-none sticky top-0 z-[60] h-0">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="pointer-events-auto absolute right-3.5 top-3.5 grid h-9 w-9 place-items-center rounded-full border border-white/15 bg-black/55 text-white backdrop-blur transition-colors hover:bg-black/75"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
 
-        <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-[18px] py-4">
+      <div className="relative h-[220px] bg-[var(--bg-sunken)]">
+        <ItemSwatch
+          id={item.id}
+          name={item.name}
+          image={item.image}
+          size="lg"
+        />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[var(--bg-elev)] via-transparent to-black/15" />
+      </div>
+
+      <div className="flex flex-col gap-4 px-[18px] py-4">
           <h2 className="text-[28px] font-semibold leading-tight tracking-tight text-ink">
             {item.name}
           </h2>
@@ -270,36 +303,6 @@ export function MenuItemDetail({
             />
           </section>
         </div>
-
-        {/* Quantity selector section */}
-        <div className="grid flex-shrink-0 grid-cols-[auto_1fr] items-center gap-3 border-t border-line bg-white px-4 py-3">
-          <QuantityStepper
-            value={quantity}
-            onDecrease={() => setQuantity((q) => Math.max(1, q - 1))}
-            onIncrease={() => setQuantity((q) => q + 1)}
-          />
-          <button
-            type="button"
-            disabled={!canAdd}
-            onClick={handleAdd}
-            className={cn(
-              "inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-colors",
-              canAdd
-                ? "bg-clay-500 text-white shadow-card hover:bg-clay-600"
-                : "cursor-not-allowed bg-sand text-ink-muted",
-            )}
-          >
-            {canAdd ? (
-              <>
-                Add to order ·{" "}
-                <b className="font-bold">{formatPrice(unit * quantity)}</b>
-              </>
-            ) : (
-              `Select ${missingRequired[0].name.toLowerCase()}`
-            )}
-          </button>
-        </div>
-      </div>
     </Modal>
   );
 }

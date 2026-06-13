@@ -33,12 +33,17 @@ export function OrderStatusModal({
 
   return (
     <>
-    <Modal isOpen={isOpen} onOpenChange={onOpenChange} className="order-modal-theme">
-      <div className="border-b border-line px-4 py-4">
-        <p className="text-xs text-ink-muted">Table {tableNo}</p>
-        <h2 className="text-xl font-semibold text-ink">Your Orders</h2>
-      </div>
-
+    <Modal
+      isOpen={isOpen}
+      onOpenChange={onOpenChange}
+      className="order-modal-theme"
+      header={
+        <div>
+          <p className="text-xs text-ink-muted">Table {tableNo}</p>
+          <h2 className="text-xl font-semibold text-ink">Your Orders</h2>
+        </div>
+      }
+    >
       <div className="space-y-3 px-4 py-4">
         {loading ? (
           <Loading label="Loading orders…" />

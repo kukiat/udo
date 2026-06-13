@@ -6,6 +6,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CancelOrderDialog } from "@/components/order/CancelOrderDialog";
+import { CancelTableDialog } from "@/components/session/CancelTableDialog";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { FloorPlanCanvas } from "@/components/floor/FloorPlanCanvas";
 import { Badge } from "@/components/ui/Badge";
@@ -641,6 +642,8 @@ export default function WaitstaffPage() {
   const [moveError, setMoveError] = useState<string | null>(null);
   // Target whose buffer-window reservation needs a "move anyway" confirm.
   const [moveRetryTarget, setMoveRetryTarget] = useState<TableRow | null>(null);
+  // Target awaiting the "are you sure?" confirm before the move runs.
+  const [moveConfirmTarget, setMoveConfirmTarget] = useState<TableRow | null>(null);
 
   const moveSession = async (target: TableRow, overrideReservation = false) => {
     const session = moveSource ? sessionByTable.get(moveSource.id) : null;
@@ -674,6 +677,43 @@ export default function WaitstaffPage() {
       setMoveError(e instanceof Error ? e.message : "Failed to move table");
     } finally {
       setMovingToId(null);
+    }
+  };
+
+  // --- Cancel table: close an active session without payment ----------------
+  const [cancelTableTarget, setCancelTableTarget] = useState<TableRow | null>(
+    null,
+  );
+  const [cancellingTable, setCancellingTable] = useState(false);
+
+  const cancelTable = async (reason?: string) => {
+    const session = cancelTableTarget
+      ? sessionByTable.get(cancelTableTarget.id)
+      : null;
+    if (!session) {
+      setCancelTableTarget(null);
+      return;
+    }
+    setCancellingTable(true);
+    setError(null);
+    try {
+      await api(`/api/sessions/${session.sessionId}/cancel`, {
+        method: "POST",
+        headers: socketOriginHeaders(),
+        body: JSON.stringify({ reason: reason?.trim() || null }),
+      });
+      setCancelTableTarget(null);
+      await Promise.all([loadOrders(), loadTables(), loadSessions()]);
+    } catch (e) {
+      setCancelTableTarget(null);
+      setError(e instanceof Error ? e.message : "Failed to cancel table");
+      // Re-sync the floor so the board reflects reality (e.g. the session was
+      // just paid, or an order turned ready mid-request).
+      await Promise.all([loadOrders(), loadTables(), loadSessions()]).catch(
+        () => { },
+      );
+    } finally {
+      setCancellingTable(false);
     }
   };
 
@@ -744,6 +784,7 @@ export default function WaitstaffPage() {
     socket.on("order:new", refreshAll);
     socket.on("order:status-update", refreshAll);
     socket.on("table:moved", refreshAll);
+    socket.on("session:cancelled", refreshAll);
     socket.on("bill:paid", refreshAll);
     socket.on("bill:requested", refreshSessions);
     socket.on("reservation:updated", refreshReservations);
@@ -767,6 +808,7 @@ export default function WaitstaffPage() {
       socket.off("order:new", refreshAll);
       socket.off("order:status-update", refreshAll);
       socket.off("table:moved", refreshAll);
+      socket.off("session:cancelled", refreshAll);
       socket.off("bill:paid", refreshAll);
       socket.off("bill:requested", refreshSessions);
       socket.off("reservation:updated", refreshReservations);
@@ -1869,6 +1911,15 @@ export default function WaitstaffPage() {
                             <ArrowRightLeftIcon className="w-4 h-4" />
                             Move table
                           </PillButton>
+                          <PillButton
+                            tone="danger"
+                            variant="outline"
+                            isDisabled={cancellingTable}
+                            onPress={() => setCancelTableTarget(selectedTable)}
+                            className={cn(WAITSTAFF_ACTION_BUTTON, "flex-1 sm:flex-none")}
+                          >
+                            Cancel table
+                          </PillButton>
                         </>
                       ) : selectedReservationDue && selectedNextReservation ? (
                         <>
@@ -2429,6 +2480,22 @@ export default function WaitstaffPage() {
         onDismiss={() => setCancelTarget(null)}
       />
 
+      <CancelTableDialog
+        tableNumber={cancelTableTarget?.tableNumber ?? null}
+        pendingOrderCount={
+          cancelTableTarget
+            ? (ordersByTable.get(cancelTableTarget.id) ?? []).filter(
+              (o) => o.status === "pending" || o.status === "preparing",
+            ).length
+            : 0
+        }
+        cancelling={cancellingTable}
+        onConfirm={cancelTable}
+        onDismiss={() => {
+          if (!cancellingTable) setCancelTableTarget(null);
+        }}
+      />
+
       <EditOrderItemNoteDialog
         target={editItemNoteTarget}
         saving={
@@ -2550,21 +2617,34 @@ export default function WaitstaffPage() {
           if (!open && !movingToId) {
             setMoveSource(null);
             setMoveRetryTarget(null);
+            setMoveConfirmTarget(null);
           }
         }}
+        header={
+          <div>
+            <h2 className="text-lg font-semibold text-ink">
+              Move table {moveSource?.tableNumber}
+            </h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              Pick the table the guests are moving to. All orders and the
+              bill follow them; the customer&apos;s ordering link switches
+              over automatically.
+            </p>
+          </div>
+        }
+        footer={
+          <div className="flex justify-end">
+            <PillButton
+              isDisabled={movingToId !== null}
+              onPress={() => setMoveSource(null)}
+            >
+              Cancel
+            </PillButton>
+          </div>
+        }
       >
         {moveSource && (
           <div className="flex flex-col gap-4 p-5">
-            <div className="pr-8">
-              <h2 className="text-lg font-semibold text-ink">
-                Move table {moveSource.tableNumber}
-              </h2>
-              <p className="mt-1 text-sm text-ink-muted">
-                Pick the table the guests are moving to. All orders and the
-                bill follow them; the customer&apos;s ordering link switches
-                over automatically.
-              </p>
-            </div>
             {moveError && (
               <div className="rounded-lg bg-rose-soft px-3 py-2">
                 <p className="text-sm text-rose">{moveError}</p>
@@ -2611,7 +2691,7 @@ export default function WaitstaffPage() {
                       <button
                         key={t.id}
                         disabled={movingToId !== null}
-                        onClick={() => moveSession(t)}
+                        onClick={() => setMoveConfirmTarget(t)}
                         className={cn(
                           "flex flex-col items-center gap-1 rounded-card border border-line bg-olive-soft px-2 py-3 text-olive transition-colors hover:border-ink disabled:opacity-50",
                           movingToId === t.id && "!border-clay-500",
@@ -2634,15 +2714,47 @@ export default function WaitstaffPage() {
                 </div>
               );
             })()}
-            <div className="flex justify-end">
-              <PillButton
-                isDisabled={movingToId !== null}
-                onPress={() => setMoveSource(null)}
-              >
-                Cancel
-              </PillButton>
-            </div>
           </div>
+        )}
+      </Modal>
+
+      {/* Confirm a table move before it runs. */}
+      <Modal
+        isOpen={moveConfirmTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setMoveConfirmTarget(null);
+        }}
+        header={
+          <h2 className="text-lg font-semibold text-ink">
+            Move table {moveSource?.tableNumber} to{" "}
+            {moveConfirmTarget?.tableNumber}?
+          </h2>
+        }
+        footer={
+          <div className="flex gap-2">
+            <PillButton onPress={() => setMoveConfirmTarget(null)}>
+              Keep table {moveSource?.tableNumber}
+            </PillButton>
+            <PillButton
+              tone="accent"
+              variant="outline"
+              onPress={() => {
+                const target = moveConfirmTarget;
+                setMoveConfirmTarget(null);
+                if (target) void moveSession(target);
+              }}
+            >
+              Move table
+            </PillButton>
+          </div>
+        }
+      >
+        {moveSource && moveConfirmTarget && (
+          <p className="p-5 text-sm text-ink-muted">
+            All orders and the bill move to table{" "}
+            {moveConfirmTarget.tableNumber}, and the customer&apos;s
+            ordering link switches over automatically.
+          </p>
         )}
       </Modal>
 
@@ -2652,41 +2764,41 @@ export default function WaitstaffPage() {
         onOpenChange={(open) => {
           if (!open) setOverrideConfirmTable(null);
         }}
+        header={
+          <h2 className="text-lg font-semibold text-ink">
+            Table {overrideConfirmTable?.tableNumber} is reserved soon
+          </h2>
+        }
+        footer={
+          <div className="flex gap-2">
+            <PillButton onPress={() => setOverrideConfirmTable(null)}>
+              Keep reserved
+            </PillButton>
+            <PillButton
+              tone="accent"
+              variant="outline"
+              onPress={() => {
+                setOpeningWithOverride(true);
+                setOpeningTable(overrideConfirmTable);
+                setOverrideConfirmTable(null);
+              }}
+            >
+              Open anyway
+            </PillButton>
+          </div>
+        }
       >
         {overrideConfirmTable && (
-          <div className="flex flex-col gap-4 p-5">
-            <div className="pr-8">
-              <h2 className="text-lg font-semibold text-ink">
-                Table {overrideConfirmTable.tableNumber} is reserved soon
-              </h2>
-              <p className="mt-1 text-sm text-ink-muted">
-                {(() => {
-                  const r = nextReservationByTable.get(overrideConfirmTable.id);
-                  return r
-                    ? `Reserved for ${r.customerName} at ${formatReservedFor(
-                      r.reservedFor,
-                    )} (${reservationCountdown(r.reservedFor, now)}). Open it for walk-in guests anyway?`
-                    : "Open this table anyway?";
-                })()}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <PillButton onPress={() => setOverrideConfirmTable(null)}>
-                Keep reserved
-              </PillButton>
-              <PillButton
-                tone="accent"
-                variant="outline"
-                onPress={() => {
-                  setOpeningWithOverride(true);
-                  setOpeningTable(overrideConfirmTable);
-                  setOverrideConfirmTable(null);
-                }}
-              >
-                Open anyway
-              </PillButton>
-            </div>
-          </div>
+          <p className="p-5 text-sm text-ink-muted">
+            {(() => {
+              const r = nextReservationByTable.get(overrideConfirmTable.id);
+              return r
+                ? `Reserved for ${r.customerName} at ${formatReservedFor(
+                  r.reservedFor,
+                )} (${reservationCountdown(r.reservedFor, now)}). Open it for walk-in guests anyway?`
+                : "Open this table anyway?";
+            })()}
+          </p>
         )}
       </Modal>
 
@@ -2696,40 +2808,40 @@ export default function WaitstaffPage() {
         onOpenChange={(open) => {
           if (!open && !cancellingReservation) setCancelReservationTarget(null);
         }}
+        header={
+          <h2 className="text-lg font-semibold text-ink">
+            Cancel reservation?
+          </h2>
+        }
+        footer={
+          <div className="flex gap-2">
+            <PillButton
+              isDisabled={cancellingReservation}
+              onPress={() => setCancelReservationTarget(null)}
+            >
+              Keep reservation
+            </PillButton>
+            <PillButton
+              tone="danger"
+              variant="outline"
+              isDisabled={cancellingReservation}
+              onPress={confirmCancelReservation}
+            >
+              {cancellingReservation
+                ? "Cancelling..."
+                : "Cancel reservation"}
+            </PillButton>
+          </div>
+        }
       >
         {cancelReservationTarget && (
-          <div className="flex flex-col gap-4 p-5">
-            <div className="pr-8">
-              <h2 className="text-lg font-semibold text-ink">
-                Cancel reservation?
-              </h2>
-              <p className="mt-1 text-sm text-ink-muted">
-                {`${cancelReservationTarget.customerName} · ${cancelReservationTarget.partySize} guests · ${formatReservedFor(cancelReservationTarget.reservedFor)}.`}
-                {Date.now() >=
-                  new Date(cancelReservationTarget.reservedFor).getTime()
-                  ? " The guest hasn't arrived — this will be recorded as a no-show and the table freed."
-                  : " The booking will be removed and the table stays available."}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <PillButton
-                isDisabled={cancellingReservation}
-                onPress={() => setCancelReservationTarget(null)}
-              >
-                Keep reservation
-              </PillButton>
-              <PillButton
-                tone="danger"
-                variant="outline"
-                isDisabled={cancellingReservation}
-                onPress={confirmCancelReservation}
-              >
-                {cancellingReservation
-                  ? "Cancelling..."
-                  : "Cancel reservation"}
-              </PillButton>
-            </div>
-          </div>
+          <p className="p-5 text-sm text-ink-muted">
+            {`${cancelReservationTarget.customerName} · ${cancelReservationTarget.partySize} guests · ${formatReservedFor(cancelReservationTarget.reservedFor)}.`}
+            {Date.now() >=
+              new Date(cancelReservationTarget.reservedFor).getTime()
+              ? " The guest hasn't arrived — this will be recorded as a no-show and the table freed."
+              : " The booking will be removed and the table stays available."}
+          </p>
         )}
       </Modal>
 
@@ -3031,9 +3143,8 @@ function RemoveOrderItemDialog({
       onOpenChange={(open) => {
         if (!open && !removing) onDismiss();
       }}
-    >
-      <div className="flex flex-col gap-4 p-5">
-        <div className="pr-8">
+      header={
+        <div>
           <h2 className="text-lg font-semibold text-ink">
             {cancelsOrder ? "Cancel order?" : "Remove menu item?"}
           </h2>
@@ -3045,7 +3156,25 @@ function RemoveOrderItemDialog({
               : ""}
           </p>
         </div>
-
+      }
+      footer={
+        <div className="flex gap-2">
+          <PillButton tone="neutral" onPress={onDismiss}>
+            Keep item
+          </PillButton>
+          <PillButton tone="danger" variant="outline" onPress={() => onConfirm(reason)}>
+            {removing
+              ? cancelsOrder
+                ? "Cancelling..."
+                : "Removing..."
+              : cancelsOrder
+                ? "Cancel order"
+                : "Remove item"}
+          </PillButton>
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-4 p-5">
         <label className="flex flex-col gap-1.5">
           <span className="text-[13px] font-semibold text-ink">
             Reason <span className="font-normal text-ink-muted">required</span>
@@ -3069,21 +3198,6 @@ function RemoveOrderItemDialog({
             {error}
           </p>
         )}
-
-        <div className="flex gap-2">
-          <PillButton tone="neutral" onPress={onDismiss}>
-            Keep item
-          </PillButton>
-          <PillButton tone="danger" variant="outline" onPress={() => onConfirm(reason)}>
-            {removing
-              ? cancelsOrder
-                ? "Cancelling..."
-                : "Removing..."
-              : cancelsOrder
-                ? "Cancel order"
-                : "Remove item"}
-          </PillButton>
-        </div>
       </div>
     </Modal>
   );

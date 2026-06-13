@@ -4,16 +4,18 @@ import { useEffect, useState } from "react";
 
 import { Modal } from "@/components/ui/Modal";
 import { PillButton } from "@/components/ui/PillButton";
-import type { OrderDTO } from "@/types";
 
-export function CancelOrderDialog({
-  order,
+export function CancelTableDialog({
+  tableNumber,
+  pendingOrderCount,
   cancelling,
   onConfirm,
   onDismiss,
   theme = "light",
 }: {
-  order: OrderDTO | null;
+  /** Opens the dialog when non-null. */
+  tableNumber: string | null;
+  pendingOrderCount: number;
   cancelling: boolean;
   onConfirm: (reason?: string) => void;
   onDismiss: () => void;
@@ -21,14 +23,14 @@ export function CancelOrderDialog({
 }) {
   const [reason, setReason] = useState("");
 
-  // Reset the reason whenever a different order opens the dialog.
+  // Reset the reason whenever a different table opens the dialog.
   useEffect(() => {
     setReason("");
-  }, [order?.id]);
+  }, [tableNumber]);
 
   return (
     <Modal
-      isOpen={Boolean(order)}
+      isOpen={Boolean(tableNumber)}
       onOpenChange={(o) => !o && onDismiss()}
       theme={theme}
       header={
@@ -37,14 +39,20 @@ export function CancelOrderDialog({
             className="text-lg font-semibold"
             style={{ color: "var(--ink)" }}
           >
-            Cancel order?
+            Cancel table?
           </h2>
           <p
             className="mt-1 text-sm"
             style={{ color: "var(--ink-3)" }}
           >
-            {order
-              ? `Order ${order.orderNumber} will be cancelled. This can't be undone.`
+            {tableNumber
+              ? `Table ${tableNumber} will be closed without payment.${
+                  pendingOrderCount > 0
+                    ? ` ${pendingOrderCount} pending/preparing order${
+                        pendingOrderCount === 1 ? "" : "s"
+                      } will be cancelled.`
+                    : ""
+                } This can't be undone.`
               : ""}
           </p>
         </div>
@@ -57,7 +65,7 @@ export function CancelOrderDialog({
             onPress={onDismiss}
             className="flex-1"
           >
-            Keep order
+            Keep table
           </PillButton>
           <PillButton
             tone="danger"
@@ -66,7 +74,7 @@ export function CancelOrderDialog({
             onPress={() => onConfirm(reason)}
             className="flex-1"
           >
-            {cancelling ? "Cancelling…" : "Cancel order"}
+            {cancelling ? "Cancelling…" : "Cancel table"}
           </PillButton>
         </div>
       }
@@ -85,7 +93,7 @@ export function CancelOrderDialog({
           <textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="e.g. ordered by mistake, changed my mind"
+            placeholder="e.g. opened by mistake, guests left"
             rows={2}
             className="w-full resize-none rounded-lg border px-2.5 py-2 text-[13px] outline-none"
             style={{

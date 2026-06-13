@@ -167,15 +167,35 @@ export default function CategoriesPage() {
             setFormOpen(false);
           }
         }}
-        className={"sm:max-w-xl" + (isDark ? " !border-[#23262E] !bg-[#15171C]" : "")}
-      >
-        <div
-          className={`dir-a kds-theme${isDark ? " kds-dark" : ""}`}
-          style={{ padding: 24, background: "var(--surface)" }}
-        >
-          <div className="eyebrow" style={{ marginBottom: 16, fontSize: 13, color: "var(--text)" }}>
+        theme={isDark ? "dark" : "light"}
+        className="sm:max-w-xl dir-a"
+        header={
+          <div className="eyebrow" style={{ fontSize: 13, color: "var(--text)" }}>
             {editingId ? "Edit category" : "New category"}
           </div>
+        }
+        footer={
+          <div className="flex gap-2 w-full justify-end">
+            <PillButton
+              variant="outline"
+              onClick={() => {
+                resetForm();
+                setFormOpen(false);
+              }}
+            >
+              Cancel
+            </PillButton>
+            <PillButton
+              tone="accent"
+              onClick={submit}
+              isDisabled={saving || !name.trim()}
+            >
+              {saving ? "Saving..." : editingId ? "Save" : "Add"}
+            </PillButton>
+          </div>
+        }
+      >
+        <div style={{ padding: "16px 20px" }}>
           {error && (
             <div style={{ marginBottom: 16 }}>
               <ErrorState message={error} />
@@ -246,24 +266,6 @@ export default function CategoriesPage() {
               </div>
             </div>
           )}
-          <div className="flex gap-2 w-full justify-end mt-6">
-            <PillButton
-              variant="outline"
-              onClick={() => {
-                resetForm();
-                setFormOpen(false);
-              }}
-            >
-              Cancel
-            </PillButton>
-            <PillButton
-              tone="accent"
-              onClick={submit}
-              isDisabled={saving || !name.trim()}
-            >
-              {saving ? "Saving..." : editingId ? "Save" : "Add"}
-            </PillButton>
-          </div>
         </div>
       </Modal>
 

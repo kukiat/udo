@@ -11,41 +11,64 @@ import {
 import { CloseButton } from "@/components/ui/CloseButton";
 import { cn } from "@/lib/cn";
 
+export type ModalTheme = "light" | "dark";
+
+/**
+ * Common modal shell: fixed header (title + close icon top-right),
+ * scrollable content section, and fixed footer. Only the content
+ * scrolls — header and footer always stay in view.
+ *
+ * Theming: `theme="dark"` applies the shared dark token set
+ * (`kds-theme kds-dark` from globals.css) so the surface, borders and
+ * every `var(--…)`-driven child restyle together. Default is light.
+ */
 export function Modal({
   isOpen,
   onOpenChange,
   children,
   className,
+  contentClassName,
   showClose = true,
+  title,
   header,
   footer,
+  theme = "light",
   ariaLabel,
 }: {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Content section — the only part of the modal that scrolls. */
   children: React.ReactNode;
   className?: string;
+  /** Extra classes for the scrollable content wrapper (e.g. padding overrides). */
+  contentClassName?: string;
   /** Hide the built-in top-right close icon (e.g. when the content renders its own). */
   showClose?: boolean;
-  /** Accessible dialog name; falls back to the `header` content, then "Dialog". */
-  ariaLabel?: string;
-  /**
-   * Sticky header content. When provided, the modal switches to a fixed
-   * header + scrollable body layout — the header (and footer) stay put while
-   * only `children` scroll. The close icon is rendered inside this header.
-   */
+  /** Convenience header: rendered as a styled heading. Ignored when `header` is set. */
+  title?: React.ReactNode;
+  /** Custom header content. Rendered in the fixed header row next to the close icon. */
   header?: React.ReactNode;
-  /** Sticky footer content (e.g. action buttons). Pinned to the modal bottom. */
+  /** Footer content (e.g. action buttons). Pinned to the modal bottom. */
   footer?: React.ReactNode;
+  /** Light (default) or dark surface. */
+  theme?: ModalTheme;
+  /** Accessible dialog name; falls back to the header content, then "Dialog". */
+  ariaLabel?: string;
 }) {
-  const structured = header != null || footer != null;
+  const headerContent =
+    header ??
+    (title != null ? (
+      <h2 className="text-lg font-semibold" style={{ color: "var(--ink)" }}>
+        {title}
+      </h2>
+    ) : null);
   const headerId = useId();
   // React Aria requires every Dialog to have an accessible name; label by the
   // header when one is rendered, otherwise fall back to a plain aria-label.
   const labelProps =
     ariaLabel != null
       ? { "aria-label": ariaLabel }
-      : header != null
+      : headerContent != null
         ? { "aria-labelledby": headerId }
         : { "aria-label": "Dialog" };
 
@@ -62,62 +85,40 @@ export function Modal({
           borderColor: "var(--line)",
         }}
         className={cn(
-          "w-full sm:max-w-lg max-h-[92vh] shadow-xl",
+          "flex w-full flex-col overflow-hidden sm:max-w-lg max-h-[92vh] shadow-xl",
           "rounded-t-card sm:rounded-card border",
-          structured ? "flex flex-col overflow-hidden" : "overflow-y-auto",
+          theme === "dark" && "kds-theme kds-dark",
           className,
         )}
       >
-        {structured ? (
-          <Dialog
-            {...labelProps}
-            className="flex min-h-0 flex-1 flex-col outline-none"
-          >
-            {header != null && (
-              <div
-                className="flex flex-shrink-0 items-start justify-between gap-3 px-5 py-4"
-                style={{ borderBottom: "1px solid var(--line)" }}
-              >
-                <div id={headerId} className="min-w-0 flex-1">
-                  {header}
-                </div>
-                {showClose && (
-                  <CloseButton
-                    onPress={() => onOpenChange(false)}
-                    className="-mr-1.5 -mt-0.5 flex-shrink-0"
-                  />
-                )}
+        <Dialog
+          {...labelProps}
+          className="flex min-h-0 flex-1 flex-col outline-none"
+        >
+          {headerContent != null && (
+            <div
+              className="flex flex-shrink-0 items-start justify-between gap-3 px-5 py-4"
+              style={{ borderBottom: "1px solid var(--line)" }}
+            >
+              <div id={headerId} className="min-w-0 flex-1">
+                {headerContent}
               </div>
-            )}
-
-            {/* Only the body scrolls. */}
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              {/* When there's no header, the close icon floats over the body. */}
-              {header == null && showClose && (
-                <div className="pointer-events-none sticky top-0 z-[60] h-0">
-                  <CloseButton
-                    onPress={() => onOpenChange(false)}
-                    className="pointer-events-auto absolute right-3 top-3"
-                  />
-                </div>
+              {showClose && (
+                <CloseButton
+                  onPress={() => onOpenChange(false)}
+                  className="-mr-1.5 -mt-0.5 flex-shrink-0"
+                />
               )}
-              {children}
             </div>
+          )}
 
-            {footer != null && (
-              <div
-                className="flex-shrink-0 px-5 py-4"
-                style={{ borderTop: "1px solid var(--line)" }}
-              >
-                {footer}
-              </div>
-            )}
-          </Dialog>
-        ) : (
-          <Dialog {...labelProps} className="outline-none">
-            {showClose && (
-              // Zero-height sticky wrapper keeps the icon pinned to the modal's
-              // top-right even while the body scrolls.
+          {/* Only the content section scrolls. */}
+          <div
+            className={cn("min-h-0 flex-1 overflow-y-auto", contentClassName)}
+          >
+            {/* When there's no header, the close icon floats over the content,
+                pinned to the modal's top-right via a zero-height sticky wrapper. */}
+            {headerContent == null && showClose && (
               <div className="pointer-events-none sticky top-0 z-[60] h-0">
                 <CloseButton
                   onPress={() => onOpenChange(false)}
@@ -126,8 +127,17 @@ export function Modal({
               </div>
             )}
             {children}
-          </Dialog>
-        )}
+          </div>
+
+          {footer != null && (
+            <div
+              className="flex-shrink-0 px-5 py-4"
+              style={{ borderTop: "1px solid var(--line)" }}
+            >
+              {footer}
+            </div>
+          )}
+        </Dialog>
       </AriaModal>
     </ModalOverlay>
   );

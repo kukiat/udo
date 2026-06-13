@@ -605,20 +605,29 @@ export default function FloorPlanPage() {
       <Modal
         isOpen={zoneModalOpen}
         onOpenChange={(open) => !open && setZoneModalOpen(false)}
-        className={
-          "sm:max-w-md" + (isDark ? " !border-[#23262E] !bg-[#15171C]" : "")
-        }
-      >
-        <div
-          className={`dir-a kds-theme${isDark ? " kds-dark" : ""}`}
-          style={{ padding: 24, background: "var(--surface)" }}
-        >
-          <div
-            className="eyebrow"
-            style={{ marginBottom: 16, fontSize: 13, color: "var(--text)" }}
-          >
+        theme={isDark ? "dark" : "light"}
+        className="sm:max-w-md dir-a"
+        header={
+          <div className="eyebrow" style={{ fontSize: 13, color: "var(--text)" }}>
             {zoneEditingId ? "Rename zone" : "New zone"}
           </div>
+        }
+        footer={
+          <div className="flex w-full justify-end gap-2">
+            <PillButton tone="neutral" onClick={() => setZoneModalOpen(false)}>
+              Cancel
+            </PillButton>
+            <PillButton
+              tone="accent"
+              isDisabled={zoneSaving || !zoneName.trim()}
+              onClick={() => void submitZone()}
+            >
+              {zoneSaving ? "Saving…" : zoneEditingId ? "Rename" : "Create"}
+            </PillButton>
+          </div>
+        }
+      >
+        <div style={{ padding: "16px 20px" }}>
           {zoneError && (
             <div style={{ marginBottom: 12 }}>
               <ErrorState message={zoneError} />
@@ -634,18 +643,6 @@ export default function FloorPlanPage() {
             width="100%"
             ariaLabel="Zone name"
           />
-          <div className="mt-6 flex w-full justify-end gap-2">
-            <PillButton tone="neutral" onClick={() => setZoneModalOpen(false)}>
-              Cancel
-            </PillButton>
-            <PillButton
-              tone="accent"
-              isDisabled={zoneSaving || !zoneName.trim()}
-              onClick={() => void submitZone()}
-            >
-              {zoneSaving ? "Saving…" : zoneEditingId ? "Rename" : "Create"}
-            </PillButton>
-          </div>
         </div>
       </Modal>
 
@@ -653,25 +650,15 @@ export default function FloorPlanPage() {
       <Modal
         isOpen={zoneDeleteOpen}
         onOpenChange={(open) => !open && setZoneDeleteOpen(false)}
-        className={
-          "sm:max-w-md" + (isDark ? " !border-[#23262E] !bg-[#15171C]" : "")
-        }
-      >
-        <div
-          className={`dir-a kds-theme${isDark ? " kds-dark" : ""}`}
-          style={{ padding: 24, background: "var(--surface)" }}
-        >
-          <div
-            className="eyebrow"
-            style={{ marginBottom: 12, fontSize: 13, color: "var(--text)" }}
-          >
+        theme={isDark ? "dark" : "light"}
+        className="sm:max-w-md dir-a"
+        header={
+          <div className="eyebrow" style={{ fontSize: 13, color: "var(--text)" }}>
             Delete zone
           </div>
-          <p style={{ fontSize: 13, color: "var(--text-2)" }}>
-            Tables in this zone are not deleted — they move back to the
-            unplaced tray. Unsaved layout changes will be discarded.
-          </p>
-          <div className="mt-6 flex w-full justify-end gap-2">
+        }
+        footer={
+          <div className="flex w-full justify-end gap-2">
             <PillButton tone="neutral" onClick={() => setZoneDeleteOpen(false)}>
               Cancel
             </PillButton>
@@ -683,6 +670,13 @@ export default function FloorPlanPage() {
               {zoneSaving ? "Deleting…" : "Delete zone"}
             </PillButton>
           </div>
+        }
+      >
+        <div style={{ padding: "16px 20px" }}>
+          <p style={{ fontSize: 13, color: "var(--text-2)" }}>
+            Tables in this zone are not deleted — they move back to the
+            unplaced tray. Unsaved layout changes will be discarded.
+          </p>
         </div>
       </Modal>
 
@@ -690,20 +684,29 @@ export default function FloorPlanPage() {
       <Modal
         isOpen={tableModalOpen}
         onOpenChange={(open) => !open && setTableModalOpen(false)}
-        className={
-          "sm:max-w-md" + (isDark ? " !border-[#23262E] !bg-[#15171C]" : "")
-        }
-      >
-        <div
-          className={`dir-a kds-theme${isDark ? " kds-dark" : ""}`}
-          style={{ padding: 24, background: "var(--surface)" }}
-        >
-          <div
-            className="eyebrow"
-            style={{ marginBottom: 16, fontSize: 13, color: "var(--text)" }}
-          >
+        theme={isDark ? "dark" : "light"}
+        className="sm:max-w-md dir-a"
+        header={
+          <div className="eyebrow" style={{ fontSize: 13, color: "var(--text)" }}>
             New table
           </div>
+        }
+        footer={
+          <div className="flex w-full justify-end gap-2">
+            <PillButton tone="neutral" onClick={() => setTableModalOpen(false)}>
+              Cancel
+            </PillButton>
+            <PillButton
+              tone="accent"
+              isDisabled={tableSaving || !newTableNumber.trim()}
+              onClick={() => void submitTable()}
+            >
+              {tableSaving ? "Creating…" : "Create table"}
+            </PillButton>
+          </div>
+        }
+      >
+        <div style={{ padding: "16px 20px" }}>
           {tableError && (
             <div style={{ marginBottom: 12 }}>
               <ErrorState message={tableError} />
@@ -747,18 +750,6 @@ export default function FloorPlanPage() {
               onSelectionChange={(k) => setNewTableShape(k as TableShape)}
               placeholder="Shape"
             />
-          </div>
-          <div className="mt-6 flex w-full justify-end gap-2">
-            <PillButton tone="neutral" onClick={() => setTableModalOpen(false)}>
-              Cancel
-            </PillButton>
-            <PillButton
-              tone="accent"
-              isDisabled={tableSaving || !newTableNumber.trim()}
-              onClick={() => void submitTable()}
-            >
-              {tableSaving ? "Creating…" : "Create table"}
-            </PillButton>
           </div>
         </div>
       </Modal>

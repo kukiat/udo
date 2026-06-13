@@ -56,12 +56,38 @@ export function PaymentModal({
     method === "cash" && tendered !== "" && parseFloat(tendered) < total;
 
   return (
-    <Modal isOpen={isOpen} onOpenChange={(o) => !o && onClose()}>
-      <div className="p-5">
-        <h2 className="text-lg font-bold text-ink">Take payment</h2>
-        <p className="text-sm text-ink-muted">Table {tableNumber}</p>
-
-        <div className="mt-4 rounded-xl bg-sand p-3 text-center">
+    <Modal
+      isOpen={isOpen}
+      onOpenChange={(o) => !o && onClose()}
+      header={
+        <div>
+          <h2 className="text-lg font-bold text-ink">Take payment</h2>
+          <p className="text-sm text-ink-muted">Table {tableNumber}</p>
+        </div>
+      }
+      footer={
+        <div className="flex gap-2">
+          <Button variant="ghost" className="flex-1" onPress={onClose}>
+            Cancel
+          </Button>
+          <Button
+            className="flex-1"
+            isDisabled={processing || cashShort}
+            onPress={() =>
+              onConfirm({
+                method,
+                tendered: method === "cash" && tendered !== "" ? tendered : null,
+                discount: discount || "0",
+              })
+            }
+          >
+            {processing ? "Processing…" : "Confirm payment"}
+          </Button>
+        </div>
+      }
+    >
+      <div className="p-5 pt-4">
+        <div className="rounded-xl bg-sand p-3 text-center">
           <p className="text-xs uppercase tracking-wide text-ink-muted">
             Total due
           </p>
@@ -124,25 +150,6 @@ export function PaymentModal({
             )}
           </label>
         )}
-
-        <div className="mt-6 flex gap-2">
-          <Button variant="ghost" className="flex-1" onPress={onClose}>
-            Cancel
-          </Button>
-          <Button
-            className="flex-1"
-            isDisabled={processing || cashShort}
-            onPress={() =>
-              onConfirm({
-                method,
-                tendered: method === "cash" && tendered !== "" ? tendered : null,
-                discount: discount || "0",
-              })
-            }
-          >
-            {processing ? "Processing…" : "Confirm payment"}
-          </Button>
-        </div>
       </div>
     </Modal>
   );

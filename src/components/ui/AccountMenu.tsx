@@ -417,85 +417,28 @@ export function AccountMenu({
         isOpen={detail}
         onOpenChange={setDetail}
         className="sm:max-w-md"
-      >
-        <div
-          className="flex items-center gap-4 border-b p-6"
-          style={{ borderColor: "var(--line)" }}
-        >
-          <Avatar
-            initials={initials(user.name)}
-            size={56}
-            tone={profile.tone}
-          />
-          <div className="min-w-0 flex-1">
-            <div
-              className="truncate text-[20px] font-semibold"
-              style={{ letterSpacing: "-0.02em", color: "var(--ink)" }}
-            >
-              {user.name}
-            </div>
-            <div className="mt-1.5">
-              <Tag tone={profile.tone}>{profile.roleLabel}</Tag>
-            </div>
-          </div>
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={() => setDetail(false)}
-            className="flex h-8 w-8 items-center justify-center rounded-full transition-colors"
-            style={{
-              background: "var(--bg-sunken)",
-              color: "var(--ink-3)",
-            }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.background = "var(--line)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.background = "var(--bg-sunken)")
-            }
-          >
-            <span aria-hidden style={{ fontSize: 13 }}>
-              ✕
-            </span>
-          </button>
-        </div>
-
-        <div className="p-6">
-          {/* Big stat tiles */}
-          <div className="mb-5 grid grid-cols-3 gap-2.5">
-            {profile.stats.map((s) => (
+        header={
+          <div className="flex items-center gap-4">
+            <Avatar
+              initials={initials(user.name)}
+              size={56}
+              tone={profile.tone}
+            />
+            <div className="min-w-0 flex-1">
               <div
-                key={s.label}
-                className="rounded-card px-2 py-3.5 text-center"
-                style={{ background: "var(--bg-sunken)" }}
+                className="truncate text-[20px] font-semibold"
+                style={{ letterSpacing: "-0.02em", color: "var(--ink)" }}
               >
-                <div
-                  className="tnum truncate text-[20px] font-semibold"
-                  style={{ letterSpacing: "-0.025em", color: "var(--ink)" }}
-                >
-                  {s.value}
-                </div>
-                <div
-                  className="mt-1 text-[10px] font-semibold uppercase tracking-[0.08em]"
-                  style={{ color: "var(--ink-3)" }}
-                >
-                  {s.label}
-                </div>
+                {user.name}
               </div>
-            ))}
+              <div className="mt-1.5">
+                <Tag tone={profile.tone}>{profile.roleLabel}</Tag>
+              </div>
+            </div>
           </div>
-
-          <div
-            className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em]"
-            style={{ color: "var(--ink-3)" }}
-          >
-            Details
-          </div>
-          {profile.details.map((d) => (
-            <DetailRow key={d.label} {...d} />
-          ))}
-
-          <div className="mt-5 flex gap-2.5">
+        }
+        footer={
+          <div className="flex gap-2.5">
             <button
               type="button"
               onClick={() => setDetail(false)}
@@ -531,6 +474,42 @@ export function AccountMenu({
               </span>
             </button>
           </div>
+        }
+      >
+        <div className="p-6">
+          {/* Big stat tiles */}
+          <div className="mb-5 grid grid-cols-3 gap-2.5">
+            {profile.stats.map((s) => (
+              <div
+                key={s.label}
+                className="rounded-card px-2 py-3.5 text-center"
+                style={{ background: "var(--bg-sunken)" }}
+              >
+                <div
+                  className="tnum truncate text-[20px] font-semibold"
+                  style={{ letterSpacing: "-0.025em", color: "var(--ink)" }}
+                >
+                  {s.value}
+                </div>
+                <div
+                  className="mt-1 text-[10px] font-semibold uppercase tracking-[0.08em]"
+                  style={{ color: "var(--ink-3)" }}
+                >
+                  {s.label}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div
+            className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em]"
+            style={{ color: "var(--ink-3)" }}
+          >
+            Details
+          </div>
+          {profile.details.map((d) => (
+            <DetailRow key={d.label} {...d} />
+          ))}
         </div>
       </Modal>
     </div>

@@ -6,7 +6,8 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 
 import { TopBar } from "@/components/dashboard/TopBar";
 import { PaymentModal } from "@/components/pos/PaymentModal";
-import { Receipt } from "@/components/pos/Receipt";
+import { CancelTableDialog } from "@/components/session/CancelTableDialog";
+import { Receipt, ReceiptActions } from "@/components/pos/Receipt";
 import { ShiftBar } from "@/components/pos/ShiftBar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -82,6 +83,8 @@ function PosPageInner() {
   const [payOpen, setPayOpen] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<PosSession | null>(null);
+  const [cancellingTable, setCancellingTable] = useState(false);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -208,6 +211,31 @@ function PosPageInner() {
       setError(e instanceof Error ? e.message : "Payment failed");
     } finally {
       setProcessing(false);
+    }
+  };
+
+  // Close a session without payment — table opened by mistake or guests left.
+  // The server cancels pending/preparing orders and rejects (409) once any
+  // order is ready/served.
+  const cancelTable = async (reason?: string) => {
+    if (!selected) return;
+    setCancellingTable(true);
+    setError(null);
+    try {
+      await api(`/api/sessions/${selected.sessionId}/cancel`, {
+        method: "POST",
+        body: JSON.stringify({ reason: reason?.trim() || null }),
+      });
+      setCancelTarget(null);
+      setSelected(null);
+      setBill(null);
+      await loadSessions();
+    } catch (e) {
+      setCancelTarget(null);
+      setError(e instanceof Error ? e.message : "Failed to cancel table");
+      await loadSessions().catch(() => {});
+    } finally {
+      setCancellingTable(false);
     }
   };
 
@@ -408,6 +436,17 @@ function PosPageInner() {
                     ? "Open a shift first"
                     : "Take payment"}
               </Button>
+              <PillButton
+                tone="danger"
+                variant="outline"
+                isDisabled={
+                  bill.bill.status === "paid" || processing || cancellingTable
+                }
+                onPress={() => setCancelTarget(selected)}
+                className="mt-2 w-full"
+              >
+                Cancel table
+              </PillButton>
             </>
           )}
         </div>
@@ -422,10 +461,24 @@ function PosPageInner() {
         processing={processing}
       />
 
-      <Modal isOpen={!!receipt} onOpenChange={(o) => !o && setReceipt(null)}>
-        {receipt && (
-          <Receipt receipt={receipt} onClose={() => setReceipt(null)} />
-        )}
+      <CancelTableDialog
+        tableNumber={cancelTarget?.tableNumber ?? null}
+        pendingOrderCount={cancelTarget?.orderCount ?? 0}
+        cancelling={cancellingTable}
+        onConfirm={cancelTable}
+        onDismiss={() => {
+          if (!cancellingTable) setCancelTarget(null);
+        }}
+        theme={theme}
+      />
+
+      <Modal
+        isOpen={!!receipt}
+        onOpenChange={(o) => !o && setReceipt(null)}
+        ariaLabel="Payment receipt"
+        footer={<ReceiptActions onClose={() => setReceipt(null)} />}
+      >
+        {receipt && <Receipt receipt={receipt} />}
       </Modal>
       </div>
     </div>
