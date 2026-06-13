@@ -9,10 +9,171 @@ import {
   emitTableMoved,
 } from "@/lib/socket";
 import { makeTimer } from "@/lib/utils";
-import type { SessionMoveInput } from "@/lib/validation";
+import type { SessionCreateInput, SessionMoveInput } from "@/lib/validation";
 import { ServiceError } from "@/services/errors";
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 type Origin = { originSocketId?: string | null };
+
+type Status = "active" | "closed";
+
+/** Most recent session for a table in the given status (active by default). */
+export async function getTableSession(tableId: string, status: Status) {
+  const timed = makeTimer(`sessions GET ${crypto.randomUUID().slice(0, 8)}`);
+  const session = await timed("select session", () =>
+    db.query.tableSessions.findFirst({
+      where: and(
+        eq(schema.tableSessions.tableId, tableId),
+        eq(schema.tableSessions.status, status),
+      ),
+      orderBy: (s, { desc }) => [desc(s.createdAt)],
+    }),
+  );
+  return session ?? null;
+}
+
+/**
+ * Open (seat) a table. Reuses an existing active session if one is open
+ * (`created: false`). A booked reservation blocks walk-ins from 60 min before
+ * its time (overridable with confirmation) and hard-blocks once due; a seat
+ * window running past a reservation also hard-blocks. Marks the table occupied.
+ */
+export async function openSession(input: SessionCreateInput) {
+  const scope = `sessions POST ${crypto.randomUUID().slice(0, 8)}`;
+  const timed = makeTimer(scope);
+
+  // Reuse an existing active session if one is already open for this table.
+  const existing = await timed("select active session", () =>
+    db.query.tableSessions.findFirst({
+      where: and(
+        eq(schema.tableSessions.tableId, input.tableId),
+        eq(schema.tableSessions.status, "active"),
+      ),
+    }),
+  );
+  if (existing) return { session: existing, created: false };
+
+  const blocking = await timed("check blocking reservation", () =>
+    getBlockingReservation(input.tableId, {
+      expectedLeaveAt: input.expectedLeaveAt ?? null,
+    }),
+  );
+  if (blocking && (blocking.phase !== "buffer" || !input.overrideReservation)) {
+    const r = blocking.reservation;
+    throw new ServiceError(
+      "TABLE_RESERVED",
+      blocking.phase === "overlap"
+        ? `Expected leave time overlaps the reservation for ${r.customerName} at ${r.reservedFor.toISOString()} — shorten the turnover or pick another table`
+        : `Table is reserved for ${r.customerName} at ${r.reservedFor.toISOString()}`,
+      409,
+      {
+        reservationId: r.id,
+        reservedFor: r.reservedFor.toISOString(),
+        customerName: r.customerName,
+        phase: blocking.phase,
+      },
+    );
+  }
+
+  const txStart = performance.now();
+  const session = await db.transaction(async (tx) => {
+    const [s] = await timed("insert session", () =>
+      tx
+        .insert(schema.tableSessions)
+        .values({
+          branchId: input.branchId,
+          tableId: input.tableId,
+          partySize: input.partySize ?? null,
+          seatedAt: input.seatedAt ?? new Date(),
+          tableNote: input.tableNote || null,
+          customerName: input.customerName || null,
+          customerPhone: input.customerPhone || null,
+          expectedLeaveAt: input.expectedLeaveAt ?? null,
+        })
+        .returning(),
+    );
+    await timed("update table occupied", () =>
+      tx
+        .update(schema.tables)
+        .set({ status: "occupied" })
+        .where(eq(schema.tables.id, input.tableId)),
+    );
+    return s;
+  });
+  console.log(
+    `[${scope}] transaction total: ${(performance.now() - txStart).toFixed(1)}ms`,
+  );
+
+  return { session, created: true };
+}
+
+export type SessionAccessResult =
+  | { valid: false; reason: "not_found" | "expired" }
+  | { valid: false; reason: "moved"; tableNumber: string }
+  | {
+      valid: true;
+      session: { id: string; status: Status };
+      tableId: string;
+    };
+
+/**
+ * Validate a customer's order link: the `sessionId` must belong to an *active*
+ * session for the given branch + table number. Returns a `valid:false` result
+ * (with a reason) rather than throwing, so the client renders a friendly
+ * screen instead of handling an error status.
+ */
+export async function checkSessionAccess(opts: {
+  branchId: string;
+  tableNo: string;
+  sessionId: string | null;
+}): Promise<SessionAccessResult> {
+  const timed = makeTimer(`session-access GET ${crypto.randomUUID().slice(0, 8)}`);
+
+  const table = await timed("select table", () =>
+    db.query.tables.findFirst({
+      where: and(
+        eq(schema.tables.branchId, opts.branchId),
+        eq(schema.tables.tableNumber, opts.tableNo),
+      ),
+      columns: { id: true },
+    }),
+  );
+  if (!table) return { valid: false, reason: "not_found" };
+
+  const sessionId = opts.sessionId;
+  if (!sessionId || !UUID_RE.test(sessionId)) {
+    return { valid: false, reason: "not_found" };
+  }
+
+  const session = await timed("select session", () =>
+    db.query.tableSessions.findFirst({
+      where: eq(schema.tableSessions.id, sessionId),
+      columns: { id: true, branchId: true, tableId: true, status: true },
+      with: { table: { columns: { tableNumber: true } } },
+    }),
+  );
+  if (!session || session.branchId !== opts.branchId) {
+    return { valid: false, reason: "not_found" };
+  }
+  if (session.status !== "active") return { valid: false, reason: "expired" };
+  if (session.tableId !== table.id) {
+    // Staff moved this session to another table — point the client at it so
+    // an old link (or a device that missed the live event) still recovers.
+    return {
+      valid: false,
+      reason: "moved",
+      tableNumber: session.table.tableNumber,
+    };
+  }
+
+  return {
+    valid: true,
+    session: { id: session.id, status: session.status },
+    tableId: table.id,
+  };
+}
 
 // Raised inside a transaction when the target table got taken between the
 // pre-check and the row updates (a concurrent walk-in, order, or move).

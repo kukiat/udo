@@ -12,6 +12,7 @@ import { useDashboardTheme } from "@/components/dashboard/DashboardShell";
 import { ItemSwatch } from "@/components/menu/ItemSwatch";
 import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
+import { TextInput } from "@/components/ui/TextInput";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { useRestaurant } from "@/contexts/RestaurantContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
@@ -20,7 +21,7 @@ import { toMenuItemPayload } from "@/lib/menu-form";
 import { formatPrice } from "@/lib/utils";
 import type { MenuItemStatus } from "@/types";
 import { PillButton } from "@/components/ui/PillButton";
-import { PencilIcon, PlusIcon, SearchIcon, Trash2Icon } from "lucide-react";
+import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 
 type MenuItem = {
   id: string;
@@ -332,28 +333,13 @@ export default function MenuListPage() {
         className="row"
         style={{ gap: 10, marginBottom: 18, flexWrap: "wrap" }}
       >
-        <div style={{ position: "relative", flex: "1 1 220px", maxWidth: 320 }}>
-          <SearchIcon
-            aria-hidden
-            style={{
-              position: "absolute",
-              left: 12,
-              top: "50%",
-              transform: "translateY(-50%)",
-              width: 15,
-              height: 15,
-              color: "var(--text-3)",
-              pointerEvents: "none",
-            }}
-          />
-          <input
-            type="search"
-            className="input"
+        <div style={{ flex: "1 1 220px", maxWidth: 320 }}>
+          <TextInput
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={setSearch}
             placeholder="Search menu items..."
-            aria-label="Search menu items"
-            style={{ paddingLeft: 36, height: 38 }}
+            ariaLabel="Search menu items"
+            width="100%"
           />
         </div>
         <Select

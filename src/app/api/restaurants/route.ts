@@ -1,107 +1,27 @@
-import { asc } from "drizzle-orm";
-
-import { db, schema } from "@/db";
-import { parseBody, serverError } from "@/lib/api";
-import { makeTimer } from "@/lib/utils";
+import { handleError, parseBody } from "@/lib/api";
 import { restaurantCreateSchema } from "@/lib/validation";
+import { createRestaurant, listRestaurants } from "@/services/restaurants";
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const withBranches = searchParams.get("withBranches") === "true";
-
-    const timed = makeTimer(
-      `restaurants GET ${crypto.randomUUID().slice(0, 8)}`,
-    );
-    const rows = await timed("select restaurants", () =>
-      db.query.restaurants.findMany({
-        orderBy: [asc(schema.restaurants.createdAt)],
-        with: withBranches
-          ? {
-              branches: {
-                columns: {
-                  id: true,
-                  name: true,
-                  address: true,
-                  openingTime: true,
-                  closingTime: true,
-                  settings: true,
-                },
-                orderBy: [asc(schema.branches.name)],
-              },
-            }
-          : undefined,
-      }),
-    );
-    return Response.json({ restaurants: rows });
+    const restaurants = await listRestaurants({
+      withBranches: searchParams.get("withBranches") === "true",
+    });
+    return Response.json({ restaurants });
   } catch (err) {
-    console.error("GET /api/restaurants", err);
-    return serverError();
+    return handleError(err, "GET /api/restaurants");
   }
 }
-
-const DEFAULT_SETTINGS = {
-  maxKdsScreens: 3,
-  vatRate: 0.07,
-  serviceChargeRate: 0,
-};
 
 export async function POST(req: Request) {
   try {
     const { data, error } = await parseBody(req, restaurantCreateSchema);
     if (error) return error;
 
-    const scope = `restaurants POST ${crypto.randomUUID().slice(0, 8)}`;
-    const timed = makeTimer(scope);
-    const txStart = performance.now();
-    const created = await db.transaction(async (tx) => {
-      const [restaurant] = await timed("insert restaurant", () =>
-        tx
-          .insert(schema.restaurants)
-          .values({ name: data.name, logo: data.logo ?? null })
-          .returning(),
-      );
-
-      const insertedBranches = await timed("insert branches", () =>
-        tx
-          .insert(schema.branches)
-          .values(
-            data.branches.map((b) => ({
-              restaurantId: restaurant.id,
-              name: b.name,
-              address: b.address ?? null,
-              openingTime: b.openingTime ?? null,
-              closingTime: b.closingTime ?? null,
-              settings: b.settings ?? DEFAULT_SETTINGS,
-            })),
-          )
-          .returning({ id: schema.branches.id }),
-      );
-
-      const tableRows = data.branches.flatMap((b, idx) => {
-        const branchId = insertedBranches[idx].id;
-        const numbers = Array.from(
-          new Set((b.tables ?? []).map((n) => n.trim()).filter(Boolean)),
-        );
-        return numbers.map((tableNumber) => ({ branchId, tableNumber }));
-      });
-      if (tableRows.length > 0) {
-        await timed("insert tables", () =>
-          tx.insert(schema.tables).values(tableRows),
-        );
-      }
-
-      return restaurant;
-    });
-    console.log(
-      `[${scope}] transaction total: ${(performance.now() - txStart).toFixed(
-        1,
-      )}ms`,
-    );
-
-    return Response.json({ restaurant: created }, { status: 201 });
+    const restaurant = await createRestaurant(data);
+    return Response.json({ restaurant }, { status: 201 });
   } catch (err) {
-    console.error("POST /api/restaurants", err);
-    return serverError();
+    return handleError(err, "POST /api/restaurants");
   }
 }

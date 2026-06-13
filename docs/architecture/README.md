@@ -35,23 +35,32 @@ scale-out step. The sections below are the three working rules.
 **Goal:** every route handler does only *parse → guard → call service →
 serialize*. All business logic lives in per-domain service modules.
 
-**Status — done for the major write/read flows.** The big orchestrations that
-used to be inlined in route handlers now live in `src/services/`:
+**Status — done for every route.** All business/data logic now lives in
+`src/services/`; route handlers only parse, guard, call a service, and
+serialize. Service modules, by domain:
 
-| Use case | Service function | Route (now thin) |
-|----------|-----------------|------------------|
-| Place order | `placeOrder` | `src/app/api/orders/route.ts` |
-| Advance/step order status | `transitionOrder` | `src/app/api/orders/[id]/status/route.ts` |
-| Cancel one order | `cancelOrder` | `src/app/api/orders/[id]/cancel/route.ts` |
-| Take payment / settle | `settleSession` | `src/app/api/payments/route.ts` |
-| Move a session | `moveSession` | `src/app/api/sessions/[id]/move/route.ts` |
-| Cancel a session | `cancelSession` | `src/app/api/sessions/[id]/cancel/route.ts` |
-| Sales / branch-sales reports | `computeSalesReport`, `computeBranchSalesReport` | `src/app/api/reports/(sales\|branch-sales)/route.ts` |
+| Domain | Service module | Functions |
+|--------|----------------|-----------|
+| Orders | `services/orders.ts` | `placeOrder`, `transitionOrder`, `cancelOrder`, `listOrders`, `getOrder`, `updateOrderItem`, `removeOrderItem` |
+| Billing & Payments | `services/payments.ts`, `services/bills.ts` | `settleSession` · `getSessionBill`, `requestCheck` |
+| Sessions | `services/sessions.ts` | `openSession`, `getTableSession`, `checkSessionAccess`, `moveSession`, `cancelSession` |
+| Reservations | `services/reservations.ts` | `listReservations`, `createReservation`, `seatReservation`, `cancelReservation` |
+| Catalog | `services/menu.ts`, `services/categories.ts` | menu CRUD + `getStorefrontMenu` + branch-menu · category CRUD |
+| Organization | `services/restaurants.ts`, `services/branches.ts` | restaurant & branch CRUD (`DEFAULT_BRANCH_SETTINGS` shared) |
+| Floor & Tables | `services/tables.ts`, `services/floor.ts` | table CRUD + `saveTableLayout` · zone CRUD |
+| POS | `services/shifts.ts`, `services/pos.ts` | `listShifts`, `openShift`, `closeShift` · `listPosSessions` |
+| Reporting | `lib/reports.ts` | `computeSalesReport`, `computeBranchSalesReport`, `resolveReportRange` |
+| Kitchen / KDS | `services/kds.ts` | `listKdsStations` |
+| Identity | `services/auth.ts` | `login` (logout/me call `lib/auth` directly) |
+| Misc | `services/bootstrap.ts`, `services/uploads.ts` | `getBootstrap` · `uploadImage` |
 
-Pure read-model helpers stay in `src/lib/` alongside the older proto-service
-modules: `orders.ts` (status machine, DTO assembly), `bills.ts`
-(`computeSessionBill`), `reservations.ts` (blocking checks), `reports.ts`
-(report builders + `resolveReportRange`).
+Pure read-model + rule helpers stay in `src/lib/`: `orders.ts` (status machine,
+DTO assembly), `bills.ts` (`computeSessionBill`), `reservations.ts` (blocking
+checks), `reports.ts` (report builders), `auth.ts` (session/RBAC primitives).
+
+**Sole exception:** `POST /api/reports/agent` is a streaming Claude integration
+(returns a `ReadableStream`, not JSON) — it keeps its prompt-building inline as
+it has no DB/domain logic to extract.
 
 **Conventions (follow these for new use cases):**
 
@@ -68,14 +77,19 @@ modules: `orders.ts` (status machine, DTO assembly), `bills.ts`
   after the transaction commits — never inside it. The request's
   `x-rms-socket-id` is passed in as an `originSocketId` option.
 
+  Routes that need the signed-in user fetch it (`getCurrentUser`) and pass it
+  to the service (e.g. `createReservation(data, user)`, `openShift(data, user)`)
+  — auth is an HTTP concern, attribution is the service's.
+- **Status codes:** idempotent create/open use cases return a `created` flag so
+  the route picks `201` vs `200` (`openSession`, `openShift`).
+
 **Why it pays off now:** use cases are unit-testable without HTTP, reusable
 from other entry points (reports agent, future jobs/webhooks), and each service
 module is the exact seam where a future extraction would cut.
 
-**Remaining inlined CRUD** (intentionally left): simple resource routes
-(restaurants, branches, categories, menu, tables, shifts, reservations) keep
-their straightforward queries in the handler — extract them only when a flow
-grows a transaction or cross-domain orchestration.
+**`parseBody` returns the schema's output type** (`z.output`, post-defaults), so
+a route can hand its parsed `data` straight to the matching service whose param
+is `z.infer<typeof schema>`. Service input aliases live in `lib/validation.ts`.
 
 ## Rule 2 — Domain boundaries: owned tables, exported functions, shared `tx`
 

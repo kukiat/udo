@@ -354,11 +354,31 @@ export const paymentSchema = z.object({
   shiftId: z.string().uuid().nullable().optional(),
 });
 
+// Service-layer input aliases. These use `z.infer` (the schema's *output*
+// type, post-defaults) to match what `parseBody` returns — so a route can pass
+// its parsed `data` straight into the matching service function.
 export type MenuItemCreateInput = z.infer<typeof menuItemCreateSchema>;
 export type MenuItemUpdateInput = z.infer<typeof menuItemUpdateSchema>;
 export type BranchMenuUpdateInput = z.infer<typeof branchMenuUpdateSchema>;
-// Request-payload shape (pre-defaults): matches what `parseBody` yields, which
-// the service layer consumes. `.default()`ed fields stay optional here.
-export type OrderCreateInput = z.input<typeof orderCreateSchema>;
+export type OrderCreateInput = z.infer<typeof orderCreateSchema>;
 export type PaymentInput = z.infer<typeof paymentSchema>;
 export type SessionMoveInput = z.infer<typeof sessionMoveSchema>;
+export type RestaurantCreateInput = z.infer<typeof restaurantCreateSchema>;
+export type RestaurantUpdateInput = z.infer<typeof restaurantUpdateSchema>;
+export type BranchCreateInput = z.infer<typeof branchCreateSchema>;
+export type BranchUpdateInput = z.infer<typeof branchUpdateSchema>;
+export type CategoryCreateInput = z.infer<typeof categoryCreateSchema>;
+export type CategoryUpdateInput = z.infer<typeof categoryUpdateSchema>;
+export type TableCreateInput = z.infer<typeof tableCreateSchema>;
+export type TableUpdateInput = z.infer<typeof tableUpdateSchema>;
+export type ZoneCreateInput = z.infer<typeof zoneCreateSchema>;
+export type ZoneUpdateInput = z.infer<typeof zoneUpdateSchema>;
+export type SessionCreateInput = z.infer<typeof sessionCreateSchema>;
+export type ReservationCreateInput = z.infer<typeof reservationCreateSchema>;
+export type ReservationSeatInput = z.infer<typeof reservationSeatSchema>;
+export type ReservationCancelInput = z.infer<typeof reservationCancelSchema>;
+export type OrderItemUpdateInput = z.infer<typeof orderItemUpdateSchema>;
+export type OrderItemDeleteInput = z.infer<typeof orderItemDeleteSchema>;
+export type ShiftOpenInput = z.infer<typeof shiftOpenSchema>;
+export type ShiftCloseInput = z.infer<typeof shiftCloseSchema>;
+export type LoginInput = z.infer<typeof loginSchema>;

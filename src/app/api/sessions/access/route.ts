@@ -1,77 +1,26 @@
-import { and, eq } from "drizzle-orm";
-
-import { db, schema } from "@/db";
-import { badRequest, serverError } from "@/lib/api";
-import { makeTimer } from "@/lib/utils";
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { badRequest, handleError } from "@/lib/api";
+import { checkSessionAccess } from "@/services/sessions";
 
 // Validates a customer's order link: the `sessionId` must belong to an
-// *active* session for the given branch + table number. Used by the order
-// page access gate. Returns 200 with `valid: false` (+ reason) rather than an
-// error status so the client can render a friendly screen.
+// *active* session for the given branch + table number. Used by the order page
+// access gate. Returns 200 with `valid: false` (+ reason) rather than an error
+// status so the client can render a friendly screen.
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const branchId = searchParams.get("branchId");
     const tableNo = searchParams.get("tableNo");
-    const sessionId = searchParams.get("sessionId");
     if (!branchId || !tableNo) {
       return badRequest("branchId and tableNo are required");
     }
 
-    const timed = makeTimer(
-      `session-access GET ${crypto.randomUUID().slice(0, 8)}`,
-    );
-
-    const table = await timed("select table", () =>
-      db.query.tables.findFirst({
-        where: and(
-          eq(schema.tables.branchId, branchId),
-          eq(schema.tables.tableNumber, tableNo),
-        ),
-        columns: { id: true },
-      }),
-    );
-    if (!table) {
-      return Response.json({ valid: false, reason: "not_found" });
-    }
-
-    if (!sessionId || !UUID_RE.test(sessionId)) {
-      return Response.json({ valid: false, reason: "not_found" });
-    }
-
-    const session = await timed("select session", () =>
-      db.query.tableSessions.findFirst({
-        where: eq(schema.tableSessions.id, sessionId),
-        columns: { id: true, branchId: true, tableId: true, status: true },
-        with: { table: { columns: { tableNumber: true } } },
-      }),
-    );
-    if (!session || session.branchId !== branchId) {
-      return Response.json({ valid: false, reason: "not_found" });
-    }
-    if (session.status !== "active") {
-      return Response.json({ valid: false, reason: "expired" });
-    }
-    if (session.tableId !== table.id) {
-      // Staff moved this session to another table — point the client at it so
-      // an old link (or a device that missed the live event) still recovers.
-      return Response.json({
-        valid: false,
-        reason: "moved",
-        tableNumber: session.table.tableNumber,
-      });
-    }
-
-    return Response.json({
-      valid: true,
-      session: { id: session.id, status: session.status },
-      tableId: table.id,
+    const result = await checkSessionAccess({
+      branchId,
+      tableNo,
+      sessionId: searchParams.get("sessionId"),
     });
+    return Response.json(result);
   } catch (err) {
-    console.error("GET /api/sessions/access", err);
-    return serverError();
+    return handleError(err, "GET /api/sessions/access");
   }
 }

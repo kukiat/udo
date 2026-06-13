@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ZodError, type ZodSchema } from "zod";
+import { ZodError, type ZodTypeAny, type z } from "zod";
 
 import { ServiceError } from "@/services/errors";
 import type { ApiError } from "@/types";
@@ -48,11 +48,18 @@ export function handleError(err: unknown, scope: string): NextResponse<ApiError>
   return serverError();
 }
 
-/** Parse and validate a JSON request body, returning either data or a response. */
-export async function parseBody<T>(
+/**
+ * Parse and validate a JSON request body, returning either the parsed data or
+ * an error response. `data` is the schema's **output** type — Zod defaults have
+ * been applied, so `.default()`ed fields are present (the service layer relies
+ * on this).
+ */
+export async function parseBody<S extends ZodTypeAny>(
   req: Request,
-  schema: ZodSchema<T>,
-): Promise<{ data: T; error?: never } | { data?: never; error: NextResponse<ApiError> }> {
+  schema: S,
+): Promise<
+  { data: z.output<S>; error?: never } | { data?: never; error: NextResponse<ApiError> }
+> {
   let raw: unknown;
   try {
     raw = await req.json();
@@ -61,7 +68,7 @@ export async function parseBody<T>(
   }
   const result = schema.safeParse(raw);
   if (!result.success) return { error: validationError(result.error) };
-  return { data: result.data };
+  return { data: result.data as z.output<S> };
 }
 
 const DEFAULT_LIMIT = 20;

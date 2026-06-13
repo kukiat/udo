@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { TopBar } from "@/components/dashboard/TopBar";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
+import { TextInput } from "@/components/ui/TextInput";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { api } from "@/lib/fetcher";
@@ -286,7 +287,7 @@ export default function KdsIndex() {
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <SearchInput
+              <TextInput
                 value={query}
                 onChange={(v) => {
                   setQuery(v);
@@ -426,65 +427,6 @@ function BrandMark({ name }: { name: string }) {
       }}
     >
       {markOf(name)}
-    </div>
-  );
-}
-
-function SearchInput({
-  value,
-  onChange,
-  placeholder,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <div style={{ position: "relative", width: 260, height: 38 }}>
-      <svg
-        viewBox="0 0 24 24"
-        width={14}
-        height={14}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          left: 12,
-          top: "50%",
-          transform: "translateY(-50%)",
-          color: "var(--ink-4)",
-          pointerEvents: "none",
-        }}
-      >
-        <circle cx="11" cy="11" r="7" />
-        <line x1="21" y1="21" x2="16.65" y2="16.65" />
-      </svg>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        style={{
-          width: "100%",
-          height: "100%",
-          padding: "0 12px 0 34px",
-          background: "var(--bg-elev)",
-          border: "1px solid var(--line)",
-          borderRadius: 10,
-          fontSize: 13,
-          color: "var(--ink)",
-          outline: "none",
-        }}
-        onFocus={(e) => {
-          e.currentTarget.style.borderColor = "var(--line-strong)";
-        }}
-        onBlur={(e) => {
-          e.currentTarget.style.borderColor = "var(--line)";
-        }}
-      />
     </div>
   );
 }

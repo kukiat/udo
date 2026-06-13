@@ -1,14 +1,11 @@
+import { handleError } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
-import { serverError } from "@/lib/api";
-import { makeTimer } from "@/lib/utils";
 
 export async function GET() {
   try {
-    const timed = makeTimer(`auth-me GET ${crypto.randomUUID().slice(0, 8)}`);
-    const user = await timed("get current user", () => getCurrentUser());
+    const user = await getCurrentUser();
     return Response.json({ user });
   } catch (err) {
-    console.error("GET /api/auth/me", err);
-    return serverError();
+    return handleError(err, "GET /api/auth/me");
   }
 }
